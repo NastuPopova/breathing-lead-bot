@@ -632,7 +632,142 @@ class ExtendedSurveyQuestions {
       'age_for_child': 'for_child',
       
       // Профессия
-      'occ_office
+      'occ_office': 'office_work',
+    'occ_home': 'home_work',
+    'occ_physical': 'physical_work',
+    'occ_student': 'student',
+    'occ_maternity': 'maternity_leave',
+    'occ_retired': 'retired',
+    'occ_management': 'management',
+    
+    // Физическая активность
+    'activity_daily': 'daily',
+    'activity_regular': 'regular',
+    'activity_sometimes': 'sometimes',
+    'activity_rarely': 'rarely',
+    'activity_never': 'never',
+    
+    // Проблемы
+    'prob_chronic_stress': 'chronic_stress',
+    'prob_insomnia': 'insomnia',
+    'prob_breathing_issues': 'breathing_issues',
+    'prob_high_pressure': 'high_pressure',
+    'prob_headaches': 'headaches',
+    'prob_fatigue': 'fatigue',
+    'prob_anxiety': 'anxiety',
+    'prob_concentration': 'concentration_issues',
+    'prob_back_pain': 'back_pain',
+    'prob_digestion': 'digestion_issues',
+    
+    // Стресс и сон (числовые значения)
+    'stress_1': 1, 'stress_2': 2, 'stress_3': 3, 'stress_4': 4, 'stress_5': 5,
+    'stress_6': 6, 'stress_7': 7, 'stress_8': 8, 'stress_9': 9, 'stress_10': 10,
+    'sleep_1': 1, 'sleep_2': 2, 'sleep_3': 3, 'sleep_4': 4, 'sleep_5': 5,
+    'sleep_6': 6, 'sleep_7': 7, 'sleep_8': 8, 'sleep_9': 9, 'sleep_10': 10,
+    
+    // Приоритетная проблема
+    'prio_stress': 'chronic_stress',
+    'prio_sleep': 'insomnia',
+    'prio_breathing': 'breathing_issues',
+    'prio_pressure': 'high_pressure',
+    'prio_anxiety': 'anxiety',
+    'prio_fatigue': 'fatigue',
+    'prio_focus': 'concentration_issues',
+    
+    // Способ дыхания
+    'method_nose': 'nose',
+    'method_mouth': 'mouth',
+    'method_mixed': 'mixed',
+    'method_unaware': 'unaware',
+    
+    // Частота проблем с дыханием
+    'freq_constantly': 'constantly',
+    'freq_often': 'often',
+    'freq_sometimes': 'sometimes',
+    'freq_rarely': 'rarely',
+    'freq_never': 'never',
+    
+    // Поверхностное дыхание
+    'shallow_yes_often': 'yes_often',
+    'shallow_sometimes': 'sometimes',
+    'shallow_no': 'no',
+    
+    // Дыхание в стрессе
+    'stress_rapid': 'rapid_shallow',
+    'stress_hold': 'breath_holding',
+    'stress_shortage': 'air_shortage',
+    'stress_mouth': 'mouth_breathing',
+    'stress_no_change': 'no_change',
+    'stress_conscious': 'conscious_breathing',
+    
+    // Опыт
+    'exp_never': 'never',
+    'exp_few_times': 'few_times',
+    'exp_theory': 'theory_only',
+    'exp_sometimes': 'sometimes',
+    'exp_regularly': 'regularly',
+    'exp_expert': 'expert',
+    
+    // Время
+    'time_3-5': '3-5_minutes',
+    'time_10-15': '10-15_minutes',
+    'time_20-30': '20-30_minutes',
+    'time_30+': '30+_minutes',
+    
+    // Форматы
+    'format_video': 'video',
+    'format_audio': 'audio',
+    'format_text': 'text',
+    'format_online': 'online_live',
+    'format_individual': 'individual',
+    'format_app': 'mobile_app',
+    
+    // Цели
+    'goal_relax': 'quick_relaxation',
+    'goal_resilience': 'stress_resistance',
+    'goal_anxiety': 'reduce_anxiety',
+    'goal_sleep': 'improve_sleep',
+    'goal_energy': 'increase_energy',
+    'goal_pressure': 'normalize_pressure',
+    'goal_breathing': 'improve_breathing',
+    'goal_focus': 'improve_focus',
+    'goal_weight': 'weight_management',
+    'goal_health': 'general_health',
+    
+    // Детские проблемы
+    'child_tantrums': 'tantrums',
+    'child_sleep': 'sleep_issues',
+    'child_hyperactive': 'hyperactivity',
+    'child_anxiety': 'separation_anxiety',
+    'child_focus': 'concentration_issues',
+    'child_illness': 'frequent_illness',
+    'child_asthma': 'breathing_issues',
+    'child_healthy': 'preventive_care',
+    
+    // Хронические заболевания
+    'condition_asthma': 'asthma',
+    'condition_hypertension': 'hypertension',
+    'condition_diabetes': 'diabetes',
+    'condition_cardio': 'cardiovascular',
+    'condition_autoimmune': 'autoimmune',
+    'condition_mental': 'mental_health',
+    'condition_digestive': 'digestive',
+    'condition_other': 'other_chronic',
+    'condition_none': 'none',
+    
+    // Цели по весу
+    'weight_5kg': 'up_to_5kg',
+    'weight_15kg': '5_to_15kg',
+    'weight_more15': 'more_than_15kg',
+    'weight_appetite': 'appetite_control',
+    'weight_metabolism': 'slow_metabolism',
+    'weight_stress_eating': 'stress_eating',
+    'weight_diet_support': 'diet_support',
+    'weight_breathing_methods': 'breathing_methods'
+  };
+  
+  return mapping[callbackData] || callbackData;
+}
 	  
 
 // Расширенная анкета из 18 вопросов с адаптивной логикой
