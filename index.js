@@ -162,7 +162,21 @@ class BreathingLeadBot {
     
     try {
       console.log(`\n=== CALLBACK START: ${callbackData} ===`);
+	  console.log('Session state:', {
+      currentQuestion: ctx.session?.currentQuestion,
+      hasAnswers: !!ctx.session?.answers,
+      answersCount: Object.keys(ctx.session?.answers || {}).length
+    });
       
+	  // Добавьте эту проверку для отладки stress_level
+    if (ctx.session?.currentQuestion === 'stress_level') {
+      console.log('🔍 STRESS_LEVEL DEBUG:', {
+        callbackData,
+        currentQuestion: ctx.session.currentQuestion,
+        availableQuestions: this.surveyQuestions ? 'loaded' : 'not loaded'
+      });
+    }
+	  
       // Проверка целостности системы
       if (!this.surveyQuestions || !this.verseAnalysis) {
         throw new Error('Система не инициализирована');
@@ -390,6 +404,13 @@ class BreathingLeadBot {
     try {
       const currentQuestionId = ctx.session?.currentQuestion;
       
+	  console.log('🔍 SURVEY ANSWER DEBUG:', {
+      currentQuestionId,
+      callbackData,
+      sessionExists: !!ctx.session
+    });
+	  
+	  	  
       if (!currentQuestionId) {
         console.log('⚠️ Текущий вопрос не найден, перезапускаем анкету...');
         await this.handleStart(ctx);
@@ -402,9 +423,22 @@ class BreathingLeadBot {
         await this.handleStart(ctx);
         return;
       }
+	  
+	  console.log('📝 Question found:', {
+      id: currentQuestionId,
+      type: question.type,
+      hasOptions: !!question.options
+    });
 
       const mappedValue = this.surveyQuestions.mapCallbackToValue(callbackData);
       console.log(`📝 Ответ на вопрос ${currentQuestionId}: ${callbackData} -> ${mappedValue}`);
+
+// Добавим проверку на undefined mappedValue
+    if (mappedValue === undefined || mappedValue === null) {
+      console.error('❌ Не удалось сопоставить callback с значением');
+      await ctx.answerCbQuery('Ошибка обработки ответа. Попробуйте еще раз.', { show_alert: true });
+      return;
+    }
 
       // Обработка множественного выбора
       if (question.type === 'multiple_choice') {
