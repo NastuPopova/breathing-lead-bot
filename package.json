@@ -1,0 +1,41 @@
+{
+  "name": "breathing-lead-bot",
+  "version": "1.0.0",
+  "description": "Лидогенерирующий бот для диагностики дыхательных практик с VERSE-анализом",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "test": "jest",
+    "lint": "eslint .",
+    "health-check": "node scripts/health-check.js"
+  },
+  "keywords": [
+    "telegram-bot",
+    "breathing",
+    "wellness",
+    "lead-generation",
+    "verse-framework"
+  ],
+  "author": "Anastasia Skorodumova",
+  "license": "MIT",
+  "dependencies": {
+    "telegraf": "^4.15.6",
+    "axios": "^1.6.2",
+    "dotenv": "^16.3.1",
+    "pg": "^8.11.3",
+    "redis": "^4.6.10"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2",
+    "jest": "^29.7.0",
+    "eslint": "^8.55.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-repo/breathing-lead-bot.git"
+  }
+}
