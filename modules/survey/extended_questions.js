@@ -1,7 +1,5 @@
 // Файл: lead_bot/modules/survey/extended_questions.js
-// Обновленная версия с исправлением импорта Markup
-
-const { Markup } = require('telegraf'); // Добавляем импорт Markup
+const { Markup } = require('telegraf');
 
 class ExtendedSurveyQuestions {
   constructor() {
@@ -27,6 +25,34 @@ class ExtendedSurveyQuestions {
         ],
         keyboard: null
       },
+      child_parent_involvement: {
+        text: 'Кто будет заниматься с ребенком?\nWho will work with the child?',
+        type: 'single_choice',
+        options: [
+          { text: 'Оба родителя / Both parents', value: 'both_parents', callback: 'child_both_parents' },
+          { text: 'Мама / Mother', value: 'mother', callback: 'child_mother' },
+          { text: 'Папа / Father', value: 'father', callback: 'child_father' }
+        ],
+        keyboard: null
+      },
+      child_motivation_approach: {
+        text: 'Что мотивирует ребенка?\nWhat motivates the child?',
+        type: 'single_choice',
+        options: [
+          { text: 'Игры и рассказы / Games and stories', value: 'games_stories', callback: 'child_games_stories' },
+          { text: 'Семейные занятия / Family activities', value: 'family_activities', callback: 'child_family_activities' }
+        ],
+        keyboard: null
+      },
+      child_time_availability: {
+        text: 'Когда удобно заниматься?\nWhen is it convenient to practice?',
+        type: 'single_choice',
+        options: [
+          { text: 'Перед сном / Before sleep', value: 'before_sleep', callback: 'child_before_sleep' },
+          { text: 'После школы / After school', value: 'after_school', callback: 'child_after_school' }
+        ],
+        keyboard: null
+      },
       occupation: {
         text: 'Чем вы занимаетесь?\nWhat do you do?',
         type: 'single_choice',
@@ -45,6 +71,63 @@ class ExtendedSurveyQuestions {
           { text: 'Нет / No', value: 'no', callback: 'chronic_no' }
         ],
         keyboard: null
+      },
+      breathing_habits: {
+        text: 'Как вы обычно дышите?\nHow do you usually breathe?',
+        type: 'single_choice',
+        options: [
+          { text: 'Глубоко и медленно / Deep and slow', value: 'deep_slow', callback: 'breath_deep_slow' },
+          { text: 'Быстро и поверхностно / Fast and shallow', value: 'fast_shallow', callback: 'breath_fast_shallow' },
+          { text: 'Не обращаю внимания / Don’t pay attention', value: 'no_attention', callback: 'breath_no_attention' }
+        ],
+        keyboard: null
+      },
+      meditation_experience: {
+        text: 'Есть ли опыт медитации или дыхательных практик?\nDo you have experience with meditation or breathing practices?',
+        type: 'single_choice',
+        options: [
+          { text: 'Да, регулярно / Yes, regularly', value: 'regular', callback: 'exp_regular' },
+          { text: 'Да, иногда / Yes, occasionally', value: 'occasional', callback: 'exp_occasional' },
+          { text: 'Нет / No', value: 'none', callback: 'exp_none' }
+        ],
+        keyboard: null
+      },
+      practice_goals: {
+        text: 'Какая ваша цель практики?\nWhat is your practice goal?',
+        type: 'single_choice',
+        options: [
+          { text: 'Снижение стресса / Stress reduction', value: 'stress_reduction', callback: 'goal_stress' },
+          { text: 'Улучшение сна / Better sleep', value: 'better_sleep', callback: 'goal_sleep' },
+          { text: 'Повышение энергии / More energy', value: 'more_energy', callback: 'goal_energy' }
+        ],
+        keyboard: null
+      },
+      stress_level: {
+        text: 'Каков ваш уровень стресса? (1 - низкий, 10 - высокий)\nWhat is your stress level? (1 - low, 10 - high)',
+        type: 'single_choice',
+        options: Array.from({ length: 10 }, (_, i) => ({
+          text: `${i + 1}`, value: `${i + 1}`, callback: `stress_${i + 1}`
+        })),
+        keyboard: null
+      },
+      time_availability: {
+        text: 'Когда вам удобно заниматься?\nWhen is it convenient for you to practice?',
+        type: 'single_choice',
+        options: [
+          { text: 'Утром / Morning', value: 'morning', callback: 'time_morning' },
+          { text: 'Вечером / Evening', value: 'evening', callback: 'time_evening' },
+          { text: 'В любое время / Anytime', value: 'anytime', callback: 'time_anytime' }
+        ],
+        keyboard: null
+      },
+      support_preference: {
+        text: 'Нужна ли вам поддержка куратора?\nDo you need curator support?',
+        type: 'single_choice',
+        options: [
+          { text: 'Да / Yes', value: 'yes', callback: 'support_yes' },
+          { text: 'Нет / No', value: 'no', callback: 'support_no' }
+        ],
+        keyboard: null
       }
     };
 
@@ -57,8 +140,38 @@ class ExtendedSurveyQuestions {
       child_problems_detailed: {
         default: 'child_parent_involvement'
       },
+      child_parent_involvement: {
+        default: 'child_motivation_approach'
+      },
+      child_motivation_approach: {
+        default: 'child_time_availability'
+      },
+      child_time_availability: {
+        default: null
+      },
       occupation: {
         default: 'chronic_conditions'
+      },
+      chronic_conditions: {
+        default: 'breathing_habits'
+      },
+      breathing_habits: {
+        default: 'meditation_experience'
+      },
+      meditation_experience: {
+        default: 'practice_goals'
+      },
+      practice_goals: {
+        default: 'stress_level'
+      },
+      stress_level: {
+        default: 'time_availability'
+      },
+      time_availability: {
+        default: 'support_preference'
+      },
+      support_preference: {
+        default: null
       }
     };
 
@@ -103,7 +216,9 @@ class ExtendedSurveyQuestions {
   }
 
   shouldShowQuestion(questionId, answers) {
-    if (questionId === 'occupation' || questionId === 'chronic_conditions') {
+    if (questionId === 'occupation' || questionId === 'chronic_conditions' || questionId === 'breathing_habits' ||
+        questionId === 'meditation_experience' || questionId === 'practice_goals' || questionId === 'stress_level' ||
+        questionId === 'time_availability' || questionId === 'support_preference') {
       return !this.isChildFlow(answers);
     }
     if (questionId.startsWith('child_')) {
@@ -152,6 +267,16 @@ class ExtendedSurveyQuestions {
   getPreviousQuestion(currentQuestion, answers) {
     if (currentQuestion === 'occupation') return 'age_group';
     if (currentQuestion === 'child_problems_detailed') return 'age_group';
+    if (currentQuestion === 'child_parent_involvement') return 'child_problems_detailed';
+    if (currentQuestion === 'child_motivation_approach') return 'child_parent_involvement';
+    if (currentQuestion === 'child_time_availability') return 'child_motivation_approach';
+    if (currentQuestion === 'chronic_conditions') return 'occupation';
+    if (currentQuestion === 'breathing_habits') return 'chronic_conditions';
+    if (currentQuestion === 'meditation_experience') return 'breathing_habits';
+    if (currentQuestion === 'practice_goals') return 'meditation_experience';
+    if (currentQuestion === 'stress_level') return 'practice_goals';
+    if (currentQuestion === 'time_availability') return 'stress_level';
+    if (currentQuestion === 'support_preference') return 'time_availability';
     return null;
   }
 
