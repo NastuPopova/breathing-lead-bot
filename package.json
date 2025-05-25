@@ -8,16 +8,30 @@
     "dev": "nodemon index.js",
     "test": "jest",
     "lint": "eslint .",
-    "health-check": "node scripts/health-check.js"
+    "health-check": "node scripts/health-check.js",
+    "debug-stress": "node scripts/debug_stress_level.js",
+    "debug-questions": "node scripts/debug_stress_level.js",
+    "debug-full": "npm run debug-stress && npm run health-check",
+    "logs": "tail -f logs/bot.log",
+    "reset-logs": "rm -f logs/*.log && touch logs/bot.log",
+    "deploy": "git push origin main",
+    "railway-logs": "railway logs --follow",
+    "railway-deploy": "railway up"
   },
   "keywords": [
     "telegram-bot",
     "breathing",
     "wellness",
     "lead-generation",
-    "verse-framework"
+    "verse-framework",
+    "health",
+    "stress-management",
+    "breathing-practices"
   ],
-  "author": "Anastasia Skorodumova",
+  "author": {
+    "name": "Anastasia Skorodumova",
+    "email": "contact@breathingpractices.com"
+  },
   "license": "MIT",
   "dependencies": {
     "telegraf": "^4.15.6",
@@ -29,13 +43,32 @@
   "devDependencies": {
     "nodemon": "^3.0.2",
     "jest": "^29.7.0",
-    "eslint": "^8.55.0"
+    "eslint": "^8.55.0",
+    "@types/node": "^20.10.0"
   },
   "engines": {
-    "node": ">=16.0.0"
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
   },
   "repository": {
     "type": "git",
     "url": "https://github.com/your-repo/breathing-lead-bot.git"
-  }
+  },
+  "bugs": {
+    "url": "https://github.com/your-repo/breathing-lead-bot/issues"
+  },
+  "homepage": "https://github.com/your-repo/breathing-lead-bot#readme",
+  "directories": {
+    "lib": "modules",
+    "test": "tests",
+    "doc": "docs"
+  },
+  "files": [
+    "index.js",
+    "config.js",
+    "modules/",
+    "scripts/",
+    "README.md",
+    "LICENSE"
+  ]
 }
