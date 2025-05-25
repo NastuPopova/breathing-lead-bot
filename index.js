@@ -1,11 +1,9 @@
 // Файл: lead_bot/index.js
-// Главный файл лидогенерирующего бота для дыхательных практик (версия 2.2)
-// Улучшения: детальное логирование для stress_level, поддержка child_questions.js
+// Обновленная версия с исправлением childFlow
 
 const { Telegraf, Markup, session } = require('telegraf');
 const config = require('./config');
 
-// Проверяем наличие модулей
 let ExtendedSurveyQuestions, BreathingVERSEAnalysis, LeadTransferSystem;
 try {
   ExtendedSurveyQuestions = require('./modules/survey/extended_questions');
@@ -42,7 +40,6 @@ class BreathingLeadBot {
       })
     }));
 
-    // Логирование и восстановление сессии
     this.bot.use(async (ctx, next) => {
       const messageText = ctx.message?.text || ctx.callbackQuery?.data || 'callback';
       console.log(`[${new Date().toISOString()}] User ${ctx.from?.id || 'unknown'}: ${messageText}`);
@@ -155,7 +152,6 @@ class BreathingLeadBot {
         return;
       }
 
-      // Очистка данных текущего вопроса
       if (ctx.session.answers[currentQuestion]) {
         delete ctx.session.answers[currentQuestion];
       }
@@ -224,7 +220,9 @@ class BreathingLeadBot {
         return this.completeSurvey(ctx);
       }
 
+      console.log('🔍 Проверка childFlow:', this.surveyQuestions.isChildFlow(ctx.session.answers));
       if (!this.surveyQuestions.shouldShowQuestion(questionId, ctx.session.answers)) {
+        console.log(`🔍 Условие для "${questionId}": false`);
         return this.moveToNextQuestion(ctx);
       }
 
@@ -232,8 +230,10 @@ class BreathingLeadBot {
         ctx.session.completedQuestions,
         ctx.session.answers
       );
-      const progressBar = this.generateProgressBar(progress.percentage);
-      let message = `${progressBar} *${progress.completed}/${progress.total}*\n\n${question.text}`;
+      console.log(`🔍 Общее количество вопросов: ${progress.total}`);
+      console.log(`🔍 Прогресс: ${progress.completed}/${progress.total} (${progress.percentage}%)`);
+
+      let message = `${this.generateProgressBar(progress.percentage)} *${progress.completed}/${progress.total}*\n\n${question.text}`;
 
       if (question.type === 'multiple_choice') {
         const selections = ctx.session.multipleChoiceSelections[questionId] || [];
@@ -246,6 +246,7 @@ class BreathingLeadBot {
         message += `\n\n👶 *Детская версия*`;
       }
 
+      console.log(`🔍 Проверка отображения "${questionId}"`);
       try {
         await ctx.editMessageText(message, {
           parse_mode: 'Markdown',
@@ -277,7 +278,6 @@ class BreathingLeadBot {
         return this.handleStart(ctx);
       }
 
-      // Детальное логирование для stress_level
       if (questionId === 'stress_level') {
         console.log('🔬 ULTRA DETAILED STRESS_LEVEL DEBUG:', {
           callbackData,
@@ -362,10 +362,12 @@ class BreathingLeadBot {
 
   async moveToNextQuestion(ctx) {
     try {
+      console.log(`🔍 Получение следующего вопроса после "${ctx.session.currentQuestion}"...`);
       const nextQuestionId = this.surveyQuestions.getNextQuestion(
         ctx.session.currentQuestion,
         ctx.session.answers
       );
+      console.log('✅ Следующий вопрос в потоке:', nextQuestionId);
       if (nextQuestionId) {
         ctx.session.currentQuestion = nextQuestionId;
         ctx.session.questionStartTime = Date.now();
@@ -459,7 +461,7 @@ class BreathingLeadBot {
   }
 
   launch() {
-    console.log('🤖 Запуск бота v2.2...');
+    console.log('🤖 Запуск бота v2.3...');
     this.bot.launch();
     console.log('✅ Бот запущен');
     process.once('SIGINT', () => this.bot.stop('SIGINT'));
