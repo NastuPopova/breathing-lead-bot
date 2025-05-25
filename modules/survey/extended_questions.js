@@ -1,5 +1,7 @@
 // Файл: lead_bot/modules/survey/extended_questions.js
-// Обновленная версия с исправлением childFlow
+// Обновленная версия с исправлением импорта Markup
+
+const { Markup } = require('telegraf'); // Добавляем импорт Markup
 
 class ExtendedSurveyQuestions {
   constructor() {
@@ -14,7 +16,6 @@ class ExtendedSurveyQuestions {
         ],
         keyboard: null
       },
-      // Добавим детский вопрос
       child_problems_detailed: {
         text: 'Какие проблемы есть у ребенка? (можно выбрать несколько)\nWhat issues does the child have? (select multiple)',
         type: 'multiple_choice',
@@ -45,7 +46,6 @@ class ExtendedSurveyQuestions {
         ],
         keyboard: null
       }
-      // Другие вопросы опущены для краткости
     };
 
     this.flowLogic = {
@@ -150,7 +150,6 @@ class ExtendedSurveyQuestions {
   }
 
   getPreviousQuestion(currentQuestion, answers) {
-    // Упрощенная логика для примера
     if (currentQuestion === 'occupation') return 'age_group';
     if (currentQuestion === 'child_problems_detailed') return 'age_group';
     return null;
