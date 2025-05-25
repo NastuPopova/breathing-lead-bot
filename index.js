@@ -1,5 +1,5 @@
 // Файл: lead_bot/index.js
-// Обновленная версия с исправлением формирования userData
+// Обновленная версия с исправлением формирования userData и улучшенной логикой
 
 const { Telegraf, Markup, session } = require('telegraf');
 const config = require('./config');
@@ -21,7 +21,7 @@ class BreathingLeadBot {
     this.surveyQuestions = new ExtendedSurveyQuestions();
     this.verseAnalysis = new BreathingVERSEAnalysis();
     this.leadTransfer = new LeadTransferSystem();
-    
+
     this.setupMiddleware();
     this.setupHandlers();
     this.setupErrorHandling();
@@ -43,7 +43,7 @@ class BreathingLeadBot {
     this.bot.use(async (ctx, next) => {
       const messageText = ctx.message?.text || ctx.callbackQuery?.data || 'callback';
       console.log(`[${new Date().toISOString()}] User ${ctx.from?.id || 'unknown'}: ${messageText}`);
-      
+
       if (!ctx.session) {
         console.warn('⚠️ Сессия отсутствует, инициализируем новую');
         ctx.session = this.getDefaultSession();
@@ -85,7 +85,7 @@ class BreathingLeadBot {
         `Привет, ${ctx.from.first_name}! Я помогу подобрать техники дыхания.\n` +
         `За 4-5 минут определим ваши потребности и дадим рекомендации.\n\n` +
         `*Новое:* кнопка "⬅️ Назад" для удобства!`;
-      
+
       await ctx.reply(welcomeMessage, {
         parse_mode: 'Markdown',
         ...Markup.inlineKeyboard([
@@ -285,7 +285,7 @@ class BreathingLeadBot {
           isValidFormat: /^stress_\d+$/.test(callbackData),
           extractedValue: callbackData.split('_')[1],
           parsedIntValue: parseInt(callbackData.split('_')[1]),
-          isValidValue: parseInt(callbackData.split('_')[1]) >= 1 && 
+          isValidValue: parseInt(callbackData.split('_')[1]) >= 1 &&
                         parseInt(callbackData.split('_')[1]) <= 10,
           sessionCurrentQuestion: ctx.session.currentQuestion,
           questionType: question.type
@@ -293,14 +293,15 @@ class BreathingLeadBot {
       }
 
       const mappedValue = this.surveyQuestions.mapCallbackToValue(callbackData);
-      if (!mappedValue.found) {
+      console.log(`🔍 Сохранено для "${questionId}": ${mappedValue}`);
+      if (!mappedValue) {
         console.error('❌ Неверный callback:', callbackData);
         await ctx.answerCbQuery('Ошибка ответа', { show_alert: true });
         return;
       }
 
       if (question.type === 'multiple_choice') {
-        return this.handleMultipleChoice(ctx, questionId, mappedValue.output, callbackData);
+        return this.handleMultipleChoice(ctx, questionId, mappedValue, callbackData);
       }
 
       const validation = this.surveyQuestions.validateAnswer(questionId, callbackData);
@@ -309,7 +310,8 @@ class BreathingLeadBot {
         return;
       }
 
-      ctx.session.answers[questionId] = mappedValue.output;
+      ctx.session.answers[questionId] = mappedValue;
+      console.log(`🔍 Текущие ответы:`, ctx.session.answers);
       if (!ctx.session.completedQuestions.includes(questionId)) {
         ctx.session.completedQuestions.push(questionId);
       }
@@ -407,7 +409,7 @@ class BreathingLeadBot {
           ]);
 
       await ctx.editMessageText(message, { parse_mode: 'Markdown', ...keyboard });
-      this.transferLeadAsync(ctx);
+      await this.transferLeadAsync(ctx);
     } catch (error) {
       console.error('❌ Ошибка completeSurvey:', error);
       await this.sendErrorMessage(ctx, 'Ошибка анализа');
@@ -418,7 +420,7 @@ class BreathingLeadBot {
     try {
       const userData = {
         userInfo: {
-          telegram_id: ctx.from?.id?.toString() || 'unknown', // Исправляем telegram_id
+          telegram_id: ctx.from?.id?.toString() || 'unknown',
           username: ctx.from?.username || 'unknown'
         },
         surveyAnswers: ctx.session.answers || {},
@@ -426,8 +428,8 @@ class BreathingLeadBot {
         contactInfo: ctx.session.contactInfo || {},
         surveyType: this.surveyQuestions.isChildFlow(ctx.session.answers) ? 'child' : 'adult'
       };
+      console.log(`🔍 Передача лида с userData:`, userData);
       await this.leadTransfer.processLead(userData);
-      console.log('✅ Лид передан');
     } catch (error) {
       console.error('❌ Ошибка передачи лида:', error);
     }
