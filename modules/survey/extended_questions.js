@@ -292,7 +292,11 @@ class ExtendedSurveyQuestions {
       child_specific: {
         id: 'child_specific',
         block: 'E',
-        condition: (userData) => userData.age_group && (userData.age_group.includes('5-12') || userData.age_group.includes('13-17') || userData.age_group === 'for_child'),
+        condition: (userData) => userData.age_group && (
+          userData.age_group.includes('5-12') || 
+          userData.age_group.includes('13-17') || 
+          userData.age_group === 'for_child'
+        ),
         text: `👶 *Дополнительная информация о ребенке:*\n\nЧто особенно беспокоит в поведении или состоянии ребенка?`,
         keyboard: Markup.inlineKeyboard([
           [Markup.button.callback('😭 Часто капризничает, плачет', 'child_tantrums')],
@@ -384,34 +388,66 @@ class ExtendedSurveyQuestions {
     };
   }
 
+  /**
+   * Получение следующего вопроса в анкете
+   */
   getNextQuestion(currentQuestion, userData) {
+    console.log('🔍 getNextQuestion DEBUG:', {
+      currentQuestion,
+      hasUserData: !!userData,
+      userDataKeys: userData ? Object.keys(userData) : []
+    });
+
     const { standardFlow, adaptiveQuestions } = this.flowLogic;
+    
     if (standardFlow.includes(currentQuestion)) {
       const currentIndex = standardFlow.indexOf(currentQuestion);
+      console.log('📝 Standard flow position:', currentIndex, '/', standardFlow.length - 1);
+      
       if (currentIndex < standardFlow.length - 1) {
-        return standardFlow[currentIndex + 1];
+        const nextQuestion = standardFlow[currentIndex + 1];
+        console.log('➡️ Next standard question:', nextQuestion);
+        return nextQuestion;
       }
-      return this.getFirstAdaptiveQuestion(userData);
+      
+      // Переходим к адаптивным вопросам
+      const firstAdaptive = this.getFirstAdaptiveQuestion(userData);
+      console.log('🔄 Moving to adaptive questions, first:', firstAdaptive);
+      return firstAdaptive;
     }
+    
     if (adaptiveQuestions.includes(currentQuestion)) {
-      return this.getNextAdaptiveQuestion(currentQuestion, userData);
+      const nextAdaptive = this.getNextAdaptiveQuestion(currentQuestion, userData);
+      console.log('➡️ Next adaptive question:', nextAdaptive);
+      return nextAdaptive;
     }
+    
+    console.log('🏁 No more questions, survey complete');
     return null;
   }
 
+  /**
+   * Получение первого адаптивного вопроса
+   */
   getFirstAdaptiveQuestion(userData) {
     for (const questionId of this.flowLogic.adaptiveQuestions) {
       const question = this.questions[questionId];
       if (question.condition && question.condition(userData)) {
+        console.log('✅ Found first adaptive question:', questionId);
         return questionId;
       }
     }
+    console.log('⚠️ No adaptive questions matched conditions');
     return null;
   }
 
+  /**
+   * Получение следующего адаптивного вопроса
+   */
   getNextAdaptiveQuestion(currentQuestion, userData) {
     const { adaptiveQuestions } = this.flowLogic;
     const currentIndex = adaptiveQuestions.indexOf(currentQuestion);
+    
     for (let i = currentIndex + 1; i < adaptiveQuestions.length; i++) {
       const questionId = adaptiveQuestions[i];
       const question = this.questions[questionId];
@@ -422,29 +458,61 @@ class ExtendedSurveyQuestions {
     return null;
   }
 
+  /**
+   * Проверка должен ли показываться вопрос
+   */
   shouldShowQuestion(questionId, userData) {
     const question = this.questions[questionId];
+    if (!question) {
+      console.log('❌ Question not found:', questionId);
+      return false;
+    }
+    
     if (!question.condition) {
       return true;
     }
-    return question.condition(userData);
+    
+    const shouldShow = question.condition(userData);
+    console.log('🎯 shouldShowQuestion:', questionId, '=', shouldShow);
+    return shouldShow;
   }
 
+  /**
+   * Получение вопроса по ID
+   */
   getQuestion(questionId) {
     return this.questions[questionId];
   }
 
+ /**
+   * Валидация ответа
+   */
   validateAnswer(questionId, answer, currentSelections = []) {
     const question = this.questions[questionId];
-    if (!question) return { valid: false, error: 'Неизвестный вопрос' };
+    if (!question) {
+      return { valid: false, error: 'Неизвестный вопрос' };
+    }
+
+    console.log('🔍 validateAnswer DEBUG:', {
+      questionId,
+      questionType: question.type,
+      answer,
+      currentSelectionsCount: currentSelections.length,
+      minSelections: question.minSelections,
+      maxSelections: question.maxSelections
+    });
+
     switch (question.type) {
       case 'single_choice':
       case 'scale':
+        const isValid = typeof answer === 'string' && answer.length > 0;
         return { 
-          valid: typeof answer === 'string' && answer.length > 0,
-          error: answer ? null : 'Выберите один из вариантов'
+          valid: isValid,
+          error: isValid ? null : 'Выберите один из вариантов'
         };
+
       case 'multiple_choice':
+        // Если нажали "завершить выбор"
         if (answer === 'done' || answer.includes('done')) {
           if (question.minSelections && currentSelections.length < question.minSelections) {
             return { 
@@ -454,40 +522,67 @@ class ExtendedSurveyQuestions {
           }
           return { valid: true };
         }
+
+        // Проверяем максимальное количество выборов
         if (question.maxSelections && currentSelections.length >= question.maxSelections) {
           return { 
             valid: false, 
             error: `Можно выбрать максимум ${question.maxSelections} вариант(ов)` 
           };
         }
+
         return { valid: true };
+
       default:
         return { valid: true };
     }
   }
 
+  /**
+   * Получение прогресса анкеты
+   */
   getProgress(completedQuestions, userData) {
     const totalQuestions = this.getTotalQuestions(userData);
     const completed = completedQuestions.length;
+    const percentage = Math.round((completed / totalQuestions) * 100);
+
+    console.log('📊 Progress calculation:', {
+      completed,
+      total: totalQuestions,
+      percentage,
+      completedQuestions
+    });
+
     return {
       completed,
       total: totalQuestions,
-      percentage: Math.round((completed / totalQuestions) * 100)
+      percentage
     };
   }
 
+  /**
+   * Подсчет общего количества вопросов для пользователя
+   */
   getTotalQuestions(userData) {
     let total = this.flowLogic.standardFlow.length;
+    
+    // Добавляем адаптивные вопросы, которые должны показаться
     for (const questionId of this.flowLogic.adaptiveQuestions) {
       if (this.shouldShowQuestion(questionId, userData)) {
         total++;
       }
     }
+
+    console.log('🔢 Total questions calculated:', total, 'for user data:', Object.keys(userData || {}));
     return total;
   }
 
+  /**
+   * Маппинг callback данных в значения
+   */
   mapCallbackToValue(callbackData) {
     const mapping = {
+      // Возрастные группы
       'age_5-12': '5-12',
       'age_13-17': '13-17',
       'age_18-30': '18-30',
@@ -495,6 +590,8 @@ class ExtendedSurveyQuestions {
       'age_46-60': '46-60',
       'age_60+': '60+',
       'age_for_child': 'for_child',
+
+      // Профессии
       'occ_office': 'office_work',
       'occ_home': 'home_work',
       'occ_physical': 'physical_work',
@@ -502,11 +599,15 @@ class ExtendedSurveyQuestions {
       'occ_maternity': 'maternity_leave',
       'occ_retired': 'retired',
       'occ_management': 'management',
+
+      // Физическая активность
       'activity_daily': 'daily',
       'activity_regular': 'regular',
       'activity_sometimes': 'sometimes',
       'activity_rarely': 'rarely',
       'activity_never': 'never',
+
+      // Текущие проблемы
       'prob_chronic_stress': 'chronic_stress',
       'prob_insomnia': 'insomnia',
       'prob_breathing_issues': 'breathing_issues',
@@ -517,10 +618,16 @@ class ExtendedSurveyQuestions {
       'prob_concentration': 'concentration_issues',
       'prob_back_pain': 'back_pain',
       'prob_digestion': 'digestion_issues',
+
+      // Уровень стресса (1-10)
       'stress_1': 1, 'stress_2': 2, 'stress_3': 3, 'stress_4': 4, 'stress_5': 5,
       'stress_6': 6, 'stress_7': 7, 'stress_8': 8, 'stress_9': 9, 'stress_10': 10,
+
+      // Качество сна (1-10)
       'sleep_1': 1, 'sleep_2': 2, 'sleep_3': 3, 'sleep_4': 4, 'sleep_5': 5,
       'sleep_6': 6, 'sleep_7': 7, 'sleep_8': 8, 'sleep_9': 9, 'sleep_10': 10,
+
+      // Приоритетные проблемы
       'prio_stress': 'chronic_stress',
       'prio_sleep': 'insomnia',
       'prio_breathing': 'breathing_issues',
@@ -528,40 +635,56 @@ class ExtendedSurveyQuestions {
       'prio_anxiety': 'anxiety',
       'prio_fatigue': 'fatigue',
       'prio_focus': 'concentration_issues',
+
+      // Методы дыхания
       'method_nose': 'nose',
       'method_mouth': 'mouth',
       'method_mixed': 'mixed',
       'method_unaware': 'unaware',
+
+      // Частота проблем с дыханием
       'freq_constantly': 'constantly',
       'freq_often': 'often',
       'freq_sometimes': 'sometimes',
       'freq_rarely': 'rarely',
       'freq_never': 'never',
+
+      // Поверхностное дыхание
       'shallow_yes_often': 'yes_often',
       'shallow_sometimes': 'sometimes',
       'shallow_no': 'no',
+
+      // Дыхание в стрессе
       'stress_rapid': 'rapid_shallow',
       'stress_hold': 'breath_holding',
       'stress_shortage': 'air_shortage',
       'stress_mouth': 'mouth_breathing',
       'stress_no_change': 'no_change',
       'stress_conscious': 'conscious_breathing',
+
+      // Опыт с дыхательными практиками
       'exp_never': 'never',
       'exp_few_times': 'few_times',
       'exp_theory': 'theory_only',
       'exp_sometimes': 'sometimes',
       'exp_regularly': 'regularly',
       'exp_expert': 'expert',
+
+      // Время на практики
       'time_3-5': '3-5_minutes',
       'time_10-15': '10-15_minutes',
       'time_20-30': '20-30_minutes',
       'time_30+': '30+_minutes',
+
+      // Форматы изучения
       'format_video': 'video',
       'format_audio': 'audio',
       'format_text': 'text',
       'format_online': 'online_live',
       'format_individual': 'individual',
       'format_app': 'mobile_app',
+
+      // Основные цели
       'goal_relax': 'quick_relaxation',
       'goal_resilience': 'stress_resistance',
       'goal_anxiety': 'reduce_anxiety',
@@ -572,6 +695,8 @@ class ExtendedSurveyQuestions {
       'goal_focus': 'improve_focus',
       'goal_weight': 'weight_management',
       'goal_health': 'general_health',
+
+      // Детские проблемы
       'child_tantrums': 'tantrums',
       'child_sleep': 'sleep_issues',
       'child_hyperactive': 'hyperactivity',
@@ -580,6 +705,8 @@ class ExtendedSurveyQuestions {
       'child_illness': 'frequent_illness',
       'child_asthma': 'breathing_issues',
       'child_healthy': 'preventive_care',
+
+      // Хронические заболевания
       'condition_asthma': 'asthma',
       'condition_hypertension': 'hypertension',
       'condition_diabetes': 'diabetes',
@@ -589,6 +716,8 @@ class ExtendedSurveyQuestions {
       'condition_digestive': 'digestive',
       'condition_other': 'other_chronic',
       'condition_none': 'none',
+
+      // Цели по весу
       'weight_5kg': 'up_to_5kg',
       'weight_15kg': '5_to_15kg',
       'weight_more15': 'more_than_15kg',
@@ -598,7 +727,174 @@ class ExtendedSurveyQuestions {
       'weight_diet_support': 'diet_support',
       'weight_breathing_methods': 'breathing_methods'
     };
-    return mapping[callbackData] || callbackData;
+
+    const mappedValue = mapping[callbackData] || callbackData;
+    
+    console.log('🗺️ mapCallbackToValue:', {
+      input: callbackData,
+      output: mappedValue,
+      found: !!mapping[callbackData]
+    });
+
+    return mappedValue;
+  }
+
+  /**
+   * Получение списка всех вопросов
+   */
+  getAllQuestions() {
+    return Object.keys(this.questions);
+  }
+
+  /**
+   * Получение вопросов по блоку
+   */
+  getQuestionsByBlock(block) {
+    return Object.values(this.questions).filter(q => q.block === block);
+  }
+
+  /**
+   * Проверка завершенности анкеты
+   */
+  isSurveyComplete(completedQuestions, userData) {
+    const totalQuestions = this.getTotalQuestions(userData);
+    const isComplete = completedQuestions.length >= totalQuestions;
+    
+    console.log('🏁 Survey completion check:', {
+      completed: completedQuestions.length,
+      total: totalQuestions,
+      isComplete
+    });
+
+    return isComplete;
+  }
+
+  /**
+   * Получение статистики прохождения анкеты
+   */
+  getSurveyStats(completedQuestions, userData) {
+    const progress = this.getProgress(completedQuestions, userData);
+    const blockStats = this.getBlockStats(completedQuestions);
+    
+    return {
+      ...progress,
+      blocks: blockStats,
+      isComplete: this.isSurveyComplete(completedQuestions, userData),
+      estimatedTimeRemaining: this.getEstimatedTimeRemaining(progress.percentage)
+    };
+  }
+
+  /**
+   * Получение статистики по блокам
+   */
+  getBlockStats(completedQuestions) {
+    const blocks = {
+      'A': { name: 'Демография', completed: 0, total: 0 },
+      'B': { name: 'Проблемы', completed: 0, total: 0 },
+      'C': { name: 'Дыхание', completed: 0, total: 0 },
+      'D': { name: 'Цели', completed: 0, total: 0 },
+      'E': { name: 'Дополнительно', completed: 0, total: 0 }
+    };
+
+    // Подсчитываем общее количество вопросов в каждом блоке
+    Object.values(this.questions).forEach(question => {
+      if (blocks[question.block]) {
+        blocks[question.block].total++;
+        if (completedQuestions.includes(question.id)) {
+          blocks[question.block].completed++;
+        }
+      }
+    });
+
+    return blocks;
+  }
+
+  /**
+   * Оценка оставшегося времени
+   */
+  getEstimatedTimeRemaining(completedPercentage) {
+    const avgTimePerQuestion = 30; // секунд
+    const totalTime = this.flowLogic.standardFlow.length * avgTimePerQuestion;
+    const remainingTime = Math.round(totalTime * (100 - completedPercentage) / 100);
+    
+    return {
+      seconds: remainingTime,
+      minutes: Math.ceil(remainingTime / 60),
+      formatted: this.formatTime(remainingTime)
+    };
+  }
+
+  /**
+   * Форматирование времени
+   */
+  formatTime(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    
+    if (mins === 0) {
+      return `${secs} сек`;
+    } else if (secs === 0) {
+      return `${mins} мин`;
+    } else {
+      return `${mins} мин ${secs} сек`;
+    }
+  }
+
+  /**
+   * Валидация данных анкеты
+   */
+  validateSurveyData(surveyData) {
+    const errors = [];
+    const warnings = [];
+
+    // Проверяем обязательные вопросы
+    const requiredQuestions = Object.values(this.questions)
+      .filter(q => q.required && this.flowLogic.standardFlow.includes(q.id))
+      .map(q => q.id);
+
+    for (const questionId of requiredQuestions) {
+      if (!surveyData[questionId]) {
+        errors.push(`Отсутствует ответ на обязательный вопрос: ${questionId}`);
+      }
+    }
+
+    // Проверяем диапазоны для числовых ответов
+    if (surveyData.stress_level && (surveyData.stress_level < 1 || surveyData.stress_level > 10)) {
+      errors.push('Уровень стресса должен быть от 1 до 10');
+    }
+
+    if (surveyData.sleep_quality && (surveyData.sleep_quality < 1 || surveyData.sleep_quality > 10)) {
+      errors.push('Качество сна должно быть от 1 до 10');
+    }
+
+    // Предупреждения
+    if (surveyData.stress_level >= 8) {
+      warnings.push('Высокий уровень стресса требует особого внимания');
+    }
+
+    if (surveyData.sleep_quality <= 3) {
+      warnings.push('Критически низкое качество сна');
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+      warnings
+    };
+  }
+
+  /**
+   * Экспорт конфигурации для отладки
+   */
+  exportConfig() {
+    return {
+      totalQuestions: Object.keys(this.questions).length,
+      standardFlowLength: this.flowLogic.standardFlow.length,
+      adaptiveQuestionsCount: this.flowLogic.adaptiveQuestions.length,
+      questionsByBlock: this.getBlockStats([]),
+      version: '1.0.0',
+      lastUpdated: new Date().toISOString()
+    };
   }
 }
 
