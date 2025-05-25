@@ -1,7 +1,8 @@
 // Файл: lead_bot/modules/survey/extended_questions.js
-// Расширенная анкета из 18+ вопросов с адаптивной логикой, навигацией назад и детскими вопросами
+// Расширенная анкета из 18+ вопросов с исправленной логикой выбора
 
 const { Markup } = require('telegraf');
+const config = require('../../config');
 
 class ExtendedSurveyQuestions {
   constructor() {
@@ -11,16 +12,12 @@ class ExtendedSurveyQuestions {
 
   initializeQuestions() {
     return {
-      // БЛОК А: ДЕМОГРАФИЯ И КОНТЕКСТ (3 вопроса)
+      // БЛОК А: ДЕМОГРАФИЯ И КОНТЕКСТ - ИСПРАВЛЕНО: объединены детские категории
       age_group: {
         id: 'age_group',
         block: 'A',
-        text: `📅 *Расскажите о себе:*\n\nВыберите ваш возраст и для кого заполняете анкету. Это поможет подобрать подходящие техники.`,
+        text: `📅 *Расскажите о себе:*\n\nВыберите ваш возраст или укажите, что заполняете анкету для ребенка.`,
         keyboard: Markup.inlineKeyboard([
-          [
-            Markup.button.callback('👶 5-12 лет', 'age_5-12'),
-            Markup.button.callback('🧒 13-17 лет', 'age_13-17')
-          ],
           [
             Markup.button.callback('👨‍💼 18-30 лет', 'age_18-30'),
             Markup.button.callback('👩‍💼 31-45 лет', 'age_31-45')
@@ -29,7 +26,9 @@ class ExtendedSurveyQuestions {
             Markup.button.callback('👨‍🦳 46-60 лет', 'age_46-60'),
             Markup.button.callback('👴 60+ лет', 'age_60+')
           ],
-          [Markup.button.callback('👨‍👩‍👧‍👦 Заполняю для ребенка', 'age_for_child')]
+          [
+            Markup.button.callback('👨‍👩‍👧‍👦 Заполняю для ребенка', 'age_for_child')
+          ]
         ]),
         required: true,
         type: 'single_choice',
@@ -73,11 +72,11 @@ class ExtendedSurveyQuestions {
         allowBack: true
       },
 
-      // БЛОК Б: ОСНОВНЫЕ ПРОБЛЕМЫ (4 вопроса)
+      // БЛОК Б: ОСНОВНЫЕ ПРОБЛЕМЫ - ИСПРАВЛЕНО: ограничение до 3 выборов
       current_problems: {
         id: 'current_problems',
         block: 'B',
-        text: `⚠️ *Какие проблемы беспокоят вас СЕЙЧАС?*\n\nВыберите все подходящие варианты. Чем честнее ответы, тем точнее рекомендации.`,
+        text: `⚠️ *Какие проблемы беспокоят вас СЕЙЧАС?*\n\nВыберите до 3 наиболее важных проблем. Чем честнее ответы, тем точнее рекомендации.`,
         keyboard: Markup.inlineKeyboard([
           [Markup.button.callback('😰 Хронический стресс, напряжение', 'prob_chronic_stress')],
           [Markup.button.callback('😴 Плохой сон, бессонница', 'prob_insomnia')],
@@ -95,7 +94,8 @@ class ExtendedSurveyQuestions {
         required: true,
         type: 'multiple_choice',
         minSelections: 1,
-        note: "Выберите все подходящие проблемы, затем нажмите '✅ Завершить выбор'",
+        maxSelections: 3,
+        note: "Выберите до 3 наиболее важных проблем, затем нажмите '✅ Завершить выбор'",
         allowBack: true
       },
 
@@ -128,7 +128,7 @@ class ExtendedSurveyQuestions {
       sleep_quality: {
         id: 'sleep_quality',
         block: 'B',
-        text: `😴 *Качество сна за последний месяц:*\n\n1 - сплю очень плохо, постоянно просыпаюсь\n10 - сон отличный, высыпаюсь и чувствую себя бодро\n\nЧестная оценка поможет понять приоритеты.`,
+        text: `😴 *Качество сна за последний месяц:*\n\n1 - сплю очень плохо, постоянно просыпаюсь\n10 - сон отличный, высыпаюсь и чувствую себя бодро`,
         keyboard: Markup.inlineKeyboard([
           [
             Markup.button.callback('🛌 1', 'sleep_1'),
@@ -170,7 +170,7 @@ class ExtendedSurveyQuestions {
         allowBack: true
       },
 
-      // БЛОК В: ДЫХАТЕЛЬНЫЕ ПРИВЫЧКИ (4 вопроса)
+      // БЛОК В: ДЫХАТЕЛЬНЫЕ ПРИВЫЧКИ
       breathing_method: {
         id: 'breathing_method',
         block: 'C',
@@ -237,7 +237,7 @@ class ExtendedSurveyQuestions {
         allowBack: true
       },
 
-      // БЛОК Г: ОПЫТ И ЦЕЛИ (4 вопроса)
+      // БЛОК Г: ОПЫТ И ЦЕЛИ - ИСПРАВЛЕНО: добавлены переводы и ограничения
       breathing_experience: {
         id: 'breathing_experience',
         block: 'D',
@@ -275,7 +275,7 @@ class ExtendedSurveyQuestions {
       format_preferences: {
         id: 'format_preferences',
         block: 'D',
-        text: `📱 *Удобные форматы изучения:*\n\nКак вам комфортнее изучать дыхательные техники? Можно выбрать несколько.`,
+        text: `📱 *Удобные форматы изучения:*\n\nКак вам комфортнее изучать дыхательные техники? Можно выбрать до 4 форматов.`,
         keyboard: Markup.inlineKeyboard([
           [Markup.button.callback('🎥 Видеоуроки с демонстрацией', 'format_video')],
           [Markup.button.callback('🎧 Аудиопрактики с голосом', 'format_audio')],
@@ -288,7 +288,9 @@ class ExtendedSurveyQuestions {
         ]),
         required: true,
         type: 'multiple_choice',
-        note: "Выберите все подходящие форматы, затем нажмите '✅ Завершить выбор'",
+        minSelections: 1,
+        maxSelections: 4,
+        note: "Выберите до 4 удобных форматов, затем нажмите '✅ Завершить выбор'",
         allowBack: true
       },
 
@@ -312,12 +314,13 @@ class ExtendedSurveyQuestions {
         ]),
         required: true,
         type: 'multiple_choice',
+        minSelections: 1,
         maxSelections: 2,
         note: "Выберите максимум 2 цели, затем нажмите '✅ Завершить выбор'",
         allowBack: true
       },
 
-      // БЛОК Д: ДЕТСКИЕ ВОПРОСЫ (показываются только для детей)
+      // БЛОК Д: ДЕТСКИЕ ВОПРОСЫ - ИСПРАВЛЕНО: добавлен детальный выбор возраста
       child_age_detail: {
         id: 'child_age_detail',
         block: 'E',
@@ -389,7 +392,7 @@ class ExtendedSurveyQuestions {
         id: 'child_problems_detailed',
         block: 'E',
         condition: (userData) => this.isChildFlow(userData),
-        text: `🎭 *Что беспокоит в поведении или состоянии ребенка?*\n\nВыберите все подходящие варианты для точного подбора техник.`,
+        text: `🎭 *Что беспокоит в поведении или состоянии ребенка?*\n\nВыберите до 3 наиболее важных проблем для точного подбора техник.`,
         keyboard: Markup.inlineKeyboard([
           [Markup.button.callback('😭 Частые истерики, капризы', 'child_prob_tantrums')],
           [Markup.button.callback('😴 Проблемы с засыпанием', 'child_prob_sleep_issues')],
@@ -409,7 +412,8 @@ class ExtendedSurveyQuestions {
         required: true,
         type: 'multiple_choice',
         minSelections: 1,
-        note: "Выберите все актуальные проблемы, затем нажмите '✅ Завершить выбор'",
+        maxSelections: 3,
+        note: "Выберите до 3 наиболее важных проблем, затем нажмите '✅ Завершить выбор'",
         allowBack: true
       },
 
@@ -472,7 +476,7 @@ class ExtendedSurveyQuestions {
         allowBack: true
       },
 
-      // БЛОК Е: АДАПТИВНЫЕ ВОПРОСЫ ДЛЯ ВЗРОСЛЫХ (показываются по условиям)
+      // БЛОК Е: АДАПТИВНЫЕ ВОПРОСЫ ДЛЯ ВЗРОСЛЫХ
       chronic_conditions: {
         id: 'chronic_conditions',
         block: 'F',
@@ -525,6 +529,24 @@ class ExtendedSurveyQuestions {
     };
   }
 
+  // Вспомогательные методы для определения типа потока
+  isChildFlow(userData) {
+    const ageGroup = userData?.age_group;
+    console.log(`🔍 Проверка childFlow с age_group: ${ageGroup}`);
+    if (!ageGroup) return false;
+    return ageGroup === 'for_child';
+  }
+
+  // Метод для получения переводов выбранных элементов
+  getSelectionDisplayText(selections, translationCategory = 'default') {
+    if (!selections || selections.length === 0) return '';
+    
+    const translations = config.TRANSLATIONS;
+    return selections.map(selection => {
+      return translations[selection] || selection;
+    }).join(', ');
+  }
+
   initializeFlowLogic() {
     return {
       standardFlow: [
@@ -560,13 +582,7 @@ class ExtendedSurveyQuestions {
     };
   }
 
-  isChildFlow(userData) {
-    const ageGroup = userData?.age_group;
-    console.log(`🔍 Проверка childFlow с age_group: ${ageGroup}`);
-    if (!ageGroup) return false;
-    return ageGroup === '5-12' || ageGroup === '13-17' || ageGroup === 'for_child';
-  }
-
+  // ИСПРАВЛЕННЫЕ МЕТОДЫ НАВИГАЦИИ
   getPreviousQuestion(currentQuestion, userData) {
     const { standardFlow, childFlow, adaptiveQuestions } = this.flowLogic;
 
@@ -575,7 +591,7 @@ class ExtendedSurveyQuestions {
       if (currentIndex > 0) {
         return standardFlow[currentIndex - 1];
       }
-      return null; // первый вопрос стандартного потока
+      return null;
     }
 
     if (childFlow.includes(currentQuestion)) {
@@ -622,9 +638,9 @@ class ExtendedSurveyQuestions {
 
     if (currentQuestion === 'age_group') {
       if (this.isChildFlow(userData)) {
-        return childFlow[0]; // Переход к child_age_detail
+        return childFlow[0];
       }
-      return standardFlow[1]; // Переход к occupation для взрослых
+      return standardFlow[1];
     }
 
     if (standardFlow.includes(currentQuestion)) {
@@ -632,10 +648,10 @@ class ExtendedSurveyQuestions {
       if (currentIndex < standardFlow.length - 1) {
         return standardFlow[currentIndex + 1];
       }
-      if (this.isChildFlow(userData)) {
-        return childFlow[0];
+      if (!this.isChildFlow(userData)) {
+        return this.getFirstAdaptiveQuestion(userData);
       }
-      return this.getFirstAdaptiveQuestion(userData);
+      return null;
     }
 
     if (childFlow.includes(currentQuestion)) {
@@ -643,7 +659,7 @@ class ExtendedSurveyQuestions {
       if (currentIndex < childFlow.length - 1) {
         return childFlow[currentIndex + 1];
       }
-      return null; // Детский поток завершен
+      return null;
     }
 
     if (adaptiveQuestions.includes(currentQuestion)) {
@@ -694,6 +710,7 @@ class ExtendedSurveyQuestions {
     return this.questions[questionId];
   }
 
+  // ИСПРАВЛЕННАЯ ВАЛИДАЦИЯ С ПОДДЕРЖКОЙ ОГРАНИЧЕНИЙ
   validateAnswer(questionId, answer, currentSelections = []) {
     const question = this.questions[questionId];
     if (!question) {
@@ -721,9 +738,15 @@ class ExtendedSurveyQuestions {
         }
 
         if (question.maxSelections && currentSelections.length >= question.maxSelections) {
+          const questionLimits = {
+            'current_problems': 'Можно выбрать максимум 3 проблемы',
+            'child_problems_detailed': 'Можно выбрать максимум 3 проблемы',
+            'format_preferences': 'Можно выбрать максимум 4 формата',
+            'main_goals': 'Можно выбрать максимум 2 цели'
+          };
           return {
             valid: false,
-            error: `Можно выбрать максимум ${question.maxSelections} вариант(ов)`
+            error: questionLimits[questionId] || `Можно выбрать максимум ${question.maxSelections} вариант(ов)`
           };
         }
 
@@ -762,11 +785,10 @@ class ExtendedSurveyQuestions {
     return total;
   }
 
+  // ИСПРАВЛЕННЫЙ МАППИНГ С НОВЫМИ ЗНАЧЕНИЯМИ
   mapCallbackToValue(callbackData) {
     const mapping = {
       // Возрастные группы
-      'age_5-12': '5-12',
-      'age_13-17': '13-17',
       'age_18-30': '18-30',
       'age_31-45': '31-45',
       'age_46-60': '46-60',
@@ -986,7 +1008,13 @@ class ExtendedSurveyQuestions {
       adaptiveQuestionsCount: this.flowLogic.adaptiveQuestions.length,
       navigationSupport: true,
       childFlowSupport: true,
-      version: '2.0.0',
+      multipleChoiceLimits: {
+        currentProblems: 3,
+        childProblems: 3,
+        formats: 4,
+        goals: 2
+      },
+      version: '2.1.0',
       lastUpdated: new Date().toISOString()
     };
   }
