@@ -1,5 +1,5 @@
 // Файл: lead_bot/index.js
-// Обновленная версия с исправлением формирования userData и улучшенной логикой
+// ПОЛНАЯ ИСПРАВЛЕННАЯ версия с поддержкой переводов, ограничений выбора и связи с тренером
 
 const { Telegraf, Markup, session } = require('telegraf');
 const config = require('./config');
@@ -118,6 +118,7 @@ class BreathingLeadBot {
         return this.handleStart(ctx);
       }
 
+      // Специальные обработчики
       if (data === 'nav_back') {
         return this.handleBackNavigation(ctx);
       }
@@ -127,10 +128,68 @@ class BreathingLeadBot {
       if (data === 'about_survey') {
         return this.showSurveyInfo(ctx);
       }
+      if (data === 'contact_request') {
+        return this.handleContactRequest(ctx);
+      }
+      if (data === 'back_to_start') {
+        return this.handleStart(ctx);
+      }
+      if (data === 'back_to_results') {
+        return this.showResults(ctx);
+      }
+
       return this.handleSurveyAnswer(ctx, data);
     } catch (error) {
       console.error('❌ Ошибка callback:', error, { data });
       await this.sendErrorMessage(ctx, 'Ошибка обработки');
+    }
+  }
+
+  // НОВЫЙ: обработчик связи с тренером
+  async handleContactRequest(ctx) {
+    try {
+      const contactMessage = config.MESSAGES.CONTACT_TRAINER;
+      
+      await ctx.editMessageText(contactMessage, {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+          [Markup.button.url('👩‍⚕️ Написать Анастасии', `https://t.me/${config.TRAINER_CONTACT.replace('@', '')}`)],
+          [Markup.button.callback('🔙 К результатам', 'back_to_results')],
+          [Markup.button.callback('🎁 Материалы', 'free_materials')]
+        ])
+      });
+    } catch (error) {
+      console.error('❌ Ошибка handleContactRequest:', error);
+      await ctx.reply(config.MESSAGES.CONTACT_TRAINER, { parse_mode: 'Markdown' });
+    }
+  }
+
+  // НОВЫЙ: показ результатов
+  async showResults(ctx) {
+    try {
+      if (!ctx.session.analysisResult) {
+        return this.handleStart(ctx);
+      }
+
+      const message = ctx.session.analysisResult.personalMessage;
+      const isChildFlow = this.surveyQuestions.isChildFlow(ctx.session.answers);
+      
+      const keyboard = isChildFlow
+        ? Markup.inlineKeyboard([
+            [Markup.button.callback('📞 Связаться с экспертом', 'contact_request')],
+            [Markup.button.callback('📋 Программа', 'child_program_details')],
+            [Markup.button.callback('🎁 Материалы', 'child_materials')]
+          ])
+        : Markup.inlineKeyboard([
+            [Markup.button.callback('📞 Связаться с экспертом', 'contact_request')],
+            [Markup.button.callback('📋 Программа', 'program_details')],
+            [Markup.button.callback('🎁 Материалы', 'free_materials')]
+          ]);
+
+      await ctx.editMessageText(message, { parse_mode: 'Markdown', ...keyboard });
+    } catch (error) {
+      console.error('❌ Ошибка showResults:', error);
+      await this.sendErrorMessage(ctx, 'Ошибка показа результатов');
     }
   }
 
@@ -152,6 +211,7 @@ class BreathingLeadBot {
         return;
       }
 
+      // ИСПРАВЛЕНО: правильно очищаем данные предыдущего вопроса
       if (ctx.session.answers[currentQuestion]) {
         delete ctx.session.answers[currentQuestion];
       }
@@ -207,6 +267,7 @@ class BreathingLeadBot {
     }
   }
 
+  // ИСПРАВЛЕНО: улучшенное отображение вопросов с переводами
   async askQuestion(ctx, questionId) {
     try {
       if (!ctx.session?.answers) {
@@ -220,7 +281,6 @@ class BreathingLeadBot {
         return this.completeSurvey(ctx);
       }
 
-      console.log('🔍 Проверка childFlow:', this.surveyQuestions.isChildFlow(ctx.session.answers));
       if (!this.surveyQuestions.shouldShowQuestion(questionId, ctx.session.answers)) {
         console.log(`🔍 Условие для "${questionId}": false`);
         return this.moveToNextQuestion(ctx);
@@ -230,15 +290,15 @@ class BreathingLeadBot {
         ctx.session.completedQuestions,
         ctx.session.answers
       );
-      console.log(`🔍 Общее количество вопросов: ${progress.total}`);
-      console.log(`🔍 Прогресс: ${progress.completed}/${progress.total} (${progress.percentage}%)`);
 
       let message = `${this.generateProgressBar(progress.percentage)} *${progress.completed}/${progress.total}*\n\n${question.text}`;
 
+      // ИСПРАВЛЕНО: отображение выбранных элементов с переводами
       if (question.type === 'multiple_choice') {
         const selections = ctx.session.multipleChoiceSelections[questionId] || [];
-        if (selections.length) {
-          message += `\n\n*Выбрано:*\n${selections.map(s => `• ${s}`).join('\n')}`;
+        if (selections.length > 0) {
+          const translatedSelections = this.getTranslatedSelections(selections);
+          message += `\n\n*Выбрано (${selections.length}):*\n${translatedSelections.map(s => `• ${s}`).join('\n')}`;
         }
       }
 
@@ -246,7 +306,6 @@ class BreathingLeadBot {
         message += `\n\n👶 *Детская версия*`;
       }
 
-      console.log(`🔍 Проверка отображения "${questionId}"`);
       try {
         await ctx.editMessageText(message, {
           parse_mode: 'Markdown',
@@ -264,6 +323,13 @@ class BreathingLeadBot {
     }
   }
 
+  // НОВЫЙ: метод для получения переводов выбранных элементов
+  getTranslatedSelections(selections) {
+    return selections.map(selection => {
+      return config.TRANSLATIONS[selection] || selection;
+    });
+  }
+
   async handleSurveyAnswer(ctx, callbackData) {
     try {
       const questionId = ctx.session.currentQuestion;
@@ -278,23 +344,19 @@ class BreathingLeadBot {
         return this.handleStart(ctx);
       }
 
+      // Дебаг для stress_level
       if (questionId === 'stress_level') {
-        console.log('🔬 ULTRA DETAILED STRESS_LEVEL DEBUG:', {
+        console.log('🔬 STRESS_LEVEL DEBUG:', {
           callbackData,
           expectedFormat: 'stress_1 to stress_10',
-          isValidFormat: /^stress_\d+$/.test(callbackData),
-          extractedValue: callbackData.split('_')[1],
-          parsedIntValue: parseInt(callbackData.split('_')[1]),
-          isValidValue: parseInt(callbackData.split('_')[1]) >= 1 &&
-                        parseInt(callbackData.split('_')[1]) <= 10,
-          sessionCurrentQuestion: ctx.session.currentQuestion,
-          questionType: question.type
+          isValidFormat: /^stress_\d+$/.test(callbackData)
         });
       }
 
       const mappedValue = this.surveyQuestions.mapCallbackToValue(callbackData);
       console.log(`🔍 Сохранено для "${questionId}": ${mappedValue}`);
-      if (!mappedValue) {
+      
+      if (mappedValue === undefined || mappedValue === null) {
         console.error('❌ Неверный callback:', callbackData);
         await ctx.answerCbQuery('Ошибка ответа', { show_alert: true });
         return;
@@ -304,7 +366,7 @@ class BreathingLeadBot {
         return this.handleMultipleChoice(ctx, questionId, mappedValue, callbackData);
       }
 
-      const validation = this.surveyQuestions.validateAnswer(questionId, callbackData);
+      const validation = this.surveyQuestions.validateAnswer(questionId, mappedValue);
       if (!validation.valid) {
         await ctx.answerCbQuery(validation.error, { show_alert: true });
         return;
@@ -322,6 +384,7 @@ class BreathingLeadBot {
     }
   }
 
+  // ИСПРАВЛЕНО: улучшенная обработка множественного выбора
   async handleMultipleChoice(ctx, questionId, value, callbackData) {
     try {
       if (!ctx.session.multipleChoiceSelections[questionId]) {
@@ -342,19 +405,26 @@ class BreathingLeadBot {
         return this.moveToNextQuestion(ctx);
       }
 
+      // ИСПРАВЛЕНО: правильная обработка удаления/добавления элементов
       const index = selections.indexOf(value);
       if (index > -1) {
+        // Удаляем элемент
         selections.splice(index, 1);
-        await ctx.answerCbQuery('❌ Выбор удален');
+        const translatedValue = config.TRANSLATIONS[value] || value;
+        await ctx.answerCbQuery(`❌ Убрано: ${translatedValue}`);
       } else {
+        // Добавляем элемент с проверкой ограничений
         const validation = this.surveyQuestions.validateAnswer(questionId, value, selections);
         if (!validation.valid) {
           await ctx.answerCbQuery(validation.error, { show_alert: true });
           return;
         }
         selections.push(value);
-        await ctx.answerCbQuery('✅ Выбор добавлен');
+        const translatedValue = config.TRANSLATIONS[value] || value;
+        await ctx.answerCbQuery(`✅ Добавлено: ${translatedValue}`);
       }
+      
+      // Обновляем отображение вопроса
       await this.askQuestion(ctx, questionId);
     } catch (error) {
       console.error('❌ Ошибка handleMultipleChoice:', error);
@@ -370,6 +440,7 @@ class BreathingLeadBot {
         ctx.session.answers
       );
       console.log('✅ Следующий вопрос в потоке:', nextQuestionId);
+      
       if (nextQuestionId) {
         ctx.session.currentQuestion = nextQuestionId;
         ctx.session.questionStartTime = Date.now();
@@ -396,14 +467,16 @@ class BreathingLeadBot {
       ctx.session.analysisResult = analysisResult;
 
       const message = analysisResult.personalMessage;
+      
+      // ИСПРАВЛЕНО: добавлена кнопка связи с тренером
       const keyboard = isChildFlow
         ? Markup.inlineKeyboard([
-            [Markup.button.callback('📞 Связаться', 'contact_request')],
+            [Markup.button.callback('📞 Связаться с экспертом', 'contact_request')],
             [Markup.button.callback('📋 Программа', 'child_program_details')],
             [Markup.button.callback('🎁 Материалы', 'child_materials')]
           ])
         : Markup.inlineKeyboard([
-            [Markup.button.callback('📞 Связаться', 'contact_request')],
+            [Markup.button.callback('📞 Связаться с экспертом', 'contact_request')],
             [Markup.button.callback('📋 Программа', 'program_details')],
             [Markup.button.callback('🎁 Материалы', 'free_materials')]
           ]);
@@ -415,18 +488,21 @@ class BreathingLeadBot {
       await this.sendErrorMessage(ctx, 'Ошибка анализа');
     }
   }
-
+  
+  
   async transferLeadAsync(ctx) {
     try {
       const userData = {
         userInfo: {
           telegram_id: ctx.from?.id?.toString() || 'unknown',
-          username: ctx.from?.username || 'unknown'
+          username: ctx.from?.username || 'unknown',
+          first_name: ctx.from?.first_name || 'Пользователь'
         },
         surveyAnswers: ctx.session.answers || {},
         analysisResult: ctx.session.analysisResult || {},
         contactInfo: ctx.session.contactInfo || {},
-        surveyType: this.surveyQuestions.isChildFlow(ctx.session.answers) ? 'child' : 'adult'
+        surveyType: this.surveyQuestions.isChildFlow(ctx.session.answers) ? 'child' : 'adult',
+        startTime: ctx.session.startTime
       };
       console.log(`🔍 Передача лида с userData:`, userData);
       await this.leadTransfer.processLead(userData);
@@ -466,7 +542,7 @@ class BreathingLeadBot {
   }
 
   launch() {
-    console.log('🤖 Запуск бота v2.3...');
+    console.log('🤖 Запуск бота v2.4 (исправленная версия)...');
     this.bot.launch();
     console.log('✅ Бот запущен');
     process.once('SIGINT', () => this.bot.stop('SIGINT'));
@@ -474,6 +550,7 @@ class BreathingLeadBot {
   }
 }
 
+// Запуск бота
 try {
   const bot = new BreathingLeadBot();
   bot.launch();
