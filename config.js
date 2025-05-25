@@ -5,8 +5,8 @@ require('dotenv').config();
 
 module.exports = {
   // Telegram Bot Configuration
-  LEAD_BOT_TOKEN: process.env.LEAD_BOT_TOKEN,
-  MAIN_BOT_API_URL: process.env.MAIN_BOT_API_URL || 'https://breathing-practice-bot-production.up.railway.app',
+  //LEAD_BOT_TOKEN: process.env.LEAD_BOT_TOKEN,
+  //MAIN_BOT_API_URL: process.env.MAIN_BOT_API_URL || 'https://breathing-practice-bot-production.up.railway.app',
   
   // Database Configuration
   DATABASE_URL: process.env.DATABASE_URL,
