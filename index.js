@@ -1,5 +1,5 @@
 // Файл: lead_bot/index.js
-// Обновленная версия с исправлением childFlow
+// Обновленная версия с исправлением формирования userData
 
 const { Telegraf, Markup, session } = require('telegraf');
 const config = require('./config');
@@ -417,10 +417,13 @@ class BreathingLeadBot {
   async transferLeadAsync(ctx) {
     try {
       const userData = {
-        userInfo: { telegram_id: ctx.from.id, username: ctx.from.username },
-        surveyAnswers: ctx.session.answers,
-        analysisResult: ctx.session.analysisResult,
-        contactInfo: ctx.session.contactInfo,
+        userInfo: {
+          telegram_id: ctx.from?.id?.toString() || 'unknown', // Исправляем telegram_id
+          username: ctx.from?.username || 'unknown'
+        },
+        surveyAnswers: ctx.session.answers || {},
+        analysisResult: ctx.session.analysisResult || {},
+        contactInfo: ctx.session.contactInfo || {},
         surveyType: this.surveyQuestions.isChildFlow(ctx.session.answers) ? 'child' : 'adult'
       };
       await this.leadTransfer.processLead(userData);
