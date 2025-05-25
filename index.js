@@ -1,4 +1,4 @@
-// Файл: lead_bot/index.js - ЧАСТЬ 1
+// Файл: lead_bot/index.js - ЧАСТЬ 1 (ИСПРАВЛЕННАЯ ВЕРСИЯ С ОТЛАДОЧНЫМИ ЛОГАМИ)
 // Главный файл лидогенерирующего бота для дыхательных практик
 
 const { Telegraf, Markup, session } = require('telegraf');
@@ -162,21 +162,24 @@ class BreathingLeadBot {
     
     try {
       console.log(`\n=== CALLBACK START: ${callbackData} ===`);
-	  console.log('Session state:', {
-      currentQuestion: ctx.session?.currentQuestion,
-      hasAnswers: !!ctx.session?.answers,
-      answersCount: Object.keys(ctx.session?.answers || {}).length
-    });
-      
-	  // Добавьте эту проверку для отладки stress_level
-    if (ctx.session?.currentQuestion === 'stress_level') {
-      console.log('🔍 STRESS_LEVEL DEBUG:', {
-        callbackData,
-        currentQuestion: ctx.session.currentQuestion,
-        availableQuestions: this.surveyQuestions ? 'loaded' : 'not loaded'
+      console.log('Session state:', {
+        currentQuestion: ctx.session?.currentQuestion,
+        hasAnswers: !!ctx.session?.answers,
+        answersCount: Object.keys(ctx.session?.answers || {}).length,
+        completedQuestionsCount: (ctx.session?.completedQuestions || []).length
       });
-    }
-	  
+      
+      // Добавьте эту проверку для отладки stress_level
+      if (ctx.session?.currentQuestion === 'stress_level') {
+        console.log('🔍 STRESS_LEVEL DEBUG:', {
+          callbackData,
+          currentQuestion: ctx.session.currentQuestion,
+          availableQuestions: this.surveyQuestions ? 'loaded' : 'not loaded',
+          questionExists: !!this.surveyQuestions.getQuestion('stress_level'),
+          nextQuestionWillBe: this.surveyQuestions.getNextQuestion('stress_level', ctx.session.answers)
+        });
+      }
+      
       // Проверка целостности системы
       if (!this.surveyQuestions || !this.verseAnalysis) {
         throw new Error('Система не инициализирована');
@@ -221,8 +224,10 @@ class BreathingLeadBot {
       console.error('\n❌ ОШИБКА В CALLBACK HANDLER:');
       console.error('Тип ошибки:', error.name);
       console.error('Сообщение:', error.message);
+      console.error('Стек:', error.stack);
       console.error('Callback data:', callbackData);
       console.error('User ID:', ctx.from?.id);
+      console.error('Session state:', ctx.session);
       
       // Пытаемся уведомить пользователя
       try {
@@ -335,18 +340,33 @@ class BreathingLeadBot {
     
     await this.askQuestion(ctx, 'age_group');
   }
-
+  
   /**
-   * Задать вопрос пользователю - ИСПРАВЛЕННАЯ ВЕРСИЯ
+   * Задать вопрос пользователю - ИСПРАВЛЕННАЯ ВЕРСИЯ С ОТЛАДКОЙ
    */
   async askQuestion(ctx, questionId) {
     try {
+      console.log('🔍 ASK QUESTION DEBUG:', {
+        questionId,
+        sessionExists: !!ctx.session,
+        currentQuestion: ctx.session?.currentQuestion,
+        answersCount: Object.keys(ctx.session?.answers || {}).length
+      });
+
       const question = this.surveyQuestions.getQuestion(questionId);
       
       if (!question) {
         console.error('❌ Вопрос не найден:', questionId);
+        console.error('Доступные вопросы:', this.surveyQuestions.getAllQuestions());
         return await this.completeSurvey(ctx);
       }
+
+      console.log('✅ Вопрос найден:', {
+        id: question.id,
+        type: question.type,
+        block: question.block,
+        hasKeyboard: !!question.keyboard
+      });
 
       // Проверяем условие показа вопроса (для адаптивных)
       if (!this.surveyQuestions.shouldShowQuestion(questionId, ctx.session?.answers || {})) {
@@ -358,6 +378,8 @@ class BreathingLeadBot {
         ctx.session?.completedQuestions || [], 
         ctx.session?.answers || {}
       );
+
+      console.log('📊 Progress info:', progress);
 
       const progressBar = this.generateProgressBar(progress.percentage);
       
@@ -379,40 +401,52 @@ class BreathingLeadBot {
         messageText += `\n\n💡 ${question.note}`;
       }
 
+      console.log('📝 Отправляем вопрос:', {
+        questionId,
+        messageLength: messageText.length,
+        hasKeyboard: !!question.keyboard,
+        keyboardType: question.keyboard?.reply_markup?.inline_keyboard ? 'inline' : 'other'
+      });
+
       try {
         await ctx.editMessageText(messageText, {
           parse_mode: 'Markdown',
           ...question.keyboard
         });
+        console.log('✅ Сообщение отредактировано успешно');
       } catch (editError) {
-        console.log('⚠️ Не удалось отредактировать сообщение, отправляем новое');
+        console.log('⚠️ Не удалось отредактировать сообщение:', editError.message);
+        console.log('📤 Отправляем новое сообщение');
         await ctx.reply(messageText, {
           parse_mode: 'Markdown',
           ...question.keyboard
         });
+        console.log('✅ Новое сообщение отправлено успешно');
       }
     } catch (error) {
       console.error('❌ Ошибка в askQuestion:', error);
+      console.error('Стек ошибки:', error.stack);
       await this.sendErrorMessage(ctx, 'Ошибка отображения вопроса. Попробуйте /start');
     }
   }
 
   /**
-   * Обработка ответа на вопрос анкеты - ИСПРАВЛЕННАЯ ВЕРСИЯ
+   * Обработка ответа на вопрос анкеты - ИСПРАВЛЕННАЯ ВЕРСИЯ С ОТЛАДКОЙ
    */
   async handleSurveyAnswer(ctx, callbackData) {
     try {
       const currentQuestionId = ctx.session?.currentQuestion;
       
-	  console.log('🔍 SURVEY ANSWER DEBUG:', {
-      currentQuestionId,
-      callbackData,
-      sessionExists: !!ctx.session
-    });
-	  
-	  	  
-      if (!currentQuestionId) {
-        console.log('⚠️ Текущий вопрос не найден, перезапускаем анкету...');
+      console.log('🔍 SURVEY ANSWER DEBUG:', {
+        currentQuestionId,
+        callbackData,
+        sessionExists: !!ctx.session,
+        hasAnswers: !!ctx.session?.answers,
+        answersKeys: Object.keys(ctx.session?.answers || {})
+      });
+      
+      if (!currentQuestionId || !ctx.session?.answers) {
+        console.log('⚠️ Текущий вопрос или ответы не найдены, перезапускаем анкету...');
         await this.handleStart(ctx);
         return;
       }
@@ -420,36 +454,43 @@ class BreathingLeadBot {
       const question = this.surveyQuestions.getQuestion(currentQuestionId);
       if (!question) {
         console.error(`❌ Вопрос ${currentQuestionId} не найден`);
+        console.error('Доступные вопросы:', this.surveyQuestions.getAllQuestions());
         await this.handleStart(ctx);
         return;
       }
-	  
-	  console.log('📝 Question found:', {
-      id: currentQuestionId,
-      type: question.type,
-      hasOptions: !!question.options
-    });
+      
+      console.log('📝 Question found:', {
+        id: currentQuestionId,
+        type: question.type,
+        hasOptions: !!question.options,
+        required: question.required
+      });
 
       const mappedValue = this.surveyQuestions.mapCallbackToValue(callbackData);
-      console.log(`📝 Ответ на вопрос ${currentQuestionId}: ${callbackData} -> ${mappedValue}`);
+      console.log(`📝 Маппинг ответа: ${callbackData} -> ${mappedValue}`);
 
-// Добавим проверку на undefined mappedValue
-    if (mappedValue === undefined || mappedValue === null) {
-      console.error('❌ Не удалось сопоставить callback с значением');
-      await ctx.answerCbQuery('Ошибка обработки ответа. Попробуйте еще раз.', { show_alert: true });
-      return;
-    }
+      // Добавим проверку на undefined mappedValue
+      if (mappedValue === undefined || mappedValue === null) {
+        console.error('❌ Не удалось сопоставить callback с значением');
+        console.error('Callback data:', callbackData);
+        console.error('Доступные маппинги:', Object.keys(this.surveyQuestions.mapCallbackToValue('')));
+        await ctx.answerCbQuery('Ошибка обработки ответа. Попробуйте еще раз.', { show_alert: true });
+        return;
+      }
 
       // Обработка множественного выбора
       if (question.type === 'multiple_choice') {
+        console.log('🔄 Обрабатываем множественный выбор');
         await this.handleMultipleChoice(ctx, currentQuestionId, mappedValue, callbackData);
         return;
       }
 
       // Валидация ответа
       const validation = this.surveyQuestions.validateAnswer(currentQuestionId, mappedValue);
+      console.log('✅ Результат валидации:', validation);
       
       if (!validation.valid) {
+        console.log('❌ Валидация не пройдена:', validation.error);
         await ctx.answerCbQuery(validation.error, { show_alert: true });
         return;
       }
@@ -462,13 +503,24 @@ class BreathingLeadBot {
         ctx.session.completedQuestions.push(currentQuestionId);
       }
 
-      console.log('✅ Ответ сохранен:', currentQuestionId, '=', mappedValue);
+      console.log('✅ Ответ сохранен:', {
+        question: currentQuestionId,
+        answer: mappedValue,
+        totalAnswers: Object.keys(ctx.session.answers).length,
+        completedQuestions: ctx.session.completedQuestions.length
+      });
 
       // Переходим к следующему вопросу
       await this.moveToNextQuestion(ctx);
       
     } catch (error) {
       console.error('❌ Ошибка в handleSurveyAnswer:', error);
+      console.error('Стек ошибки:', error.stack);
+      console.error('Контекст ошибки:', {
+        currentQuestion: ctx.session?.currentQuestion,
+        callbackData,
+        sessionState: ctx.session
+      });
       await this.sendErrorMessage(ctx, 'Ошибка сохранения ответа');
     }
   }
@@ -478,6 +530,13 @@ class BreathingLeadBot {
    */
   async handleMultipleChoice(ctx, questionId, value, callbackData) {
     try {
+      console.log('🔍 MULTIPLE CHOICE DEBUG:', {
+        questionId,
+        value,
+        callbackData,
+        isDone: callbackData.includes('done')
+      });
+
       const question = this.surveyQuestions.getQuestion(questionId);
       
       // Инициализируем массив выборов если нужно
@@ -490,9 +549,12 @@ class BreathingLeadBot {
       }
 
       const currentSelections = ctx.session.multipleChoiceSelections[questionId];
+      console.log('📋 Текущие выборы:', currentSelections);
 
       // Если нажали "завершить выбор"
       if (callbackData.includes('done')) {
+        console.log('✅ Завершаем множественный выбор');
+        
         const validation = this.surveyQuestions.validateAnswer(
           questionId, 
           'done', 
@@ -500,6 +562,7 @@ class BreathingLeadBot {
         );
         
         if (!validation.valid) {
+          console.log('❌ Валидация множественного выбора не пройдена:', validation.error);
           await ctx.answerCbQuery(validation.error, { show_alert: true });
           return;
         }
@@ -512,7 +575,11 @@ class BreathingLeadBot {
           ctx.session.completedQuestions.push(questionId);
         }
         
-        console.log('✅ Множественный выбор завершен:', questionId, '=', currentSelections);
+        console.log('✅ Множественный выбор завершен:', {
+          question: questionId,
+          selections: currentSelections,
+          count: currentSelections.length
+        });
         
         return await this.moveToNextQuestion(ctx);
       }
@@ -523,6 +590,7 @@ class BreathingLeadBot {
       if (existingIndex > -1) {
         // Убираем из выбора
         currentSelections.splice(existingIndex, 1);
+        console.log('➖ Выбор убран:', value);
         await ctx.answerCbQuery('❌ Выбор убран');
       } else {
         // Проверяем лимит выборов
@@ -533,55 +601,89 @@ class BreathingLeadBot {
         );
         
         if (!validation.valid) {
+          console.log('❌ Превышен лимит выборов:', validation.error);
           await ctx.answerCbQuery(validation.error, { show_alert: true });
           return;
         }
 
         // Добавляем в выбор
         currentSelections.push(value);
+        console.log('➕ Выбор добавлен:', value);
         await ctx.answerCbQuery('✅ Выбор добавлен');
       }
 
+      console.log('🔄 Обновляем вопрос с новыми выборами:', currentSelections);
       // Обновляем вопрос с текущими выборами
       await this.askQuestion(ctx, questionId);
       
     } catch (error) {
       console.error('❌ Ошибка в handleMultipleChoice:', error);
+      console.error('Стек ошибки:', error.stack);
       await this.sendErrorMessage(ctx, 'Ошибка обработки выбора');
     }
   }
 
   /**
-   * Переход к следующему вопросу
+   * Переход к следующему вопросу - ИСПРАВЛЕННАЯ ВЕРСИЯ С ОТЛАДКОЙ
    */
   async moveToNextQuestion(ctx) {
     try {
       const currentQuestionId = ctx.session.currentQuestion;
+      
+      console.log('🔍 MOVE TO NEXT QUESTION DEBUG:', {
+        currentQuestionId,
+        hasAnswers: !!ctx.session.answers,
+        answersCount: Object.keys(ctx.session.answers || {}).length,
+        completedCount: (ctx.session.completedQuestions || []).length
+      });
+
       const nextQuestionId = this.surveyQuestions.getNextQuestion(
         currentQuestionId, 
         ctx.session.answers
       );
 
+      console.log('🔍 Next question calculation:', {
+        currentQuestion: currentQuestionId,
+        nextQuestion: nextQuestionId,
+        userData: Object.keys(ctx.session.answers || {})
+      });
+
       if (nextQuestionId) {
+        console.log('➡️ Переходим к следующему вопросу:', nextQuestionId);
         ctx.session.currentQuestion = nextQuestionId;
         ctx.session.questionStartTime = Date.now();
         await this.askQuestion(ctx, nextQuestionId);
       } else {
+        console.log('🏁 Анкета завершена, переходим к анализу');
         // Анкета завершена
         await this.completeSurvey(ctx);
       }
     } catch (error) {
       console.error('❌ Ошибка в moveToNextQuestion:', error);
+      console.error('Стек ошибки:', error.stack);
+      console.error('Контекст ошибки:', {
+        currentQuestion: ctx.session?.currentQuestion,
+        sessionAnswers: ctx.session?.answers,
+        systemState: {
+          surveyQuestionsAvailable: !!this.surveyQuestions,
+          getNextQuestionMethod: !!this.surveyQuestions?.getNextQuestion
+        }
+      });
       await this.sendErrorMessage(ctx, 'Ошибка перехода к следующему вопросу');
     }
   }
 
-    /**
+  /**
    * Завершение анкеты и анализ результатов
    */
   async completeSurvey(ctx) {
     try {
       console.log('🏁 Анкета завершена, начинаем анализ...');
+      console.log('📊 Финальные данные:', {
+        totalAnswers: Object.keys(ctx.session.answers || {}).length,
+        completedQuestions: (ctx.session.completedQuestions || []).length,
+        answers: ctx.session.answers
+      });
 
       // Показываем сообщение об анализе
       const analysisMessage = `🧠 *Анализирую ваши ответы...*
@@ -601,7 +703,8 @@ class BreathingLeadBot {
       console.log('📊 Результат анализа:', {
         segment: analysisResult.segment,
         primaryIssue: analysisResult.primaryIssue,
-        scores: analysisResult.scores
+        scores: analysisResult.scores,
+        hasRecommendations: !!analysisResult.recommendations
       });
 
       // Сохраняем результаты в сессии
@@ -616,7 +719,9 @@ class BreathingLeadBot {
 
     } catch (error) {
       console.error('❌ Ошибка анализа:', error);
-      await ctx.editMessageText(
+      console.error('Стек ошибки:', error.stack);
+      
+	  await ctx.editMessageText(
         '😔 Произошла ошибка при анализе. Анастасия свяжется с вами лично для подбора программы.',
         { parse_mode: 'Markdown' }
       );
@@ -628,6 +733,12 @@ class BreathingLeadBot {
    */
   async showAnalysisResults(ctx, analysisResult) {
     try {
+      console.log('📋 Показываем результаты анализа:', {
+        segment: analysisResult.segment,
+        hasMessage: !!analysisResult.personalMessage,
+        messageLength: analysisResult.personalMessage?.length || 0
+      });
+
       const message = analysisResult.personalMessage;
 
       const keyboard = Markup.inlineKeyboard([
@@ -644,8 +755,11 @@ class BreathingLeadBot {
       // Сохраняем результаты в сессии для дальнейшего использования
       ctx.session.analysisResult = analysisResult;
       ctx.session.surveyCompleted = true;
+      
+      console.log('✅ Результаты анализа показаны пользователю');
     } catch (error) {
       console.error('❌ Ошибка показа результатов:', error);
+      console.error('Стек ошибки:', error.stack);
       await this.sendErrorMessage(ctx, 'Ошибка отображения результатов');
     }
   }
@@ -655,6 +769,8 @@ class BreathingLeadBot {
    */
   async handleContactCollection(ctx, callbackData) {
     try {
+      console.log('📞 Обрабатываем сбор контактов:', callbackData);
+
       if (callbackData === 'contact_request') {
         await this.requestContactInfo(ctx);
       } else if (callbackData === 'program_details') {
@@ -678,6 +794,7 @@ class BreathingLeadBot {
       } else if (callbackData === 'back_to_contact_choice') {
         await this.requestContactInfo(ctx);
       } else {
+        console.log('⚠️ Неизвестная команда контактов:', callbackData);
         await ctx.answerCbQuery('Неизвестная команда');
       }
     } catch (error) {
@@ -764,6 +881,7 @@ class BreathingLeadBot {
       const analysisResult = ctx.session.analysisResult;
       
       if (!analysisResult) {
+        console.log('⚠️ Результат анализа не найден, возвращаемся к началу');
         await this.handleStart(ctx);
         return;
       }
@@ -808,6 +926,7 @@ ${analysisResult.recommendations.support_materials.map(material => `• ${materi
       const analysisResult = ctx.session.analysisResult;
       
       if (!analysisResult) {
+        console.log('⚠️ Результат анализа не найден, возвращаемся к началу');
         await this.handleStart(ctx);
         return;
       }
@@ -843,6 +962,8 @@ ${analysisResult.recommendations.support_materials.map(material => `📄 ${mater
    */
   async saveContactAndFinish(ctx, contactType, contactValue) {
     try {
+      console.log('💾 Сохраняем контакт:', { contactType, contactValue });
+
       // Сохраняем контактную информацию
       ctx.session.contactInfo = {
         type: contactType,
@@ -872,6 +993,8 @@ ${analysisResult.recommendations.support_materials.map(material => `📄 ${mater
       if (ctx.session.analysisResult) {
         this.transferLeadAsync(ctx);
       }
+
+      console.log('✅ Контакт сохранен и процесс завершен');
     } catch (error) {
       console.error('❌ Ошибка сохранения контакта:', error);
       await this.sendErrorMessage(ctx, 'Ошибка сохранения контактной информации');
@@ -883,8 +1006,11 @@ ${analysisResult.recommendations.support_materials.map(material => `📄 ${mater
    */
   async handleTextMessage(ctx) {
     try {
+      console.log('📝 Обрабатываем текстовое сообщение:', ctx.message.text);
+
       // Если ожидаем ввод контактной информации
       if (ctx.session.awaitingContact && ctx.session.contactType) {
+        console.log('📞 Обрабатываем ввод контактной информации');
         const success = await this.validateAndSaveContact(ctx, ctx.message.text.trim());
         return;
       }
@@ -908,6 +1034,8 @@ ${analysisResult.recommendations.support_materials.map(material => `📄 ${mater
     try {
       const contactType = ctx.session.contactType;
       const validation = ctx.session.contactValidation;
+      
+      console.log('🔍 Валидируем контакт:', { contactType, contactValue, hasValidation: !!validation });
       
       if (validation && !validation.test(contactValue)) {
         let errorMessage = '';
@@ -938,7 +1066,11 @@ ${analysisResult.recommendations.support_materials.map(material => `📄 ${mater
   async transferLeadAsync(ctx) {
     try {
       const userData = this.prepareUserData(ctx);
-      console.log('🚀 Начинаем передачу лида в системы...');
+      console.log('🚀 Начинаем передачу лида в системы...', {
+        userId: userData.userInfo.telegram_id,
+        segment: userData.analysisResult?.segment,
+        hasContact: !!userData.contactInfo
+      });
       
       const transferResult = await this.leadTransfer.processLead(userData);
       
@@ -975,19 +1107,6 @@ ${analysisResult.recommendations.support_materials.map(material => `📄 ${mater
   }
 
   /**
-   * Безопасная отправка сообщения об ошибке
-   */
-  async sendErrorMessage(ctx, message) {
-    try {
-      if (ctx && ctx.reply) {
-        await ctx.reply(`😔 ${message}`);
-      }
-    } catch (error) {
-      console.error('❌ Не удалось отправить сообщение об ошибке:', error);
-    }
-  }
-
-  /**
    * Отладочные команды
    */
   async handleDebugCommand(ctx) {
@@ -1010,7 +1129,9 @@ ${analysisResult.recommendations.support_materials.map(material => `📄 ${mater
         has_session: true,
         current_question: ctx.session.currentQuestion,
         answers_count: Object.keys(ctx.session.answers || {}).length,
-        completed_count: (ctx.session.completedQuestions || []).length
+        completed_count: (ctx.session.completedQuestions || []).length,
+        survey_completed: ctx.session.surveyCompleted || false,
+        has_analysis_result: !!ctx.session.analysisResult
       } : { has_session: false }
     };
     
@@ -1020,6 +1141,8 @@ ${analysisResult.recommendations.support_materials.map(material => `📄 ${mater
   }
 
   async handleResetCommand(ctx) {
+    console.log('🔄 Сброс сессии для пользователя:', ctx.from.id);
+    
     ctx.session = {
       currentQuestion: null,
       answers: {},
@@ -1033,7 +1156,67 @@ ${analysisResult.recommendations.support_materials.map(material => `📄 ${mater
   }
 
   /**
-   * Показ статистики для администратора
+   * Вспомогательные методы
+   */
+  async sendErrorMessage(ctx, message) {
+    try {
+      if (ctx && ctx.reply) {
+        await ctx.reply(`😔 ${message}`);
+      }
+    } catch (error) {
+      console.error('❌ Не удалось отправить сообщение об ошибке:', error);
+    }
+  }
+
+  generateProgressBar(percentage) {
+    const totalBlocks = 10;
+    const filledBlocks = Math.round((percentage / 100) * totalBlocks);
+    const emptyBlocks = totalBlocks - filledBlocks;
+    
+    return '🟩'.repeat(filledBlocks) + '⬜'.repeat(emptyBlocks);
+  }
+
+  getSelectionDisplayText(selection) {
+    const displayTexts = {
+      'chronic_stress': 'Хронический стресс',
+      'insomnia': 'Проблемы со сном',
+      'breathing_issues': 'Проблемы с дыханием',
+      'high_pressure': 'Повышенное давление',
+      'anxiety': 'Тревожность',
+      'fatigue': 'Усталость',
+      'video': 'Видеоуроки',
+      'audio': 'Аудиопрактики',
+      'text': 'Текстовые материалы',
+      'individual': 'Индивидуальные консультации'
+    };
+    
+    return displayTexts[selection] || selection;
+  }
+
+  isAdmin(userId) {
+    return config.ADMIN_ID && userId.toString() === config.ADMIN_ID.toString();
+  }
+
+  async notifyAdminAboutError(error, ctx) {
+    if (!config.ADMIN_ID) return;
+    
+    try {
+      const errorMessage = `🚨 *Ошибка в лид-боте:*\n\n` +
+        `👤 Пользователь: ${ctx?.from?.id}\n` +
+        `📝 Тип: ${error.name}\n` +
+        `💬 Сообщение: ${error.message}\n` +
+        `🕐 Время: ${new Date().toLocaleString('ru-RU')}`;
+      
+      await this.bot.telegram.sendMessage(config.ADMIN_ID, errorMessage, {
+        parse_mode: 'Markdown'
+      });
+    } catch (adminError) {
+      console.error('❌ Не удалось уведомить администратора:', adminError);
+    }
+  }
+
+  /**
+   * Дополнительные методы для администратора
    */
   async showStats(ctx) {
     try {
@@ -1069,9 +1252,6 @@ ${analysisResult.recommendations.support_materials.map(material => `📄 ${mater
     }
   }
 
-  /**
-   * Показ статуса здоровья системы
-   */
   async showHealthStatus(ctx) {
     try {
       const healthStatus = await this.leadTransfer.healthCheck();
@@ -1105,68 +1285,6 @@ ${analysisResult.recommendations.support_materials.map(material => `📄 ${mater
     }
   }
 
-  /**
-   * Генерация прогресс-бара
-   */
-  generateProgressBar(percentage) {
-    const totalBlocks = 10;
-    const filledBlocks = Math.round((percentage / 100) * totalBlocks);
-    const emptyBlocks = totalBlocks - filledBlocks;
-    
-    return '🟩'.repeat(filledBlocks) + '⬜'.repeat(emptyBlocks);
-  }
-
-  /**
-   * Получение текста для отображения выбора
-   */
-  getSelectionDisplayText(selection) {
-    const displayTexts = {
-      'chronic_stress': 'Хронический стресс',
-      'insomnia': 'Проблемы со сном',
-      'breathing_issues': 'Проблемы с дыханием',
-      'high_pressure': 'Повышенное давление',
-      'anxiety': 'Тревожность',
-      'fatigue': 'Усталость',
-      'video': 'Видеоуроки',
-      'audio': 'Аудиопрактики',
-      'text': 'Текстовые материалы',
-      'individual': 'Индивидуальные консультации'
-    };
-    
-    return displayTexts[selection] || selection;
-  }
-
-  /**
-   * Проверка является ли пользователь администратором
-   */
-  isAdmin(userId) {
-    return config.ADMIN_ID && userId.toString() === config.ADMIN_ID.toString();
-  }
-
-  /**
-   * Уведомление администратора об ошибке
-   */
-  async notifyAdminAboutError(error, ctx) {
-    if (!config.ADMIN_ID) return;
-    
-    try {
-      const errorMessage = `🚨 *Ошибка в лид-боте:*\n\n` +
-        `👤 Пользователь: ${ctx?.from?.id}\n` +
-        `📝 Тип: ${error.name}\n` +
-        `💬 Сообщение: ${error.message}\n` +
-        `🕐 Время: ${new Date().toLocaleString('ru-RU')}`;
-      
-      await this.bot.telegram.sendMessage(config.ADMIN_ID, errorMessage, {
-        parse_mode: 'Markdown'
-      });
-    } catch (adminError) {
-      console.error('❌ Не удалось уведомить администратора:', adminError);
-    }
-  }
-
-  /**
-   * Получение времени работы бота
-   */
   getUptime() {
     const uptime = process.uptime();
     const hours = Math.floor(uptime / 3600);
@@ -1174,18 +1292,12 @@ ${analysisResult.recommendations.support_materials.map(material => `📄 ${mater
     return `${hours}ч ${minutes}м`;
   }
 
-  /**
-   * Получение использования памяти
-   */
   getMemoryUsage() {
     const used = process.memoryUsage();
     const mb = Math.round(used.heapUsed / 1024 / 1024);
     return `${mb} MB`;
   }
 
-  /**
-   * Вспомогательная функция задержки
-   */
   delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
@@ -1214,9 +1326,6 @@ ${analysisResult.recommendations.support_materials.map(material => `📄 ${mater
     process.once('SIGTERM', () => this.bot.stop('SIGTERM'));
   }
 
-  /**
-   * Валидация конфигурации при запуске
-   */
   validateConfiguration() {
     const requiredVars = ['LEAD_BOT_TOKEN'];
     const missing = requiredVars.filter(key => !process.env[key]);
