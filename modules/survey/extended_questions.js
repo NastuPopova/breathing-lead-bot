@@ -1,5 +1,6 @@
+```javascript
 // Файл: lead_bot/modules/survey/extended_questions.js
-// Расширенная анкета из 18 вопросов с адаптивной логикой
+// Расширенная анкета из 18+ вопросов с адаптивной логикой, навигацией назад и детскими вопросами
 
 const { Markup } = require('telegraf');
 
@@ -33,7 +34,8 @@ class ExtendedSurveyQuestions {
         ]),
         required: true,
         type: 'single_choice',
-        adaptive: true
+        adaptive: true,
+        allowBack: false // первый вопрос, назад нельзя
       },
 
       occupation: {
@@ -47,10 +49,12 @@ class ExtendedSurveyQuestions {
           [Markup.button.callback('🎓 Учеба', 'occ_student')],
           [Markup.button.callback('👶 В декрете', 'occ_maternity')],
           [Markup.button.callback('🌅 На пенсии', 'occ_retired')],
-          [Markup.button.callback('👔 Руководящая должность', 'occ_management')]
+          [Markup.button.callback('👔 Руководящая должность', 'occ_management')],
+          [Markup.button.callback('⬅️ Назад', 'nav_back')]
         ]),
         required: true,
-        type: 'single_choice'
+        type: 'single_choice',
+        allowBack: true
       },
 
       physical_activity: {
@@ -62,10 +66,12 @@ class ExtendedSurveyQuestions {
           [Markup.button.callback('💪 3-4 раза в неделю', 'activity_regular')],
           [Markup.button.callback('🚶 1-2 раза в неделю', 'activity_sometimes')],
           [Markup.button.callback('📚 Несколько раз в месяц', 'activity_rarely')],
-          [Markup.button.callback('🛋️ Практически не занимаюсь', 'activity_never')]
+          [Markup.button.callback('🛋️ Практически не занимаюсь', 'activity_never')],
+          [Markup.button.callback('⬅️ Назад', 'nav_back')]
         ]),
         required: true,
-        type: 'single_choice'
+        type: 'single_choice',
+        allowBack: true
       },
 
       // БЛОК Б: ОСНОВНЫЕ ПРОБЛЕМЫ (4 вопроса)
@@ -84,12 +90,14 @@ class ExtendedSurveyQuestions {
           [Markup.button.callback('🧠 Проблемы с концентрацией', 'prob_concentration')],
           [Markup.button.callback('🔙 Боли в шее, плечах, спине', 'prob_back_pain')],
           [Markup.button.callback('🍽️ Проблемы с пищеварением', 'prob_digestion')],
-          [Markup.button.callback('✅ Завершить выбор', 'prob_done')]
+          [Markup.button.callback('✅ Завершить выбор', 'prob_done')],
+          [Markup.button.callback('⬅️ Назад', 'nav_back')]
         ]),
         required: true,
         type: 'multiple_choice',
         minSelections: 1,
-        note: "Выберите все подходящие проблемы, затем нажмите '✅ Завершить выбор'"
+        note: "Выберите все подходящие проблемы, затем нажмите '✅ Завершить выбор'",
+        allowBack: true
       },
 
       stress_level: {
@@ -110,10 +118,12 @@ class ExtendedSurveyQuestions {
             Markup.button.callback('😨 8', 'stress_8'),
             Markup.button.callback('😱 9', 'stress_9'),
             Markup.button.callback('🆘 10', 'stress_10')
-          ]
+          ],
+          [Markup.button.callback('⬅️ Назад', 'nav_back')]
         ]),
         required: true,
-        type: 'scale'
+        type: 'scale',
+        allowBack: true
       },
 
       sleep_quality: {
@@ -134,10 +144,12 @@ class ExtendedSurveyQuestions {
             Markup.button.callback('😌 8', 'sleep_8'),
             Markup.button.callback('😴 9', 'sleep_9'),
             Markup.button.callback('🌟 10', 'sleep_10')
-          ]
+          ],
+          [Markup.button.callback('⬅️ Назад', 'nav_back')]
         ]),
         required: true,
-        type: 'scale'
+        type: 'scale',
+        allowBack: true
       },
 
       priority_problem: {
@@ -151,10 +163,12 @@ class ExtendedSurveyQuestions {
           [Markup.button.callback('💔 Высокое давление, проблемы с сердцем', 'prio_pressure')],
           [Markup.button.callback('😨 Постоянная тревога, панические атаки', 'prio_anxiety')],
           [Markup.button.callback('😵 Хроническая усталость, нет энергии', 'prio_fatigue')],
-          [Markup.button.callback('🧠 Не могу сосредоточиться', 'prio_focus')]
+          [Markup.button.callback('🧠 Не могу сосредоточиться', 'prio_focus')],
+          [Markup.button.callback('⬅️ Назад', 'nav_back')]
         ]),
         required: true,
-        type: 'single_choice'
+        type: 'single_choice',
+        allowBack: true
       },
 
       // БЛОК В: ДЫХАТЕЛЬНЫЕ ПРИВЫЧКИ (4 вопроса)
@@ -166,10 +180,12 @@ class ExtendedSurveyQuestions {
           [Markup.button.callback('👃 В основном носом', 'method_nose')],
           [Markup.button.callback('👄 Часто дышу ртом', 'method_mouth')],
           [Markup.button.callback('🔄 Попеременно носом и ртом', 'method_mixed')],
-          [Markup.button.callback('🤷 Не обращаю внимания на дыхание', 'method_unaware')]
+          [Markup.button.callback('🤷 Не обращаю внимания на дыхание', 'method_unaware')],
+          [Markup.button.callback('⬅️ Назад', 'nav_back')]
         ]),
         required: true,
-        type: 'single_choice'
+        type: 'single_choice',
+        allowBack: true
       },
 
       breathing_frequency: {
@@ -181,10 +197,12 @@ class ExtendedSurveyQuestions {
           [Markup.button.callback('🟡 Часто (несколько раз в неделю)', 'freq_often')],
           [Markup.button.callback('🟠 Периодически (несколько раз в месяц)', 'freq_sometimes')],
           [Markup.button.callback('🟢 Редко (несколько раз в год)', 'freq_rarely')],
-          [Markup.button.callback('⚪ Никогда не замечаю проблем', 'freq_never')]
+          [Markup.button.callback('⚪ Никогда не замечаю проблем', 'freq_never')],
+          [Markup.button.callback('⬅️ Назад', 'nav_back')]
         ]),
         required: true,
-        type: 'single_choice'
+        type: 'single_choice',
+        allowBack: true
       },
 
       shallow_breathing: {
@@ -194,10 +212,12 @@ class ExtendedSurveyQuestions {
         keyboard: Markup.inlineKeyboard([
           [Markup.button.callback('✅ Да, часто ловлю себя на этом', 'shallow_yes_often')],
           [Markup.button.callback('🤔 Иногда замечаю в стрессе', 'shallow_sometimes')],
-          [Markup.button.callback('❌ Нет, дышу нормально и глубоко', 'shallow_no')]
+          [Markup.button.callback('❌ Нет, дышу нормально и глубоко', 'shallow_no')],
+          [Markup.button.callback('⬅️ Назад', 'nav_back')]
         ]),
         required: true,
-        type: 'single_choice'
+        type: 'single_choice',
+        allowBack: true
       },
 
       stress_breathing: {
@@ -210,10 +230,12 @@ class ExtendedSurveyQuestions {
           [Markup.button.callback('😤 Чувствую нехватку воздуха', 'stress_shortage')],
           [Markup.button.callback('👄 Дышу ртом вместо носа', 'stress_mouth')],
           [Markup.button.callback('🤷 Не замечаю изменений', 'stress_no_change')],
-          [Markup.button.callback('🧘 Стараюсь дышать глубже', 'stress_conscious')]
+          [Markup.button.callback('🧘 Стараюсь дышать глубже', 'stress_conscious')],
+          [Markup.button.callback('⬅️ Назад', 'nav_back')]
         ]),
         required: true,
-        type: 'single_choice'
+        type: 'single_choice',
+        allowBack: true
       },
 
       // БЛОК Г: ОПЫТ И ЦЕЛИ (4 вопроса)
@@ -227,10 +249,12 @@ class ExtendedSurveyQuestions {
           [Markup.button.callback('📚 Изучал(а) теорию, но не практиковал(а)', 'exp_theory')],
           [Markup.button.callback('📅 Иногда практикую (несколько раз в месяц)', 'exp_sometimes')],
           [Markup.button.callback('💪 Практикую регулярно (несколько раз в неделю)', 'exp_regularly')],
-          [Markup.button.callback('🎯 Опытный практик (ежедневно)', 'exp_expert')]
+          [Markup.button.callback('🎯 Опытный практик (ежедневно)', 'exp_expert')],
+          [Markup.button.callback('⬅️ Назад', 'nav_back')]
         ]),
         required: true,
-        type: 'single_choice'
+        type: 'single_choice',
+        allowBack: true
       },
 
       time_commitment: {
@@ -241,10 +265,12 @@ class ExtendedSurveyQuestions {
           [Markup.button.callback('⚡ 3-5 минут (в перерывах, по дороге)', 'time_3-5')],
           [Markup.button.callback('🎯 10-15 минут (утром или вечером)', 'time_10-15')],
           [Markup.button.callback('💎 20-30 минут (полноценная практика)', 'time_20-30')],
-          [Markup.button.callback('🏆 30+ минут (глубокое изучение)', 'time_30+')]
+          [Markup.button.callback('🏆 30+ минут (глубокое изучение)', 'time_30+')],
+          [Markup.button.callback('⬅️ Назад', 'nav_back')]
         ]),
         required: true,
-        type: 'single_choice'
+        type: 'single_choice',
+        allowBack: true
       },
 
       format_preferences: {
@@ -258,11 +284,13 @@ class ExtendedSurveyQuestions {
           [Markup.button.callback('💻 Живые онлайн-занятия', 'format_online')],
           [Markup.button.callback('👨‍⚕️ Индивидуальные консультации', 'format_individual')],
           [Markup.button.callback('📱 Мобильное приложение', 'format_app')],
-          [Markup.button.callback('✅ Завершить выбор', 'format_done')]
+          [Markup.button.callback('✅ Завершить выбор', 'format_done')],
+          [Markup.button.callback('⬅️ Назад', 'nav_back')]
         ]),
         required: true,
         type: 'multiple_choice',
-        note: "Выберите все подходящие форматы, затем нажмите '✅ Завершить выбор'"
+        note: "Выберите все подходящие форматы, затем нажмите '✅ Завершить выбор'",
+        allowBack: true
       },
 
       main_goals: {
@@ -280,45 +308,178 @@ class ExtendedSurveyQuestions {
           [Markup.button.callback('🧠 Улучшить концентрацию внимания', 'goal_focus')],
           [Markup.button.callback('⚖️ Поддержать процесс похудения', 'goal_weight')],
           [Markup.button.callback('💚 Общее оздоровление организма', 'goal_health')],
-          [Markup.button.callback('✅ Завершить выбор', 'goals_done')]
+          [Markup.button.callback('✅ Завершить выбор', 'goals_done')],
+          [Markup.button.callback('⬅️ Назад', 'nav_back')]
         ]),
         required: true,
         type: 'multiple_choice',
         maxSelections: 2,
-        note: "Выберите максимум 2 цели, затем нажмите '✅ Завершить выбор'"
+        note: "Выберите максимум 2 цели, затем нажмите '✅ Завершить выбор'",
+        allowBack: true
       },
 
-      // БЛОК Д: АДАПТИВНЫЕ ВОПРОСЫ (показываются по условиям)
-      child_specific: {
-        id: 'child_specific',
+      // БЛОК Д: ДЕТСКИЕ ВОПРОСЫ (показываются только для детей)
+      child_age_detail: {
+        id: 'child_age_detail',
         block: 'E',
-        condition: (userData) => userData.age_group && (
-          userData.age_group.includes('5-12') || 
-          userData.age_group.includes('13-17') || 
-          userData.age_group === 'for_child'
-        ),
-        text: `👶 *Дополнительная информация о ребенке:*\n\nЧто особенно беспокоит в поведении или состоянии ребенка?`,
+        condition: (userData) => this.isChildFlow(userData),
+        text: `👶 *Уточните возраст ребенка:*\n\nВозраст важен для подбора подходящих техник и упражнений.`,
         keyboard: Markup.inlineKeyboard([
-          [Markup.button.callback('😭 Часто капризничает, плачет', 'child_tantrums')],
-          [Markup.button.callback('😴 Трудно засыпает, беспокойный сон', 'child_sleep')],
-          [Markup.button.callback('⚡ Гиперактивный, не может усидеть', 'child_hyperactive')],
-          [Markup.button.callback('😰 Тревожный, боится разлуки', 'child_anxiety')],
-          [Markup.button.callback('📚 Проблемы с концентрацией в школе', 'child_focus')],
-          [Markup.button.callback('🤧 Часто болеет простудными заболеваниями', 'child_illness')],
-          [Markup.button.callback('🫁 Астма или проблемы с дыханием', 'child_asthma')],
-          [Markup.button.callback('💚 В целом здоров, хочу научить полезным навыкам', 'child_healthy')],
-          [Markup.button.callback('✅ Завершить выбор', 'child_done')]
+          [
+            Markup.button.callback('👶 3-4 года', 'child_age_3-4'),
+            Markup.button.callback('🧒 5-6 лет', 'child_age_5-6')
+          ],
+          [
+            Markup.button.callback('👦 7-8 лет', 'child_age_7-8'),
+            Markup.button.callback('👧 9-10 лет', 'child_age_9-10')
+          ],
+          [
+            Markup.button.callback('🧑 11-12 лет', 'child_age_11-12'),
+            Markup.button.callback('👨‍🎓 13-15 лет', 'child_age_13-15')
+          ],
+          [
+            Markup.button.callback('👩‍🎓 16-17 лет', 'child_age_16-17')
+          ],
+          [Markup.button.callback('⬅️ Назад', 'nav_back')]
         ]),
-        required: false,
-        type: 'multiple_choice'
+        required: true,
+        type: 'single_choice',
+        allowBack: true
       },
 
+      child_education_status: {
+        id: 'child_education_status',
+        block: 'E',
+        condition: (userData) => this.isChildFlow(userData),
+        text: `🎓 *Где учится/воспитывается ребенок?*\n\nОбразовательная среда влияет на стресс и дыхательные привычки.`,
+        keyboard: Markup.inlineKeyboard([
+          [Markup.button.callback('🏠 Дома (не посещает учреждения)', 'edu_home')],
+          [Markup.button.callback('🌟 Частный детский сад', 'edu_private_garden')],
+          [Markup.button.callback('🏢 Государственный детский сад', 'edu_public_garden')],
+          [Markup.button.callback('🎯 Частная школа', 'edu_private_school')],
+          [Markup.button.callback('🏫 Государственная школа', 'edu_public_school')],
+          [Markup.button.callback('🏆 Гимназия/лицей', 'edu_gymnasium')],
+          [Markup.button.callback('💻 Семейное обучение/экстернат', 'edu_homeschool')],
+          [Markup.button.callback('🎨 Альтернативные школы (Монтессори, Вальдорф)', 'edu_alternative')],
+          [Markup.button.callback('⬅️ Назад', 'nav_back')]
+        ]),
+        required: true,
+        type: 'single_choice',
+        allowBack: true
+      },
+
+      child_schedule_stress: {
+        id: 'child_schedule_stress',
+        block: 'E',
+        condition: (userData) => this.isChildFlow(userData),
+        text: `⏰ *Насколько загружен день ребенка?*\n\nЗагруженность влияет на стресс и потребность в релаксации.`,
+        keyboard: Markup.inlineKeyboard([
+          [Markup.button.callback('😌 Свободное расписание, много отдыха', 'schedule_relaxed')],
+          [Markup.button.callback('🎯 Учеба + 1-2 секции/кружка', 'schedule_moderate')],
+          [Markup.button.callback('⚡ Учеба + 3-4 дополнительных занятия', 'schedule_busy')],
+          [Markup.button.callback('🔥 Очень загружен: учеба + много секций', 'schedule_overloaded')],
+          [Markup.button.callback('📚 Интенсивная подготовка (экзамены, олимпиады)', 'schedule_intensive')],
+          [Markup.button.callback('⬅️ Назад', 'nav_back')]
+        ]),
+        required: true,
+        type: 'single_choice',
+        allowBack: true
+      },
+
+      child_problems_detailed: {
+        id: 'child_problems_detailed',
+        block: 'E',
+        condition: (userData) => this.isChildFlow(userData),
+        text: `🎭 *Что беспокоит в поведении или состоянии ребенка?*\n\nВыберите все подходящие варианты для точного подбора техник.`,
+        keyboard: Markup.inlineKeyboard([
+          [Markup.button.callback('😭 Частые истерики, капризы', 'child_prob_tantrums')],
+          [Markup.button.callback('😴 Проблемы с засыпанием', 'child_prob_sleep_issues')],
+          [Markup.button.callback('🌙 Беспокойный сон, кошмары', 'child_prob_nightmares')],
+          [Markup.button.callback('⚡ Гиперактивность, не может усидеть', 'child_prob_hyperactive')],
+          [Markup.button.callback('😰 Тревожность, страхи', 'child_prob_anxiety')],
+          [Markup.button.callback('👪 Боится разлуки с родителями', 'child_prob_separation')],
+          [Markup.button.callback('📚 Проблемы с концентрацией в учебе', 'child_prob_focus')],
+          [Markup.button.callback('👥 Сложности в общении со сверстниками', 'child_prob_social')],
+          [Markup.button.callback('😤 Агрессивное поведение', 'child_prob_aggression')],
+          [Markup.button.callback('🤧 Частые простуды, слабый иммунитет', 'child_prob_immunity')],
+          [Markup.button.callback('🫁 Астма или проблемы с дыханием', 'child_prob_breathing')],
+          [Markup.button.callback('💚 В целом здоров, профилактика', 'child_prob_prevention')],
+          [Markup.button.callback('✅ Завершить выбор', 'child_prob_done')],
+          [Markup.button.callback('⬅️ Назад', 'nav_back')]
+        ]),
+        required: true,
+        type: 'multiple_choice',
+        minSelections: 1,
+        note: "Выберите все актуальные проблемы, затем нажмите '✅ Завершить выбор'",
+        allowBack: true
+      },
+
+      child_parent_involvement: {
+        id: 'child_parent_involvement',
+        block: 'E',
+        condition: (userData) => this.isChildFlow(userData),
+        text: `👨‍👩‍👧‍👦 *Кто будет заниматься с ребенком дыхательными практиками?*\n\nЭто поможет адаптировать программу под ваши возможности.`,
+        keyboard: Markup.inlineKeyboard([
+          [Markup.button.callback('👩 Только мама', 'parent_mother')],
+          [Markup.button.callback('👨 Только папа', 'parent_father')],
+          [Markup.button.callback('👨‍👩‍👧‍👦 Оба родителя по очереди', 'parent_both')],
+          [Markup.button.callback('👵 Бабушка/дедушка', 'parent_grandparent')],
+          [Markup.button.callback('🎯 Ребенок самостоятельно (с контролем)', 'parent_independent')],
+          [Markup.button.callback('👨‍🏫 Планируем групповые занятия', 'parent_group')],
+          [Markup.button.callback('⬅️ Назад', 'nav_back')]
+        ]),
+        required: true,
+        type: 'single_choice',
+        allowBack: true
+      },
+
+      child_motivation_approach: {
+        id: 'child_motivation_approach',
+        block: 'E',
+        condition: (userData) => this.isChildFlow(userData),
+        text: `🎯 *Как лучше мотивировать вашего ребенка?*\n\nПонимание мотивации поможет сделать практики увлекательными.`,
+        keyboard: Markup.inlineKeyboard([
+          [Markup.button.callback('🎮 Игровая форма, сказки', 'motivation_games')],
+          [Markup.button.callback('🏆 Система наград и достижений', 'motivation_rewards')],
+          [Markup.button.callback('👨‍👩‍👧‍👦 Совместные занятия с родителями', 'motivation_family')],
+          [Markup.button.callback('📱 Интерактивные приложения', 'motivation_digital')],
+          [Markup.button.callback('🎨 Творческие задания', 'motivation_creative')],
+          [Markup.button.callback('📚 Объяснение пользы "по-взрослому"', 'motivation_explanation')],
+          [Markup.button.callback('👥 Занятия в группе со сверстниками', 'motivation_peer')],
+          [Markup.button.callback('⬅️ Назад', 'nav_back')]
+        ]),
+        required: true,
+        type: 'single_choice',
+        allowBack: true
+      },
+
+      child_time_availability: {
+        id: 'child_time_availability',
+        block: 'E',
+        condition: (userData) => this.isChildFlow(userData),
+        text: `⏰ *Когда удобнее заниматься дыхательными упражнениями?*\n\nВремя занятий влияет на эффективность и регулярность.`,
+        keyboard: Markup.inlineKeyboard([
+          [Markup.button.callback('🌅 Утром перед садом/школой (5-10 мин)', 'time_morning')],
+          [Markup.button.callback('🎒 После садика/школы (10-15 мин)', 'time_after_school')],
+          [Markup.button.callback('🍽️ После обеда/полдника', 'time_afternoon')],
+          [Markup.button.callback('🌆 Вечером перед сном (успокаивающие)', 'time_evening')],
+          [Markup.button.callback('📚 Во время выполнения домашних заданий', 'time_homework')],
+          [Markup.button.callback('🎯 В моменты стресса/капризов', 'time_stress_moments')],
+          [Markup.button.callback('🏖️ В выходные дни (больше времени)', 'time_weekends')],
+          [Markup.button.callback('⬅️ Назад', 'nav_back')]
+        ]),
+        required: true,
+        type: 'single_choice',
+        allowBack: true
+      },
+
+      // БЛОК Е: АДАПТИВНЫЕ ВОПРОСЫ ДЛЯ ВЗРОСЛЫХ (показываются по условиям)
       chronic_conditions: {
         id: 'chronic_conditions',
-        block: 'E',
-        condition: (userData) => userData.main_goals && (
-          userData.main_goals.includes('goal_pressure') || 
-          userData.main_goals.includes('goal_breathing') ||
+        block: 'F',
+        condition: (userData) => !this.isChildFlow(userData) && (
+          userData.main_goals?.includes('goal_pressure') || 
+          userData.main_goals?.includes('goal_breathing') ||
           userData.current_problems?.includes('prob_high_pressure')
         ),
         text: `🏥 *Хронические заболевания:*\n\nВажно учесть для безопасности практик. Выберите если есть:`,
@@ -332,17 +493,19 @@ class ExtendedSurveyQuestions {
           [Markup.button.callback('🍽️ Заболевания ЖКТ', 'condition_digestive')],
           [Markup.button.callback('🔧 Другое хроническое заболевание', 'condition_other')],
           [Markup.button.callback('💚 Нет хронических заболеваний', 'condition_none')],
-          [Markup.button.callback('✅ Завершить выбор', 'condition_done')]
+          [Markup.button.callback('✅ Завершить выбор', 'condition_done')],
+          [Markup.button.callback('⬅️ Назад', 'nav_back')]
         ]),
         required: false,
         type: 'multiple_choice',
-        note: "⚠️ Важно: дыхательные практики дополняют, но не заменяют лечение!"
+        note: "⚠️ Важно: дыхательные практики дополняют, но не заменяют лечение!",
+        allowBack: true
       },
 
       weight_goals: {
         id: 'weight_goals',
-        block: 'E',
-        condition: (userData) => userData.main_goals && userData.main_goals.includes('goal_weight'),
+        block: 'F',
+        condition: (userData) => !this.isChildFlow(userData) && userData.main_goals && userData.main_goals.includes('goal_weight'),
         text: `⚖️ *Цели по снижению веса:*\n\nРасскажите подробнее о ваших целях:`,
         keyboard: Markup.inlineKeyboard([
           [Markup.button.callback('📏 Нужно сбросить до 5 кг', 'weight_5kg')],
@@ -353,10 +516,12 @@ class ExtendedSurveyQuestions {
           [Markup.button.callback('😰 Заедаю стресс', 'weight_stress_eating')],
           [Markup.button.callback('🥗 Хочу поддержать диету дыханием', 'weight_diet_support')],
           [Markup.button.callback('🧘 Интересуют дыхательные методики для фигуры', 'weight_breathing_methods')],
-          [Markup.button.callback('✅ Завершить выбор', 'weight_done')]
+          [Markup.button.callback('✅ Завершить выбор', 'weight_done')],
+          [Markup.button.callback('⬅️ Назад', 'nav_back')]
         ]),
         required: false,
-        type: 'multiple_choice'
+        type: 'multiple_choice',
+        allowBack: true
       }
     };
   }
@@ -380,12 +545,116 @@ class ExtendedSurveyQuestions {
         'format_preferences',
         'main_goals'
       ],
+      childFlow: [
+        'child_age_detail',
+        'child_education_status',
+        'child_schedule_stress',
+        'child_problems_detailed',
+        'child_parent_involvement',
+        'child_motivation_approach',
+        'child_time_availability'
+      ],
       adaptiveQuestions: [
-        'child_specific',
         'chronic_conditions', 
         'weight_goals'
       ]
     };
+  }
+
+  /**
+   * Проверка является ли это детским потоком
+   */
+  isChildFlow(userData) {
+    return userData.age_group && (
+      userData.age_group.includes('5-12') || 
+      userData.age_group.includes('13-17') || 
+      userData.age_group === 'for_child'
+    );
+  }
+
+  /**
+   * Получение предыдущего вопроса для навигации назад
+   */
+  getPreviousQuestion(currentQuestion, userData) {
+    console.log('🔍 getPreviousQuestion DEBUG:', {
+      currentQuestion,
+      hasUserData: !!userData,
+      isChildFlow: this.isChildFlow(userData)
+    });
+
+    const { standardFlow, childFlow, adaptiveQuestions } = this.flowLogic;
+    
+    // Если это стандартный поток
+    if (standardFlow.includes(currentQuestion)) {
+      const currentIndex = standardFlow.indexOf(currentQuestion);
+      console.log('📝 Standard flow position:', currentIndex);
+      
+      if (currentIndex > 0) {
+        const prevQuestion = standardFlow[currentIndex - 1];
+        console.log('⬅️ Previous standard question:', prevQuestion);
+        return prevQuestion;
+      } else {
+        console.log('⚠️ First question in standard flow, no previous');
+        return null;
+      }
+    }
+    
+    // Если это детский поток
+    if (childFlow.includes(currentQuestion)) {
+      const currentIndex = childFlow.indexOf(currentQuestion);
+      console.log('📝 Child flow position:', currentIndex);
+      
+      if (currentIndex > 0) {
+        const prevQuestion = childFlow[currentIndex - 1];
+        console.log('⬅️ Previous child question:', prevQuestion);
+        return prevQuestion;
+      } else {
+        // Первый детский вопрос - возвращаемся к последнему стандартному
+        const lastStandardQuestion = standardFlow[standardFlow.length - 1];
+        console.log('⬅️ From child flow to last standard:', lastStandardQuestion);
+        return lastStandardQuestion;
+      }
+    }
+    
+    // Если это адаптивный вопрос
+    if (adaptiveQuestions.includes(currentQuestion)) {
+      const prevAdaptive = this.getPreviousAdaptiveQuestion(currentQuestion, userData);
+      if (prevAdaptive) {
+        console.log('⬅️ Previous adaptive question:', prevAdaptive);
+        return prevAdaptive;
+      } else {
+        // Возвращаемся к концу основного потока
+        if (this.isChildFlow(userData)) {
+          const lastChildQuestion = childFlow[childFlow.length - 1];
+          console.log('⬅️ From adaptive to last child:', lastChildQuestion);
+          return lastChildQuestion;
+        } else {
+          const lastStandardQuestion = standardFlow[standardFlow.length - 1];
+          console.log('⬅️ From adaptive to last standard:', lastStandardQuestion);
+          return lastStandardQuestion;
+        }
+      }
+    }
+    
+    console.log('⚠️ Could not determine previous question');
+    return null;
+  }
+
+  /**
+   * Получение предыдущего адаптивного вопроса
+   */
+  getPreviousAdaptiveQuestion(currentQuestion, userData) {
+    const { adaptiveQuestions } = this.flowLogic;
+    const currentIndex = adaptiveQuestions.indexOf(currentQuestion);
+    
+    for (let i = currentIndex - 1; i >= 0; i--) {
+      const questionId = adaptiveQuestions[i];
+      const question = this.questions[questionId];
+      if (question.condition && question.condition(userData)) {
+        return questionId;
+      }
+    }
+    return null;
   }
 
   /**
@@ -395,10 +664,11 @@ class ExtendedSurveyQuestions {
     console.log('🔍 getNextQuestion DEBUG:', {
       currentQuestion,
       hasUserData: !!userData,
-      userDataKeys: userData ? Object.keys(userData) : []
+      userDataKeys: userData ? Object.keys(userData) : [],
+      isChildFlow: this.isChildFlow(userData)
     });
 
-    const { standardFlow, adaptiveQuestions } = this.flowLogic;
+    const { standardFlow, childFlow, adaptiveQuestions } = this.flowLogic;
     
     if (standardFlow.includes(currentQuestion)) {
       const currentIndex = standardFlow.indexOf(currentQuestion);
@@ -410,10 +680,33 @@ class ExtendedSurveyQuestions {
         return nextQuestion;
       }
       
-      // Переходим к адаптивным вопросам
-      const firstAdaptive = this.getFirstAdaptiveQuestion(userData);
-      console.log('🔄 Moving to adaptive questions, first:', firstAdaptive);
-      return firstAdaptive;
+      // Стандартный поток завершен - переходим к специализированным вопросам
+      if (this.isChildFlow(userData)) {
+        const firstChildQuestion = childFlow[0];
+        console.log('🔄 Moving to child flow, first:', firstChildQuestion);
+        return firstChildQuestion;
+      } else {
+        // Переходим к адаптивным вопросам для взрослых
+        const firstAdaptive = this.getFirstAdaptiveQuestion(userData);
+        console.log('🔄 Moving to adaptive questions, first:', firstAdaptive);
+        return firstAdaptive;
+      }
+    }
+    
+    // Если это детский поток
+    if (childFlow.includes(currentQuestion)) {
+      const currentIndex = childFlow.indexOf(currentQuestion);
+      console.log('📝 Child flow position:', currentIndex, '/', childFlow.length - 1);
+      
+      if (currentIndex < childFlow.length - 1) {
+        const nextQuestion = childFlow[currentIndex + 1];
+        console.log('➡️ Next child question:', nextQuestion);
+        return nextQuestion;
+      } else {
+        // Детский поток завершен
+        console.log('🏁 Child flow complete');
+        return null;
+      }
     }
     
     if (adaptiveQuestions.includes(currentQuestion)) {
@@ -484,7 +777,7 @@ class ExtendedSurveyQuestions {
     return this.questions[questionId];
   }
 
- /**
+  /**
    * Валидация ответа
    */
   validateAnswer(questionId, answer, currentSelections = []) {
@@ -550,7 +843,8 @@ class ExtendedSurveyQuestions {
       completed,
       total: totalQuestions,
       percentage,
-      completedQuestions
+      completedQuestions,
+      isChildFlow: this.isChildFlow(userData)
     });
 
     return {
@@ -566,10 +860,15 @@ class ExtendedSurveyQuestions {
   getTotalQuestions(userData) {
     let total = this.flowLogic.standardFlow.length;
     
-    // Добавляем адаптивные вопросы, которые должны показаться
-    for (const questionId of this.flowLogic.adaptiveQuestions) {
-      if (this.shouldShowQuestion(questionId, userData)) {
-        total++;
+    // Добавляем детские вопросы если это детский поток
+    if (this.isChildFlow(userData)) {
+      total += this.flowLogic.childFlow.length;
+    } else {
+      // Добавляем адаптивные вопросы для взрослых, которые должны показаться
+      for (const questionId of this.flowLogic.adaptiveQuestions) {
+        if (this.shouldShowQuestion(questionId, userData)) {
+          total++;
+        }
       }
     }
 
@@ -696,15 +995,71 @@ class ExtendedSurveyQuestions {
       'goal_weight': 'weight_management',
       'goal_health': 'general_health',
 
+      // Детские вопросы - возраст
+      'child_age_3-4': '3-4',
+      'child_age_5-6': '5-6',
+      'child_age_7-8': '7-8',
+      'child_age_9-10': '9-10',
+      'child_age_11-12': '11-12',
+      'child_age_13-15': '13-15',
+      'child_age_16-17': '16-17',
+
+      // Детские вопросы - образование
+      'edu_home': 'home_only',
+      'edu_private_garden': 'private_kindergarten',
+      'edu_public_garden': 'public_kindergarten',
+      'edu_private_school': 'private_school',
+      'edu_public_school': 'public_school',
+      'edu_gymnasium': 'gymnasium',
+      'edu_homeschool': 'homeschooling',
+      'edu_alternative': 'alternative_school',
+
+      // Детские вопросы - расписание
+      'schedule_relaxed': 'relaxed',
+      'schedule_moderate': 'moderate',
+      'schedule_busy': 'busy',
+      'schedule_overloaded': 'overloaded',
+      'schedule_intensive': 'intensive',
+
       // Детские проблемы
-      'child_tantrums': 'tantrums',
-      'child_sleep': 'sleep_issues',
-      'child_hyperactive': 'hyperactivity',
-      'child_anxiety': 'separation_anxiety',
-      'child_focus': 'concentration_issues',
-      'child_illness': 'frequent_illness',
-      'child_asthma': 'breathing_issues',
-      'child_healthy': 'preventive_care',
+      'child_prob_tantrums': 'tantrums',
+      'child_prob_sleep_issues': 'sleep_problems',
+      'child_prob_nightmares': 'nightmares',
+      'child_prob_hyperactive': 'hyperactivity',
+      'child_prob_anxiety': 'anxiety',
+      'child_prob_separation': 'separation_anxiety',
+      'child_prob_focus': 'concentration_issues',
+      'child_prob_social': 'social_difficulties',
+      'child_prob_aggression': 'aggression',
+      'child_prob_immunity': 'weak_immunity',
+      'child_prob_breathing': 'breathing_issues',
+      'child_prob_prevention': 'prevention',
+
+      // Детские вопросы - участие родителей
+      'parent_mother': 'mother',
+      'parent_father': 'father',
+      'parent_both': 'both_parents',
+      'parent_grandparent': 'grandparent',
+      'parent_independent': 'child_independent',
+      'parent_group': 'group_sessions',
+
+      // Детские вопросы - мотивация
+      'motivation_games': 'games_stories',
+      'motivation_rewards': 'reward_system',
+      'motivation_family': 'family_activities',
+      'motivation_digital': 'digital_interactive',
+      'motivation_creative': 'creative_tasks',
+      'motivation_explanation': 'adult_explanation',
+      'motivation_peer': 'peer_group',
+
+      // Детские вопросы - время
+      'time_morning': 'morning_routine',
+      'time_after_school': 'after_school',
+      'time_afternoon': 'afternoon',
+      'time_evening': 'before_sleep',
+      'time_homework': 'during_homework',
+      'time_stress_moments': 'stress_situations',
+      'time_weekends': 'weekends',
 
       // Хронические заболевания
       'condition_asthma': 'asthma',
@@ -763,7 +1118,8 @@ class ExtendedSurveyQuestions {
     console.log('🏁 Survey completion check:', {
       completed: completedQuestions.length,
       total: totalQuestions,
-      isComplete
+      isComplete,
+      isChildFlow: this.isChildFlow(userData)
     });
 
     return isComplete;
@@ -774,34 +1130,43 @@ class ExtendedSurveyQuestions {
    */
   getSurveyStats(completedQuestions, userData) {
     const progress = this.getProgress(completedQuestions, userData);
-    const blockStats = this.getBlockStats(completedQuestions);
+    const blockStats = this.getBlockStats(completedQuestions, userData);
     
     return {
       ...progress,
       blocks: blockStats,
       isComplete: this.isSurveyComplete(completedQuestions, userData),
-      estimatedTimeRemaining: this.getEstimatedTimeRemaining(progress.percentage)
+      estimatedTimeRemaining: this.getEstimatedTimeRemaining(progress.percentage),
+      surveyType: this.isChildFlow(userData) ? 'child' : 'adult'
     };
   }
 
   /**
    * Получение статистики по блокам
    */
-  getBlockStats(completedQuestions) {
+  getBlockStats(completedQuestions, userData) {
     const blocks = {
       'A': { name: 'Демография', completed: 0, total: 0 },
       'B': { name: 'Проблемы', completed: 0, total: 0 },
       'C': { name: 'Дыхание', completed: 0, total: 0 },
-      'D': { name: 'Цели', completed: 0, total: 0 },
-      'E': { name: 'Дополнительно', completed: 0, total: 0 }
+      'D': { name: 'Цели', completed: 0, total: 0 }
     };
+
+    if (this.isChildFlow(userData)) {
+      blocks['E'] = { name: 'Детские вопросы', completed: 0, total: 0 };
+    } else {
+      blocks['F'] = { name: 'Дополнительно', completed: 0, total: 0 };
+    }
 
     // Подсчитываем общее количество вопросов в каждом блоке
     Object.values(this.questions).forEach(question => {
       if (blocks[question.block]) {
-        blocks[question.block].total++;
-        if (completedQuestions.includes(question.id)) {
-          blocks[question.block].completed++;
+        // Проверяем, должен ли вопрос показываться для данного пользователя
+        if (!question.condition || question.condition(userData)) {
+          blocks[question.block].total++;
+          if (completedQuestions.includes(question.id)) {
+            blocks[question.block].completed++;
+          }
         }
       }
     });
@@ -847,7 +1212,7 @@ class ExtendedSurveyQuestions {
     const errors = [];
     const warnings = [];
 
-    // Проверяем обязательные вопросы
+    // Проверяем обязательные вопросы для стандартного потока
     const requiredQuestions = Object.values(this.questions)
       .filter(q => q.required && this.flowLogic.standardFlow.includes(q.id))
       .map(q => q.id);
@@ -855,6 +1220,19 @@ class ExtendedSurveyQuestions {
     for (const questionId of requiredQuestions) {
       if (!surveyData[questionId]) {
         errors.push(`Отсутствует ответ на обязательный вопрос: ${questionId}`);
+      }
+    }
+
+    // Дополнительные проверки для детского потока
+    if (this.isChildFlow(surveyData)) {
+      const childRequiredQuestions = Object.values(this.questions)
+        .filter(q => q.required && this.flowLogic.childFlow.includes(q.id))
+        .map(q => q.id);
+
+      for (const questionId of childRequiredQuestions) {
+        if (!surveyData[questionId]) {
+          errors.push(`Отсутствует ответ на обязательный детский вопрос: ${questionId}`);
+        }
       }
     }
 
@@ -867,13 +1245,28 @@ class ExtendedSurveyQuestions {
       errors.push('Качество сна должно быть от 1 до 10');
     }
 
-    // Предупреждения
-    if (surveyData.stress_level >= 8) {
-      warnings.push('Высокий уровень стресса требует особого внимания');
+    // Предупреждения для взрослых
+    if (!this.isChildFlow(surveyData)) {
+      if (surveyData.stress_level >= 8) {
+        warnings.push('Высокий уровень стресса требует особого внимания');
+      }
+
+      if (surveyData.sleep_quality <= 3) {
+        warnings.push('Критически низкое качество сна');
+      }
     }
 
-    if (surveyData.sleep_quality <= 3) {
-      warnings.push('Критически низкое качество сна');
+    // Предупреждения для детей
+    if (this.isChildFlow(surveyData)) {
+      if (surveyData.child_schedule_stress === 'overloaded' || surveyData.child_schedule_stress === 'intensive') {
+        warnings.push('Высокая загруженность ребенка может негативно влиять на здоровье');
+      }
+
+      if (surveyData.child_problems_detailed && 
+          (surveyData.child_problems_detailed.includes('breathing_issues') || 
+           surveyData.child_problems_detailed.includes('anxiety'))) {
+        warnings.push('Проблемы с дыханием или тревожность у ребенка требуют особого внимания');
+      }
     }
 
     return {
@@ -884,18 +1277,111 @@ class ExtendedSurveyQuestions {
   }
 
   /**
+   * Получение рекомендаций по времени занятий для детей
+   */
+  getChildTimeRecommendations(childAge, scheduleStress) {
+    const ageRecommendations = {
+      '3-4': {
+        duration: '3-5 минут',
+        frequency: '1-2 раза в день',
+        bestTime: 'утром или перед сном'
+      },
+      '5-6': {
+        duration: '5-7 минут',
+        frequency: '2-3 раза в день',
+        bestTime: 'утром, после садика, перед сном'
+      },
+      '7-8': {
+        duration: '7-10 минут',
+        frequency: '2-3 раза в день',
+        bestTime: 'утром, после школы, перед сном'
+      },
+      '9-10': {
+        duration: '8-12 минут',
+        frequency: '2-3 раза в день',
+        bestTime: 'утром, во время выполнения домашних заданий, вечером'
+      },
+      '11-12': {
+        duration: '10-15 минут',
+        frequency: '2-3 раза в день',
+        bestTime: 'утром, в перерывах между уроками, вечером'
+      },
+      '13-15': {
+        duration: '12-20 минут',
+        frequency: '2-4 раза в день',
+        bestTime: 'утром, между уроками, после школы, перед сном'
+      },
+      '16-17': {
+        duration: '15-25 минут',
+        frequency: '2-4 раза в день',
+        bestTime: 'утром, в школьных перерывах, после учебы, вечером'
+      }
+    };
+
+    const stressAdjustments = {
+      'relaxed': { multiplier: 0.8, note: 'Можно заниматься в спокойном режиме' },
+      'moderate': { multiplier: 1.0, note: 'Стандартный режим занятий' },
+      'busy': { multiplier: 1.2, note: 'Увеличить количество коротких сессий' },
+      'overloaded': { multiplier: 1.5, note: 'Необходимы частые короткие релаксации' },
+      'intensive': { multiplier: 1.7, note: 'Критически важны регулярные практики для снятия стресса' }
+    };
+
+    const baseRec = ageRecommendations[childAge] || ageRecommendations['7-8'];
+    const adjustment = stressAdjustments[scheduleStress] || stressAdjustments['moderate'];
+
+    return {
+      ...baseRec,
+      stressNote: adjustment.note,
+      adjustedFrequency: Math.ceil(baseRec.frequency.split('-')[1] * adjustment.multiplier) + ' раз в день'
+    };
+  }
+
+  /**
    * Экспорт конфигурации для отладки
    */
   exportConfig() {
     return {
       totalQuestions: Object.keys(this.questions).length,
       standardFlowLength: this.flowLogic.standardFlow.length,
+      childFlowLength: this.flowLogic.childFlow.length,
       adaptiveQuestionsCount: this.flowLogic.adaptiveQuestions.length,
-      questionsByBlock: this.getBlockStats([]),
-      version: '1.0.0',
+      questionsByBlock: this.getBlockStats([], {}),
+      navigationSupport: true,
+      childFlowSupport: true,
+      version: '2.0.0',
       lastUpdated: new Date().toISOString()
+    };
+  }
+
+  /**
+   * Метод для отладки навигации
+   */
+  debugNavigation(currentQuestion, userData) {
+    console.log('\n=== DEBUG NAVIGATION ===');
+    console.log('Current question:', currentQuestion);
+    console.log('User data keys:', Object.keys(userData || {}));
+    console.log('Is child flow:', this.isChildFlow(userData));
+    
+    const prevQuestion = this.getPreviousQuestion(currentQuestion, userData);
+    const nextQuestion = this.getNextQuestion(currentQuestion, userData);
+    
+    console.log('Previous question:', prevQuestion);
+    console.log('Next question:', nextQuestion);
+    
+    const currentQuestionObj = this.getQuestion(currentQuestion);
+    console.log('Current question allows back:', currentQuestionObj?.allowBack);
+    
+    console.log('=== END DEBUG NAVIGATION ===\n');
+    
+    return {
+      current: currentQuestion,
+      previous: prevQuestion,
+      next: nextQuestion,
+      allowsBack: currentQuestionObj?.allowBack,
+      isChildFlow: this.isChildFlow(userData)
     };
   }
 }
 
 module.exports = ExtendedSurveyQuestions;
+```
