@@ -72,6 +72,14 @@ class BreathingVERSEAnalysis {
   }
 
   /**
+   * Метод для обратной совместимости с index.js
+   */
+  analyze(surveyData) {
+    console.log('🧠 Запуск VERSE-анализа через метод analyze()...');
+    return this.analyzeUser(surveyData);
+  }
+
+  /**
    * Переводит значение в читаемый текст
    */
   translateValue(value) {
