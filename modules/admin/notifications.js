@@ -94,7 +94,7 @@ class AdminNotificationSystem {
       // Результаты анкеты
       message += `📝 *Ответы пользователя:*\n`;
       if (isChildFlow) {
-        if (surveyAnswers?.child_age_detail mỹ) {
+        if (surveyAnswers?.child_age_detail) { // ИСПРАВЛЕНО: убрали "mỹ"
           message += `• Возраст ребенка: ${surveyAnswers.child_age_detail}\n`;
         }
         if (surveyAnswers?.child_problems_detailed) {
