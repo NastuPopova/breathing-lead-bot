@@ -72,7 +72,7 @@ class BreathingLeadBot {
     this.bot.command('about', ctx => this.handleAbout(ctx));
     this.bot.command('contact', ctx => this.handleContact(ctx));
     this.bot.action(/^download_(.+)$/, ctx => this.handlePDFDownload(ctx));
-    this.bot.action(/^download_pdf_(.+)$/, ctx => this.handleAdditionalPDFDownload(ctx));
+	this.bot.action(/^download_pdf_(.+)$/, ctx => this.handleStaticPDFDownload(ctx));
     this.bot.action('more_materials', ctx => this.handleMoreMaterials(ctx));
     this.bot.action('pdf_error_retry', ctx => this.handlePDFRetry(ctx));
     this.bot.command('pdf_stats', ctx => this.handleAdminPDFStats(ctx));
@@ -245,24 +245,6 @@ class BreathingLeadBot {
         parse_mode: 'Markdown',
         ...keyboard
       });
-
-      // Автоматическая отправка для HOT_LEAD через 2 секунды
-      if (ctx.session.analysisResult.segment === 'HOT_LEAD') {
-        setTimeout(async () => {
-          try {
-            await this.pdfManager.sendPDFFile(ctx, bonus);
-            this.pdfManager.logBonusDelivery(
-              ctx.from.id,
-              bonus.id,
-              'file',
-              ctx.session.analysisResult.segment,
-              ctx.session.analysisResult.primaryIssue
-            );
-          } catch (error) {
-            console.error('❌ Ошибка автоматической отправки PDF для HOT_LEAD:', error);
-          }
-        }, 2000);
-      }
     } catch (error) {
       console.error('❌ Ошибка showResults:', error);
       await this.sendErrorMessage(ctx, 'Ошибка показа результатов');
@@ -506,18 +488,20 @@ class BreathingLeadBot {
 
   async moveToNextQuestion(ctx) {
     try {
-      const nextQuestion = this.surveyQuestions.getNextQuestion(
+      console.log(`🔍 Получение следующего вопроса после "${ctx.session.currentQuestion}"...`);
+      const nextQuestionId = this.surveyQuestions.getNextQuestion(
         ctx.session.currentQuestion,
         ctx.session.answers
       );
-
-      if (!nextQuestion) {
-        return this.completeSurvey(ctx);
+      console.log('✅ Следующий вопрос в потоке:', nextQuestionId);
+      
+      if (nextQuestionId) {
+        ctx.session.currentQuestion = nextQuestionId;
+        ctx.session.questionStartTime = Date.now();
+        await this.askQuestion(ctx, nextQuestionId);
+      } else {
+        await this.completeSurvey(ctx);
       }
-
-      ctx.session.currentQuestion = nextQuestion;
-      ctx.session.questionStartTime = Date.now();
-      await this.askQuestion(ctx, nextQuestion);
     } catch (error) {
       console.error('❌ Ошибка moveToNextQuestion:', error);
       await this.sendErrorMessage(ctx, 'Ошибка перехода');
@@ -526,181 +510,96 @@ class BreathingLeadBot {
 
   async completeSurvey(ctx) {
     try {
-      const surveyTime = (Date.now() - ctx.session.startTime) / 1000;
-      console.log(`📊 Анкета завершена за ${surveyTime} сек`, ctx.session.answers);
+      const isChildFlow = this.surveyQuestions.isChildFlow(ctx.session.answers);
+      const surveyType = isChildFlow ? 'детскую' : 'взрослую';
+      
+      await ctx.editMessageText(
+        `🧠 *Анализирую ${surveyType} анкету...*\n\nПодождите несколько секунд ⏳`,
+        { parse_mode: 'Markdown' }
+      );
 
-      const analysisResult = this.verseAnalysis.analyze(ctx.session.answers);
+      const analysisResult = this.verseAnalysis.analyzeUser(ctx.session.answers);
       ctx.session.analysisResult = analysisResult;
 
-      await this.leadTransfer.transferLead({
-        telegram_id: ctx.from.id,
-        username: ctx.from.username,
-        first_name: ctx.from.first_name,
-        answers: ctx.session.answers,
-        survey_type: analysisResult.analysisType,
-        segment: analysisResult.segment,
-        score: analysisResult.score,
-        primary_issue: analysisResult.primaryIssue
+      const bonus = this.pdfManager.getBonusForUser(analysisResult, ctx.session.answers);
+      const bonusMessage = this.pdfManager.generateBonusMessage(bonus, analysisResult);
+      const bonusKeyboard = this.pdfManager.generateBonusKeyboard(bonus, 'file');
+
+      await ctx.editMessageText(bonusMessage, {
+        parse_mode: 'Markdown',
+        ...bonusKeyboard
       });
 
-      await this.showResults(ctx);
+      if (analysisResult.segment === 'HOT_LEAD') {
+        setTimeout(async () => {
+          await this.pdfManager.sendPDFFile(ctx, bonus);
+          await ctx.reply(
+            '⚡ *Срочная рекомендация:* Начните с первой техники прямо сейчас!',
+            { parse_mode: 'Markdown' }
+          );
+        }, 2000);
+      }
+
+      // Отправляем данные администратору и передаем лид
+      await this.transferLeadAsync(ctx);
+
     } catch (error) {
       console.error('❌ Ошибка completeSurvey:', error);
-      await this.sendErrorMessage(ctx, 'Ошибка завершения');
+      await this.sendErrorMessage(ctx, 'Ошибка анализа');
     }
   }
 
-  async handlePDFDownload(ctx) {
+  async transferLeadAsync(ctx) {
     try {
-      if (!ctx.session.analysisResult) {
-        await ctx.reply('⚠️ Пройдите анкету заново: /start');
-        return;
-      }
-
       const bonus = this.pdfManager.getBonusForUser(
-        ctx.session.analysisResult,
+        ctx.session.analysisResult, 
         ctx.session.answers
       );
 
-      await this.pdfManager.sendPDFFile(ctx, bonus);
-      this.pdfManager.logBonusDelivery(
-        ctx.from.id,
-        bonus.id,
-        'file',
-        ctx.session.analysisResult.segment,
-        ctx.session.analysisResult.primaryIssue
-      );
-    } catch (error) {
-      console.error('❌ Ошибка handlePDFDownload:', error);
-      await ctx.reply('⚠️ Ошибка загрузки PDF. Попробуйте снова:', {
-        parse_mode: 'Markdown',
-        ...Markup.inlineKeyboard([
-          [Markup.button.callback('🔄 Повторить', 'pdf_error_retry')]
-        ])
-      });
-    }
-  }
-
-  async handleAdditionalPDFDownload(ctx) {
-    try {
-      const pdfType = ctx.match[1];
-      await this.pdfManager.sendAdditionalPDF(ctx, pdfType);
-    } catch (error) {
-      console.error('❌ Ошибка handleAdditionalPDFDownload:', error);
-      await ctx.reply('⚠️ Ошибка загрузки PDF. Свяжитесь с @NastuPopova.', {
-        parse_mode: 'Markdown',
-        ...Markup.inlineKeyboard([
-          [Markup.button.url('💬 Написать Анастасии', 'https://t.me/NastuPopova')]
-        ])
-      });
-    }
-  }
-
-  async handleMoreMaterials(ctx) {
-    try {
-      await this.pdfManager.showMoreMaterials(ctx);
-    } catch (error) {
-      console.error('❌ Ошибка handleMoreMaterials:', error);
-      await ctx.reply('⚠️ Ошибка загрузки материалов. Свяжитесь с @NastuPopova.', {
-        parse_mode: 'Markdown',
-        ...Markup.inlineKeyboard([
-          [Markup.button.url('💬 Написать Анастасии', 'https://t.me/NastuPopova')]
-        ])
-      });
-    }
-  }
-
-  async handlePDFRetry(ctx) {
-    try {
-      if (!ctx.session.analysisResult) {
-        await ctx.reply('⚠️ Пройдите анкету заново: /start');
-        return;
-      }
-
-      const bonus = this.pdfManager.getBonusForUser(
-        ctx.session.analysisResult,
-        ctx.session.answers
-      );
-
-      await this.pdfManager.sendPDFFile(ctx, bonus);
-      this.pdfManager.logBonusDelivery(
-        ctx.from.id,
-        bonus.id,
-        'file',
-        ctx.session.analysisResult.segment,
-        ctx.session.analysisResult.primaryIssue
-      );
-    } catch (error) {
-      console.error('❌ Ошибка handlePDFRetry:', error);
-      await ctx.reply('⚠️ Ошибка повторной загрузки PDF. Свяжитесь с @NastuPopova.', {
-        parse_mode: 'Markdown',
-        ...Markup.inlineKeyboard([
-          [Markup.button.url('💬 Написать Анастасии', 'https://t.me/NastuPopova')]
-        ])
-      });
-    }
-  }
-
-  async handleAdminPDFStats(ctx) {
-    try {
-      const stats = this.pdfManager.getBonusStats();
-      let message = `📊 *Статистика PDF-бонусов*\n\n`;
-      message += `📥 Всего доставлено: ${stats.delivery_count}\n`;
-      message += `📱 Минималистичных: ${stats.minimalist_count}\n`;
-      message += `📋 Доступно техник: ${stats.available_techniques}\n\n`;
-      message += `📉 По проблемам:\n`;
-      for (const [issue, count] of Object.entries(stats.issue_breakdown)) {
-        message += `• ${config.TRANSLATIONS[issue] || issue}: ${count}\n`;
-      }
-
-      await ctx.reply(message, { parse_mode: 'Markdown' });
-    } catch (error) {
-      console.error('❌ Ошибка handleAdminPDFStats:', error);
-      await ctx.reply('⚠️ Ошибка статистики');
-    }
-  }
-
-  async handleTestPDF(ctx) {
-    try {
-      const testAnalysis = {
-        analysisType: 'adult',
-        segment: 'WARM_LEAD',
-        score: 60,
-        primaryIssue: 'chronic_stress'
+      const userData = {
+        userInfo: {
+          telegram_id: ctx.from?.id?.toString() || 'unknown',
+          username: ctx.from?.username || 'unknown',
+          first_name: ctx.from?.first_name || 'Пользователь'
+        },
+        surveyAnswers: ctx.session.answers || {},
+        analysisResult: ctx.session.analysisResult || {},
+        bonusDelivered: {
+          bonus_id: bonus.id,
+          bonus_title: bonus.title,
+          delivery_time: new Date().toISOString()
+        },
+        contactInfo: ctx.session.contactInfo || {},
+        surveyType: this.surveyQuestions.isChildFlow(ctx.session.answers) ? 'child' : 'adult',
+        startTime: ctx.session.startTime
       };
-      const testAnswers = {
-        age_group: '30-45',
-        stress_level: 7,
-        current_problems: ['chronic_stress', 'insomnia']
-      };
+      
+      console.log(`🔍 Передача лида с бонусом:`, userData);
+      
+      // Отправляем результаты анкетирования администратору
+      await this.adminNotifications.notifySurveyResults(userData);
+      
+      // Отправляем уведомление о новом лиде
+      await this.adminNotifications.notifyNewLead(userData);
+      
+      // Передаем лид в систему
+      await this.leadTransfer.processLead(userData);
 
-      ctx.session.analysisResult = testAnalysis;
-      ctx.session.answers = testAnswers;
-
-      const bonus = this.pdfManager.getBonusForUser(testAnalysis, testAnswers);
-      await this.pdfManager.sendPDFFile(ctx, bonus);
-
-      this.pdfManager.logBonusDelivery(
-        ctx.from.id,
-        bonus.id,
-        'file',
-        testAnalysis.segment,
-        testAnalysis.primaryIssue
-      );
     } catch (error) {
-      console.error('❌ Ошибка handleTestPDF:', error);
-      await ctx.reply('⚠️ Ошибка теста PDF');
+      console.error('❌ Ошибка передачи лида:', error);
     }
   }
 
   async handleText(ctx) {
     try {
-      if (!ctx.session.currentQuestion) {
-        await ctx.reply('Нажмите /start, чтобы начать диагностику!');
-        return;
+      if (ctx.session.currentQuestion) {
+        await ctx.reply(
+          'Пожалуйста, используйте кнопки для ответов.\n💡 Есть кнопка "⬅️ Назад"!',
+          { parse_mode: 'Markdown' }
+        );
+      } else {
+        await ctx.reply('Начните с /start 🌬️\nЕсть детская версия!');
       }
-
-      await ctx.reply('Пожалуйста, используйте кнопки для ответа.');
     } catch (error) {
       console.error('❌ Ошибка handleText:', error);
       await this.sendErrorMessage(ctx, 'Ошибка обработки текста');
@@ -709,41 +608,141 @@ class BreathingLeadBot {
 
   async sendErrorMessage(ctx, message) {
     try {
-      await ctx.reply(`${message}\n\nПопробуйте /start или свяжитесь с @NastuPopova`, {
-        parse_mode: 'Markdown',
-        ...Markup.inlineKeyboard([
-          [Markup.button.callback('🔄 Перезапустить', 'back_to_start')]
-        ])
-      });
+      await ctx.reply(`😔 ${message}`, { parse_mode: 'Markdown' });
     } catch (error) {
-      console.error('❌ Ошибка отправки сообщения об ошибке:', error);
+      console.error('❌ Не удалось отправить ошибку:', error);
+    }
+  }
+
+  async handlePDFDownload(ctx) {
+    try {
+      const bonusId = ctx.match[1];
+      await this.pdfManager.handleDownloadRequest(ctx, bonusId);
+      
+      this.pdfManager.logBonusDelivery(
+        ctx.from.id,
+        bonusId,
+        'telegram_file',
+        ctx.session?.analysisResult?.segment || 'UNKNOWN'
+      );
+      
+    } catch (error) {
+      console.error('❌ Ошибка handlePDFDownload:', error);
+      await ctx.answerCbQuery('Ошибка загрузки', { show_alert: true });
+    }
+  }
+
+  async handleMoreMaterials(ctx) {
+    try {
+      await this.pdfManager.showMoreMaterials(ctx);
+    } catch (error) {
+      console.error('❌ Ошибка handleMoreMaterials:', error);
+      await ctx.answerCbQuery('Ошибка загрузки материалов');
+    }
+  }
+
+  async handlePDFRetry(ctx) {
+    try {
+      if (!ctx.session?.analysisResult) {
+        await ctx.answerCbQuery('Пройдите анкету заново');
+        return;
+      }
+
+      const bonus = this.pdfManager.getBonusForUser(
+        ctx.session.analysisResult, 
+        ctx.session.answers
+      );
+      
+      await ctx.answerCbQuery('📥 Повторно отправляю файл...');
+      await this.pdfManager.sendPDFFile(ctx, bonus);
+      
+    } catch (error) {
+      console.error('❌ Ошибка handlePDFRetry:', error);
+      await ctx.answerCbQuery('Ошибка отправки');
+    }
+  }
+
+  async handleAdminPDFStats(ctx) {
+    if (ctx.from.id.toString() !== config.ADMIN_ID) return;
+    
+    const stats = this.pdfManager.getBonusStats();
+    const message = `📊 *СТАТИСТИКА PDF-БОНУСОВ*\n\n` +
+      `📚 Доступно бонусов: ${stats.available_bonuses}\n` +
+      `🎯 Типы: ${stats.bonus_types.join(', ')}\n` +
+      `📈 Сегменты: ${stats.target_segments.length}\n` +
+      `🕐 Обновлено: ${new Date(stats.last_updated).toLocaleString('ru')}`;
+    
+    await ctx.reply(message, { parse_mode: 'Markdown' });
+  }
+
+  async handleTestPDF(ctx) {
+    if (ctx.from.id.toString() !== config.ADMIN_ID) return;
+    
+    try {
+      const bonus = this.pdfManager.bonuses.adult;
+      await this.pdfManager.sendPDFFile(ctx, bonus);
+      await ctx.reply('✅ Тестовый PDF отправлен');
+    } catch (error) {
+      console.error('❌ Ошибка тестовой отправки PDF:', error);
+      await ctx.reply('❌ Ошибка отправки тестового PDF');
     }
   }
 
   generateProgressBar(percentage) {
-    const filled = Math.round(percentage / 10);
-    const empty = 10 - filled;
-    return `📊 [${'█'.repeat(filled)}${'-'.repeat(empty)}] ${percentage}%`;
+    const total = 10;
+    const filled = Math.round((percentage / 100) * total);
+    return '🟩'.repeat(filled) + '⬜'.repeat(total - filled);
   }
 
   debugStressLevelCallback(ctx, callbackData) {
-    console.log('🔍 Callback стресс-уровня:', {
-      user_id: ctx.from.id,
-      callback_data: callbackData,
-      session_answers: ctx.session.answers,
-      current_question: ctx.session.currentQuestion
+    console.log('🔬 ULTRA DETAILED STRESS_LEVEL DEBUG:', {
+      callbackData,
+      expectedFormat: 'stress_1 to stress_10',
+      isValidFormat: /^stress_\d+$/.test(callbackData),
+      extractedValue: callbackData.split('_')[1],
+      parsedIntValue: parseInt(callbackData.split('_')[1]),
+      isValidValue: parseInt(callbackData.split('_')[1]) >= 1 && 
+                    parseInt(callbackData.split('_')[1]) <= 10,
+      sessionCurrentQuestion: ctx.session.currentQuestion,
+      questionType: 'scale'
     });
   }
 
-  start() {
+async handleStaticPDFDownload(ctx) {
+    try {
+      const pdfType = ctx.match[1];
+      console.log(`📄 Запрос статичного PDF: ${pdfType}`);
+      
+      await ctx.answerCbQuery('📥 Отправляю PDF...');
+      await this.pdfManager.sendAdditionalPDF(ctx, pdfType);
+      
+      this.pdfManager.logBonusDelivery(
+        ctx.from.id,
+        `static_${pdfType}`,
+        'static_pdf',
+        ctx.session?.analysisResult?.segment || 'UNKNOWN',
+        'static_material'
+      );
+      
+    } catch (error) {
+      console.error('❌ Ошибка handleStaticPDFDownload:', error);
+      await ctx.answerCbQuery('❌ Ошибка загрузки PDF');
+    }
+  }
+
+  launch() {
+    console.log('🤖 Запуск бота v2.5 (с PDF-бонусами)...');
     this.bot.launch();
-    console.log('🤖 Бот запущен!');
+    console.log('✅ Бот запущен');
     process.once('SIGINT', () => this.bot.stop('SIGINT'));
     process.once('SIGTERM', () => this.bot.stop('SIGTERM'));
   }
 }
 
-const bot = new BreathingLeadBot();
-bot.start();
-
-module.exports = BreathingLeadBot;
+try {
+  const bot = new BreathingLeadBot();
+  bot.launch();
+} catch (error) {
+  console.error('💥 Ошибка запуска:', error);
+  process.exit(1);
+}
