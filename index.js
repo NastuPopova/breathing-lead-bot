@@ -72,6 +72,7 @@ class BreathingLeadBot {
     this.bot.command('about', ctx => this.handleAbout(ctx));
     this.bot.command('contact', ctx => this.handleContact(ctx));
     this.bot.action(/^download_(.+)$/, ctx => this.handlePDFDownload(ctx));
+    this.bot.action(/^download_pdf_(.+)$/, ctx => this.handleAdditionalPDFDownload(ctx));
     this.bot.action('more_materials', ctx => this.handleMoreMaterials(ctx));
     this.bot.action('pdf_error_retry', ctx => this.handlePDFRetry(ctx));
     this.bot.command('pdf_stats', ctx => this.handleAdminPDFStats(ctx));
@@ -628,6 +629,27 @@ class BreathingLeadBot {
     } catch (error) {
       console.error('❌ Ошибка handlePDFDownload:', error);
       await ctx.answerCbQuery('Ошибка загрузки', { show_alert: true });
+    }
+  }
+
+  async handleAdditionalPDFDownload(ctx) {
+    try {
+      const pdfType = ctx.match[1]; // Например, 'adult_antistress' или 'child_games'
+      await this.pdfManager.sendAdditionalPDF(ctx, pdfType);
+
+      // Логируем доставку дополнительного PDF
+      this.pdfManager.logBonusDelivery(
+        ctx.from.id,
+        `additional_pdf_${pdfType}`,
+        'telegram_additional_pdf',
+        ctx.session?.analysisResult?.segment || 'UNKNOWN',
+        ctx.session?.analysisResult?.primaryIssue || 'unknown'
+      );
+      
+      await ctx.answerCbQuery('📥 PDF отправлен!');
+    } catch (error) {
+      console.error('❌ Ошибка handleAdditionalPDFDownload:', error);
+      await ctx.answerCbQuery('Ошибка отправки PDF', { show_alert: true });
     }
   }
 
