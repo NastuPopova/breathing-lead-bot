@@ -218,7 +218,7 @@ class BreathingLeadBot {
         ...Markup.inlineKeyboard([
           [Markup.button.url('👩‍⚕️ Написать Анастасии', `https://t.me/${config.TRAINER_CONTACT.replace('@', '')}`)],
           [Markup.button.callback('🔙 К результатам', 'back_to_results')],
-          [Markup.button.callback('🎁 Материалы', 'free_materials')]
+          [Markup.button.callback('🎁 Материалы', 'more_materials')]
         ])
       });
     } catch (error) {
@@ -245,6 +245,24 @@ class BreathingLeadBot {
         parse_mode: 'Markdown',
         ...keyboard
       });
+
+      // Автоматическая отправка для HOT_LEAD через 2 секунды
+      if (ctx.session.analysisResult.segment === 'HOT_LEAD') {
+        setTimeout(async () => {
+          try {
+            await this.pdfManager.sendPDFFile(ctx, bonus);
+            this.pdfManager.logBonusDelivery(
+              ctx.from.id,
+              bonus.id,
+              'file',
+              ctx.session.analysisResult.segment,
+              ctx.session.analysisResult.primaryIssue
+            );
+          } catch (error) {
+            console.error('❌ Ошибка автоматической отправки PDF для HOT_LEAD:', error);
+          }
+        }, 2000);
+      }
     } catch (error) {
       console.error('❌ Ошибка showResults:', error);
       await this.sendErrorMessage(ctx, 'Ошибка показа результатов');
@@ -483,3 +501,249 @@ class BreathingLeadBot {
     } catch (error) {
       console.error('❌ Ошибка handleMultipleChoice:', error);
       await this.sendErrorMessage(ctx, 'Ошибка выбора');
+    }
+  }
+
+  async moveToNextQuestion(ctx) {
+    try {
+      const nextQuestion = this.surveyQuestions.getNextQuestion(
+        ctx.session.currentQuestion,
+        ctx.session.answers
+      );
+
+      if (!nextQuestion) {
+        return this.completeSurvey(ctx);
+      }
+
+      ctx.session.currentQuestion = nextQuestion;
+      ctx.session.questionStartTime = Date.now();
+      await this.askQuestion(ctx, nextQuestion);
+    } catch (error) {
+      console.error('❌ Ошибка moveToNextQuestion:', error);
+      await this.sendErrorMessage(ctx, 'Ошибка перехода');
+    }
+  }
+
+  async completeSurvey(ctx) {
+    try {
+      const surveyTime = (Date.now() - ctx.session.startTime) / 1000;
+      console.log(`📊 Анкета завершена за ${surveyTime} сек`, ctx.session.answers);
+
+      const analysisResult = this.verseAnalysis.analyze(ctx.session.answers);
+      ctx.session.analysisResult = analysisResult;
+
+      await this.leadTransfer.transferLead({
+        telegram_id: ctx.from.id,
+        username: ctx.from.username,
+        first_name: ctx.from.first_name,
+        answers: ctx.session.answers,
+        survey_type: analysisResult.analysisType,
+        segment: analysisResult.segment,
+        score: analysisResult.score,
+        primary_issue: analysisResult.primaryIssue
+      });
+
+      await this.showResults(ctx);
+    } catch (error) {
+      console.error('❌ Ошибка completeSurvey:', error);
+      await this.sendErrorMessage(ctx, 'Ошибка завершения');
+    }
+  }
+
+  async handlePDFDownload(ctx) {
+    try {
+      if (!ctx.session.analysisResult) {
+        await ctx.reply('⚠️ Пройдите анкету заново: /start');
+        return;
+      }
+
+      const bonus = this.pdfManager.getBonusForUser(
+        ctx.session.analysisResult,
+        ctx.session.answers
+      );
+
+      await this.pdfManager.sendPDFFile(ctx, bonus);
+      this.pdfManager.logBonusDelivery(
+        ctx.from.id,
+        bonus.id,
+        'file',
+        ctx.session.analysisResult.segment,
+        ctx.session.analysisResult.primaryIssue
+      );
+    } catch (error) {
+      console.error('❌ Ошибка handlePDFDownload:', error);
+      await ctx.reply('⚠️ Ошибка загрузки PDF. Попробуйте снова:', {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+          [Markup.button.callback('🔄 Повторить', 'pdf_error_retry')]
+        ])
+      });
+    }
+  }
+
+  async handleAdditionalPDFDownload(ctx) {
+    try {
+      const pdfType = ctx.match[1];
+      await this.pdfManager.sendAdditionalPDF(ctx, pdfType);
+    } catch (error) {
+      console.error('❌ Ошибка handleAdditionalPDFDownload:', error);
+      await ctx.reply('⚠️ Ошибка загрузки PDF. Свяжитесь с @NastuPopova.', {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+          [Markup.button.url('💬 Написать Анастасии', 'https://t.me/NastuPopova')]
+        ])
+      });
+    }
+  }
+
+  async handleMoreMaterials(ctx) {
+    try {
+      await this.pdfManager.showMoreMaterials(ctx);
+    } catch (error) {
+      console.error('❌ Ошибка handleMoreMaterials:', error);
+      await ctx.reply('⚠️ Ошибка загрузки материалов. Свяжитесь с @NastuPopova.', {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+          [Markup.button.url('💬 Написать Анастасии', 'https://t.me/NastuPopova')]
+        ])
+      });
+    }
+  }
+
+  async handlePDFRetry(ctx) {
+    try {
+      if (!ctx.session.analysisResult) {
+        await ctx.reply('⚠️ Пройдите анкету заново: /start');
+        return;
+      }
+
+      const bonus = this.pdfManager.getBonusForUser(
+        ctx.session.analysisResult,
+        ctx.session.answers
+      );
+
+      await this.pdfManager.sendPDFFile(ctx, bonus);
+      this.pdfManager.logBonusDelivery(
+        ctx.from.id,
+        bonus.id,
+        'file',
+        ctx.session.analysisResult.segment,
+        ctx.session.analysisResult.primaryIssue
+      );
+    } catch (error) {
+      console.error('❌ Ошибка handlePDFRetry:', error);
+      await ctx.reply('⚠️ Ошибка повторной загрузки PDF. Свяжитесь с @NastuPopova.', {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+          [Markup.button.url('💬 Написать Анастасии', 'https://t.me/NastuPopova')]
+        ])
+      });
+    }
+  }
+
+  async handleAdminPDFStats(ctx) {
+    try {
+      const stats = this.pdfManager.getBonusStats();
+      let message = `📊 *Статистика PDF-бонусов*\n\n`;
+      message += `📥 Всего доставлено: ${stats.delivery_count}\n`;
+      message += `📱 Минималистичных: ${stats.minimalist_count}\n`;
+      message += `📋 Доступно техник: ${stats.available_techniques}\n\n`;
+      message += `📉 По проблемам:\n`;
+      for (const [issue, count] of Object.entries(stats.issue_breakdown)) {
+        message += `• ${config.TRANSLATIONS[issue] || issue}: ${count}\n`;
+      }
+
+      await ctx.reply(message, { parse_mode: 'Markdown' });
+    } catch (error) {
+      console.error('❌ Ошибка handleAdminPDFStats:', error);
+      await ctx.reply('⚠️ Ошибка статистики');
+    }
+  }
+
+  async handleTestPDF(ctx) {
+    try {
+      const testAnalysis = {
+        analysisType: 'adult',
+        segment: 'WARM_LEAD',
+        score: 60,
+        primaryIssue: 'chronic_stress'
+      };
+      const testAnswers = {
+        age_group: '30-45',
+        stress_level: 7,
+        current_problems: ['chronic_stress', 'insomnia']
+      };
+
+      ctx.session.analysisResult = testAnalysis;
+      ctx.session.answers = testAnswers;
+
+      const bonus = this.pdfManager.getBonusForUser(testAnalysis, testAnswers);
+      await this.pdfManager.sendPDFFile(ctx, bonus);
+
+      this.pdfManager.logBonusDelivery(
+        ctx.from.id,
+        bonus.id,
+        'file',
+        testAnalysis.segment,
+        testAnalysis.primaryIssue
+      );
+    } catch (error) {
+      console.error('❌ Ошибка handleTestPDF:', error);
+      await ctx.reply('⚠️ Ошибка теста PDF');
+    }
+  }
+
+  async handleText(ctx) {
+    try {
+      if (!ctx.session.currentQuestion) {
+        await ctx.reply('Нажмите /start, чтобы начать диагностику!');
+        return;
+      }
+
+      await ctx.reply('Пожалуйста, используйте кнопки для ответа.');
+    } catch (error) {
+      console.error('❌ Ошибка handleText:', error);
+      await this.sendErrorMessage(ctx, 'Ошибка обработки текста');
+    }
+  }
+
+  async sendErrorMessage(ctx, message) {
+    try {
+      await ctx.reply(`${message}\n\nПопробуйте /start или свяжитесь с @NastuPopova`, {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+          [Markup.button.callback('🔄 Перезапустить', 'back_to_start')]
+        ])
+      });
+    } catch (error) {
+      console.error('❌ Ошибка отправки сообщения об ошибке:', error);
+    }
+  }
+
+  generateProgressBar(percentage) {
+    const filled = Math.round(percentage / 10);
+    const empty = 10 - filled;
+    return `📊 [${'█'.repeat(filled)}${'-'.repeat(empty)}] ${percentage}%`;
+  }
+
+  debugStressLevelCallback(ctx, callbackData) {
+    console.log('🔍 Callback стресс-уровня:', {
+      user_id: ctx.from.id,
+      callback_data: callbackData,
+      session_answers: ctx.session.answers,
+      current_question: ctx.session.currentQuestion
+    });
+  }
+
+  start() {
+    this.bot.launch();
+    console.log('🤖 Бот запущен!');
+    process.once('SIGINT', () => this.bot.stop('SIGINT'));
+    process.once('SIGTERM', () => this.bot.stop('SIGTERM'));
+  }
+}
+
+const bot = new BreathingLeadBot();
+bot.start();
+
+module.exports = BreathingLeadBot;
