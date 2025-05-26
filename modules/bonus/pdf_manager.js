@@ -823,6 +823,26 @@ class PDFBonusManager {
   }
 
   /**
+   * Генерирует клавиатуру для бонусного сообщения
+   */
+  generateBonusKeyboard(bonus, deliveryMethod) {
+    const keyboard = [
+      [Markup.button.callback('📞 Хочу больше техник!', 'contact_request')],
+      [Markup.button.url('💬 Написать Анастасии', 'https://t.me/NastuPopova')],
+      [Markup.button.callback('🎁 Что еще доступно?', 'more_materials')]
+    ];
+
+    // Если доставка через файл и сегмент не HOT_LEAD, добавляем кнопку для скачивания
+    if (deliveryMethod === 'file' && bonus.target_segments[0] !== 'HOT_LEAD') {
+      keyboard.unshift([
+        Markup.button.callback('📥 Получить гид', `download_${bonus.id}`)
+      ]);
+    }
+
+    return Markup.inlineKeyboard(keyboard);
+  }
+
+  /**
    * Отправляет PDF-файл (в данном случае HTML)
    */
   async sendPDFFile(ctx, bonus) {
@@ -989,11 +1009,11 @@ class PDFBonusManager {
     // Вторая строка - бесплатные бонусы
     if (isChildFlow) {
       keyboard.push([
-        Markup.button.url('📄 PDF: Игры для детей', 'https://breathing-lead-bot-production.up.railway.app/pdf/child_breathing_games.pdf')
+        Markup.button.callback('📄 PDF: Игры для детей', 'download_pdf_child_games')
       ]);
     } else {
       keyboard.push([
-        Markup.button.url('📄 PDF: Антистресс', 'https://breathing-lead-bot-production.up.railway.app/pdf/antistress_breathing.pdf')
+        Markup.button.callback('📄 PDF: Антистресс', 'download_pdf_adult_antistress')
       ]);
     }
     
