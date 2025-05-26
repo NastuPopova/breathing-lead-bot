@@ -1,5 +1,5 @@
 // Файл: modules/bonus/pdf_manager.js
-// Система управления PDF-бонусами для лид-бота с поддержкой русского языка
+// ИСПРАВЛЕННАЯ версия 2 - решение проблемы с кириллицей
 
 const { Markup } = require('telegraf');
 const PDFDocument = require('pdfkit');
@@ -141,229 +141,274 @@ class PDFBonusManager {
   }
 
   /**
-   * Генерирует персонализированный PDF с поддержкой русского языка
+   * НОВАЯ ВЕРСИЯ: Генерирует простой HTML вместо PDF с кириллицей
    */
-  async generatePersonalizedPDF(userId, bonus, surveyData, analysisResult) {
-    return new Promise((resolve, reject) => {
-      try {
-        // Проверяем и создаем папку temp
-        if (!fs.existsSync('./temp')) {
-          fs.mkdirSync('./temp');
-        }
-
-        // ИСПРАВЛЕНО: используем встроенный шрифт для кириллицы
-        const doc = new PDFDocument({ 
-          size: 'A4', 
-          margin: 50,
-          bufferPages: true
-        });
-        
-        const filePath = `./temp/personalized_bonus_${userId}.pdf`;
-        const stream = fs.createWriteStream(filePath);
-        
-        doc.pipe(stream);
-
-        // Заголовок
-        doc.fontSize(22)
-           .fillColor('#2E3A87')
-           .text(bonus.title.replace(/🌬️|🎈/g, ''), { align: 'center' });
-           
-        doc.fontSize(16)
-           .fillColor('#5A6ACF')
-           .text(bonus.subtitle, { align: 'center' });
-           
-        doc.moveDown(2);
-
-        // Персонализированная информация
-        doc.fontSize(14)
-           .fillColor('#333333')
-           .text('Ваш персональный гид по дыханию', { align: 'center', underline: true });
-           
-        doc.moveDown(1);
-
-        // Данные анкеты с переводами
-        doc.fontSize(12)
-           .fillColor('#555555')
-           .text('Основные данные анкеты:', { underline: true });
-           
-        doc.moveDown(0.5);
-
-        if (surveyData.age_group) {
-          const translatedAge = this.translateValue(surveyData.age_group);
-          doc.fontSize(11).text(`Возрастная группа: ${translatedAge}`);
-        }
-
-        if (surveyData.stress_level) {
-          doc.text(`Уровень стресса: ${surveyData.stress_level}/10`);
-        }
-
-        if (analysisResult.segment) {
-          doc.text(`Категория: ${analysisResult.segment}`);
-        }
-
-        if (surveyData.current_problems) {
-          const translatedProblems = this.translateArray(surveyData.current_problems)
-            .slice(0, 2)
-            .join(', ');
-          doc.text(`Основные проблемы: ${translatedProblems}`);
-        }
-
-        if (surveyData.child_age_detail) {
-          const translatedAge = this.translateValue(surveyData.child_age_detail);
-          doc.text(`Возраст ребенка: ${translatedAge}`);
-        }
-
-        if (surveyData.child_problems_detailed) {
-          const translatedProblems = this.translateArray(surveyData.child_problems_detailed)
-            .slice(0, 2)
-            .join(', ');
-          doc.text(`Проблемы ребенка: ${translatedProblems}`);
-        }
-
-        doc.moveDown(1.5);
-
-        // Рекомендации
-        doc.fontSize(14)
-           .fillColor('#2E3A87')
-           .text('Персональные рекомендации:', { underline: true });
-           
-        doc.moveDown(0.5);
-
-        if (bonus.id === 'adult_antistress_guide') {
-          doc.fontSize(12)
-             .fillColor('#333333')
-             .text('Техника "Экстренное дыхание":', { underline: true });
-             
-          doc.fontSize(11)
-             .fillColor('#444444')
-             .text('1. Сядьте удобно, выпрямите спину.')
-             .text('2. Глубокий вдох через нос на 4 счета.')
-             .text('3. Задержите дыхание на 4 счета.')
-             .text('4. Медленный выдох через рот на 6 счетов.')
-             .text('5. Повторите 5-10 раз.');
-
-          doc.moveDown(1);
-
-          if (surveyData.stress_level && parseInt(surveyData.stress_level) > 7) {
-            doc.fontSize(12)
-               .fillColor('#333333')
-               .text('Дополнительно для высокого стресса:', { underline: true });
-               
-            doc.fontSize(11)
-               .fillColor('#444444')
-               .text('Техника "Морская волна" перед сном:')
-               .text('1. Лягте удобно, закройте глаза.')
-               .text('2. Представьте мягкие волны моря.')
-               .text('3. Вдох на 5 секунд, выдох на 7 секунд.')
-               .text('4. Повторяйте 5-10 минут.');
-          }
-
-        } else if (bonus.id === 'child_breathing_games') {
-          doc.fontSize(12)
-             .fillColor('#333333')
-             .text('Игра "Воздушный шарик":', { underline: true });
-             
-          doc.fontSize(11)
-             .fillColor('#444444')
-             .text('1. Попросите ребенка представить животик как шарик.')
-             .text('2. На вдохе через нос "надуваем шарик".')
-             .text('3. На выдохе через рот "сдуваем шарик".')
-             .text('4. Повторите 5 раз в игровой форме.');
-
-          doc.moveDown(1);
-
-          if (surveyData.child_age_detail && ['3-4', '5-6'].includes(surveyData.child_age_detail)) {
-            doc.fontSize(11)
-               .fillColor('#444444')
-               .text('Для малышей 3-6 лет:')
-               .text('Добавьте звуки: "Фшшш" при выдохе,')
-               .text('"Хммм" при вдохе. Делайте вместе!');
-          }
-        }
-
-        // Новая страница
-        doc.addPage();
-
-        // Дополнительные советы
-        doc.fontSize(14)
-           .fillColor('#2E3A87')
-           .text('Дополнительные советы:', { align: 'center', underline: true });
-           
-        doc.moveDown(1);
-
-        if (bonus.id === 'adult_antistress_guide') {
-          doc.fontSize(11)
-             .fillColor('#444444')
-             .text('• Практикуйте утром и вечером по 5-10 минут')
-             .text('• Используйте техники в стрессовых ситуациях')
-             .text('• Дышите носом в течение дня')
-             .text('• Следите за осанкой во время практик');
-        } else {
-          doc.fontSize(11)
-             .fillColor('#444444')
-             .text('• Превратите дыхание в ежедневный ритуал')
-             .text('• Делайте упражнения перед сном')
-             .text('• Хвалите ребенка за участие')
-             .text('• Будьте терпеливы и последовательны');
-        }
-
-        // Контактная информация
-        doc.moveDown(4);
-        
-        doc.fontSize(14)
-           .fillColor('#2E3A87')
-           .text('Свяжитесь с нами:', { align: 'center', underline: true });
-           
-        doc.moveDown(0.5);
-        
-        doc.fontSize(11)
-           .fillColor('#444444')
-           .text('Тренер: Анастасия Попова', { align: 'center' })
-           .text('Telegram: @NastuPopova', { align: 'center' })
-           .text('Запишитесь на консультацию!', { align: 'center' });
-
-        // Завершаем документ
-        doc.end();
-
-        stream.on('finish', () => {
-          console.log(`✅ PDF успешно создан: ${filePath}`);
-          resolve(filePath);
-        });
-        
-        stream.on('error', (err) => {
-          console.error('❌ Ошибка создания PDF:', err);
-          reject(err);
-        });
-
-      } catch (error) {
-        console.error('❌ Критическая ошибка генерации PDF:', error);
-        reject(error);
+  async generatePersonalizedHTML(userId, bonus, surveyData, analysisResult) {
+    try {
+      // Проверяем и создаем папку temp
+      if (!fs.existsSync('./temp')) {
+        fs.mkdirSync('./temp');
       }
-    });
+
+      const filePath = `./temp/bonus_${userId}.html`;
+      
+      // Функция для очистки текста от эмодзи
+      const cleanText = (text) => {
+        return text.replace(/[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '');
+      };
+
+      // Создаем HTML контент с корректной кодировкой
+      let htmlContent = `<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${cleanText(bonus.title)}</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            line-height: 1.6;
+            margin: 40px;
+            color: #333;
+            background-color: #f9f9f9;
+        }
+        .header {
+            text-align: center;
+            color: #2E3A87;
+            border-bottom: 2px solid #5A6ACF;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .title {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            font-size: 18px;
+            color: #5A6ACF;
+        }
+        .section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .section-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #2E3A87;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        .data-item {
+            margin: 8px 0;
+            padding: 5px 0;
+        }
+        .technique {
+            background: #f0f8ff;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 4px solid #5A6ACF;
+            border-radius: 4px;
+        }
+        .contact-info {
+            text-align: center;
+            background: #e8f0fe;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 30px;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            font-size: 12px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>`;
+
+      // Заголовок
+      htmlContent += `
+    <div class="header">
+        <div class="title">${cleanText(bonus.title)}</div>
+        <div class="subtitle">${cleanText(bonus.subtitle)}</div>
+        <p>Ваш персональный гид по дыханию</p>
+    </div>`;
+
+      // Персональные данные
+      htmlContent += `
+    <div class="section">
+        <div class="section-title">Основные данные анкеты</div>`;
+
+      if (surveyData.age_group) {
+        const translatedAge = this.translateValue(surveyData.age_group);
+        htmlContent += `<div class="data-item"><strong>Возрастная группа:</strong> ${translatedAge}</div>`;
+      }
+
+      if (surveyData.stress_level) {
+        htmlContent += `<div class="data-item"><strong>Уровень стресса:</strong> ${surveyData.stress_level}/10</div>`;
+      }
+
+      if (analysisResult.segment) {
+        const segmentNames = {
+          'HOT_LEAD': 'Требует срочного внимания',
+          'WARM_LEAD': 'Активно мотивирован',
+          'COLD_LEAD': 'Умеренный интерес',
+          'NURTURE_LEAD': 'Долгосрочное развитие'
+        };
+        htmlContent += `<div class="data-item"><strong>Категория:</strong> ${segmentNames[analysisResult.segment] || analysisResult.segment}</div>`;
+      }
+
+      if (surveyData.current_problems) {
+        const translatedProblems = this.translateArray(surveyData.current_problems).slice(0, 2).join(', ');
+        htmlContent += `<div class="data-item"><strong>Основные проблемы:</strong> ${translatedProblems}</div>`;
+      }
+
+      if (surveyData.child_age_detail) {
+        const translatedAge = this.translateValue(surveyData.child_age_detail);
+        htmlContent += `<div class="data-item"><strong>Возраст ребенка:</strong> ${translatedAge}</div>`;
+      }
+
+      if (surveyData.child_problems_detailed) {
+        const translatedProblems = this.translateArray(surveyData.child_problems_detailed).slice(0, 2).join(', ');
+        htmlContent += `<div class="data-item"><strong>Проблемы ребенка:</strong> ${translatedProblems}</div>`;
+      }
+
+      htmlContent += `</div>`;
+
+      // Рекомендации
+      htmlContent += `
+    <div class="section">
+        <div class="section-title">Персональные рекомендации</div>`;
+
+      if (bonus.id === 'adult_antistress_guide') {
+        htmlContent += `
+        <div class="technique">
+            <strong>Техника "Экстренное дыхание":</strong>
+            <ol>
+                <li>Сядьте удобно, выпрямите спину.</li>
+                <li>Глубокий вдох через нос на 4 счета.</li>
+                <li>Задержите дыхание на 4 счета.</li>
+                <li>Медленный выдох через рот на 6 счетов.</li>
+                <li>Повторите 5-10 раз.</li>
+            </ol>
+        </div>`;
+
+        if (surveyData.stress_level && parseInt(surveyData.stress_level) > 7) {
+          htmlContent += `
+        <div class="technique">
+            <strong>Дополнительно для высокого стресса - Техника "Морская волна":</strong>
+            <ol>
+                <li>Лягте удобно, закройте глаза.</li>
+                <li>Представьте мягкие волны моря.</li>
+                <li>Вдох на 5 секунд, выдох на 7 секунд.</li>
+                <li>Повторяйте 5-10 минут.</li>
+            </ol>
+        </div>`;
+        }
+
+      } else if (bonus.id === 'child_breathing_games') {
+        htmlContent += `
+        <div class="technique">
+            <strong>Игра "Воздушный шарик":</strong>
+            <ol>
+                <li>Попросите ребенка представить животик как шарик.</li>
+                <li>На вдохе через нос "надуваем шарик".</li>
+                <li>На выдохе через рот "сдуваем шарик".</li>
+                <li>Повторите 5 раз в игровой форме.</li>
+            </ol>
+        </div>`;
+
+        if (surveyData.child_age_detail && ['3-4', '5-6'].includes(surveyData.child_age_detail)) {
+          htmlContent += `
+        <div class="technique">
+            <strong>Для малышей 3-6 лет:</strong>
+            <p>Добавьте звуки: "Фшшш" при выдохе, "Хммм" при вдохе. Делайте вместе!</p>
+        </div>`;
+        }
+      }
+
+      htmlContent += `</div>`;
+
+      // Дополнительные советы
+      htmlContent += `
+    <div class="section">
+        <div class="section-title">Дополнительные советы</div>`;
+
+      if (bonus.id === 'adult_antistress_guide') {
+        htmlContent += `
+        <ul>
+            <li>Практикуйте утром и вечером по 5-10 минут</li>
+            <li>Используйте техники в стрессовых ситуациях</li>
+            <li>Дышите носом в течение дня</li>
+            <li>Следите за осанкой во время практик</li>
+        </ul>`;
+      } else {
+        htmlContent += `
+        <ul>
+            <li>Превратите дыхание в ежедневный ритуал</li>
+            <li>Делайте упражнения перед сном</li>
+            <li>Хвалите ребенка за участие</li>
+            <li>Будьте терпеливы и последовательны</li>
+        </ul>`;
+      }
+
+      htmlContent += `</div>`;
+
+      // Контактная информация
+      htmlContent += `
+    <div class="contact-info">
+        <div class="section-title">Свяжитесь с нами</div>
+        <p><strong>Тренер:</strong> Анастасия Попова</p>
+        <p><strong>Telegram:</strong> @NastuPopova</p>
+        <p>Запишитесь на консультацию!</p>
+    </div>
+
+    <div class="footer">
+        <p>Создано специально для вас • ${new Date().toLocaleDateString('ru-RU')}</p>
+    </div>
+
+</body>
+</html>`;
+
+      // Записываем HTML файл
+      fs.writeFileSync(filePath, htmlContent, 'utf8');
+      
+      console.log(`✅ HTML файл успешно создан: ${filePath}`);
+      return filePath;
+      
+    } catch (error) {
+      console.error('❌ Критическая ошибка генерации HTML:', error);
+      throw error;
+    }
   }
 
   /**
-   * Отправляет PDF файл пользователю
+   * Отправляет HTML файл как документ пользователю
    */
   async sendPDFFile(ctx, bonus) {
     try {
-      console.log(`📝 Начинаем генерацию PDF для пользователя ${ctx.from.id}`);
+      console.log(`📝 Начинаем генерацию HTML для пользователя ${ctx.from.id}`);
       
-      // Генерируем персонализированный PDF
-      const filePath = await this.generatePersonalizedPDF(
+      // Генерируем HTML вместо PDF
+      const filePath = await this.generatePersonalizedHTML(
         ctx.from.id,
         bonus,
         ctx.session.answers,
         ctx.session.analysisResult
       );
 
-      console.log(`📤 Отправляем PDF файл: ${filePath}`);
+      console.log(`📤 Отправляем HTML файл: ${filePath}`);
 
-      // Отправляем файл
+      // Отправляем файл как документ
       await ctx.replyWithDocument(
         { source: filePath },
         {
-          caption: `📖 ${bonus.title}\n\n💝 Ваш персональный бонус готов!\n\n📞 Запишитесь на консультацию: @NastuPopova\n💬 Личный контакт тренера: @NastuPopova`,
+          caption: `📖 ${bonus.title}\n\n💝 Ваш персональный бонус готов!\n\nОткройте файл в браузере для лучшего отображения.\n\n📞 Запишитесь на консультацию: @NastuPopova`,
           parse_mode: 'Markdown',
           ...Markup.inlineKeyboard([
             [Markup.button.callback('📞 Записаться на консультацию', 'contact_request')],
@@ -372,7 +417,7 @@ class PDFBonusManager {
         }
       );
       
-      console.log(`✅ PDF успешно отправлен пользователю ${ctx.from.id}: ${bonus.title}`);
+      console.log(`✅ HTML файл успешно отправлен пользователю ${ctx.from.id}: ${bonus.title}`);
       
       // Удаляем временный файл
       setTimeout(() => {
@@ -387,12 +432,12 @@ class PDFBonusManager {
       }, 1000);
       
     } catch (error) {
-      console.error('❌ Ошибка отправки PDF:', error.message);
+      console.error('❌ Ошибка отправки HTML:', error.message);
       console.error('Stack trace:', error.stack);
       
       // Fallback: текстовое сообщение
       await ctx.reply(
-        `⚠️ Извините, не удалось создать персонализированный PDF.\n\n` +
+        `⚠️ Извините, не удалось создать персонализированный файл.\n\n` +
         `📖 *${bonus.title}*\n${bonus.subtitle}\n\n` +
         `${bonus.preview_text}\n\n` +
         `💬 Напишите @NastuPopova для получения материалов.`,
