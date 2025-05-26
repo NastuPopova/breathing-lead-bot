@@ -10,7 +10,7 @@
     "lint": "eslint .",
     "health-check": "node scripts/health-check.js",
     "debug-stress": "node scripts/debug_stress_level.js",
-    "debug-questions": "node scripts/debug_stress_level.js",
+    "debug-questions": "node scripts/debug_questions.js",
     "debug-full": "npm run debug-stress && npm run health-check",
     "logs": "tail -f logs/bot.log",
     "reset-logs": "rm -f logs/*.log && touch logs/bot.log",
@@ -38,7 +38,8 @@
     "axios": "^1.6.2",
     "dotenv": "^16.3.1",
     "pg": "^8.11.3",
-    "redis": "^4.6.10"
+    "redis": "^4.6.10",
+    "pdfkit": "^0.15.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.2",
