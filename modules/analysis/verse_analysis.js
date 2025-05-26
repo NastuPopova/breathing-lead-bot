@@ -1,7 +1,3 @@
-// Файл: lead_bot/modules/analysis/verse_analysis.js
-// Система VERSE-анализа для персонализации рекомендаций дыхательных практик
-// ОБНОВЛЕННАЯ ВЕРСИЯ с поддержкой детских анкет
-
 class BreathingVERSEAnalysis {
   constructor() {
     this.segmentWeights = {
@@ -16,6 +12,70 @@ class BreathingVERSEAnalysis {
       readiness: 0.3,  // 30% - готовность родителей
       fit: 0.2         // 20% - подходящость детских программ
     };
+
+    // Переводы для результатов анализа
+    this.translations = {
+      // Проблемы
+      'chronic_stress': 'хронический стресс и напряжение',
+      'anxiety': 'повышенная тревожность и панические атаки',
+      'insomnia': 'проблемы со сном и бессонница',
+      'breathing_issues': 'проблемы с дыханием и одышка',
+      'high_pressure': 'повышенное давление',
+      'fatigue': 'хроническая усталость',
+      'headaches': 'частые головные боли',
+      'concentration_issues': 'проблемы с концентрацией',
+      'back_pain': 'боли в шее, плечах и спине',
+      'digestion_issues': 'проблемы с пищеварением',
+      
+      // Детские проблемы
+      'hyperactivity': 'гиперактивность и невнимательность',
+      'separation_anxiety': 'страх разлуки с родителями',
+      'sleep_problems': 'проблемы с засыпанием',
+      'nightmares': 'беспокойный сон и кошмары',
+      'tantrums': 'частые истерики и капризы',
+      'aggression': 'агрессивное поведение',
+      'social_difficulties': 'сложности в общении',
+      'weak_immunity': 'частые простуды и слабый иммунитет',
+      'prevention': 'профилактика и общее развитие',
+      
+      // Общие
+      'general_wellness': 'общее оздоровление',
+      
+      // Сегменты
+      'HOT_LEAD': 'требует срочного внимания',
+      'WARM_LEAD': 'активно мотивирован к изменениям',
+      'COLD_LEAD': 'умеренный интерес к практикам',
+      'NURTURE_LEAD': 'долгосрочное развитие',
+      
+      // Возрастные группы
+      '18-30': '18-30 лет (молодые взрослые)',
+      '31-45': '31-45 лет (активный возраст)',
+      '46-60': '46-60 лет (зрелый возраст)',
+      '60+': '60+ лет (старший возраст)',
+      '3-4': '3-4 года (дошкольный возраст)',
+      '5-6': '5-6 лет (старший дошкольный)',
+      '7-8': '7-8 лет (младший школьный)',
+      '9-10': '9-10 лет (младший школьный)',
+      '11-12': '11-12 лет (средний школьный)',
+      '13-15': '13-15 лет (подростковый)',
+      '16-17': '16-17 лет (старший подростковый)',
+      
+      // Деятельность
+      'office_work': 'офисная работа',
+      'home_work': 'работа дома/фриланс',
+      'physical_work': 'физический труд',
+      'student': 'учеба',
+      'maternity_leave': 'декретный отпуск',
+      'retired': 'пенсия',
+      'management': 'руководящая должность'
+    };
+  }
+
+  /**
+   * Переводит значение в читаемый текст
+   */
+  translateValue(value) {
+    return this.translations[value] || value;
   }
 
   /**
@@ -30,7 +90,7 @@ class BreathingVERSEAnalysis {
   }
 
   /**
-   * Главный метод анализа пользователя - ОБНОВЛЕННЫЙ
+   * Главный метод анализа пользователя
    * @param {Object} surveyData - данные анкеты
    * @returns {Object} - полный анализ с рекомендациями
    */
@@ -48,7 +108,7 @@ class BreathingVERSEAnalysis {
   }
 
   /**
-   * Анализ для взрослых (существующая логика)
+   * Анализ для взрослых (с переводами в результатах)
    */
   analyzeAdultFlow(surveyData) {
     // 1. Вычисляем компоненты скоринга
@@ -70,8 +130,8 @@ class BreathingVERSEAnalysis {
       surveyData
     );
     
-    // 5. Создаем персональное сообщение
-    const personalMessage = this.generatePersonalMessage(
+    // 5. Создаем персональное сообщение С ПЕРЕВОДАМИ
+    const personalMessage = this.generatePersonalMessageWithTranslations(
       primaryIssue,
       segment,
       surveyData,
@@ -95,7 +155,7 @@ class BreathingVERSEAnalysis {
   }
 
   /**
-   * Анализ для детского потока
+   * Анализ для детского потока (с переводами в результатах)
    */
   analyzeChildFlow(surveyData) {
     console.log('👶 Выполняем детский VERSE-анализ...');
@@ -119,8 +179,8 @@ class BreathingVERSEAnalysis {
       surveyData
     );
     
-    // 5. Сообщение для родителей
-    const personalMessage = this.generateChildPersonalMessage(
+    // 5. Сообщение для родителей С ПЕРЕВОДАМИ
+    const personalMessage = this.generateChildPersonalMessageWithTranslations(
       primaryIssue,
       segment,
       surveyData,
@@ -144,597 +204,158 @@ class BreathingVERSEAnalysis {
   }
 
   /**
-   * Расчет срочности для детей (0-100)
+   * Генерация персонального сообщения для взрослых С ПЕРЕВОДАМИ
    */
-  calculateChildUrgencyScore(data) {
-    let urgencyScore = 0;
-    
-    // Возрастной фактор (младшие дети - более срочно)
-    const ageUrgency = {
-      '3-4': 20,   // раннее вмешательство критично
-      '5-6': 15,   // формирование привычек
-      '7-8': 12,   // школьная адаптация
-      '9-10': 10,  // средний возраст
-      '11-12': 8,  // подростковые изменения начинаются
-      '13-15': 15, // подростковый стресс
-      '16-17': 18  // предвзрослая тревожность
-    };
-    urgencyScore += ageUrgency[data.child_age_detail] || 10;
-    
-    // Критические детские проблемы
-    const criticalChildIssues = [
-      'breathing_issues', 'anxiety', 'separation_anxiety', 
-      'nightmares', 'aggression', 'hyperactivity'
-    ];
-    
-    if (data.child_problems_detailed) {
-      criticalChildIssues.forEach(issue => {
-        if (data.child_problems_detailed.includes(issue)) {
-          urgencyScore += 20; // детские проблемы критичнее
-        }
+  generatePersonalMessageWithTranslations(primaryIssue, segment, data, recommendations) {
+    const ageGroup = this.translateValue(data.age_group) || 'не указан';
+    const occupation = this.translateValue(data.occupation) || 'не указано';
+    const primaryProblem = this.translateValue(primaryIssue);
+    const segmentDescription = this.translateValue(segment);
+
+    let message = `🎯 *Ваш дыхательный профиль: "${this.getTranslatedProfileName(data)}"*\n\n`;
+
+    // Информация о пользователе С ПЕРЕВОДАМИ
+    message += `📊 *АНАЛИЗ ВАШЕЙ СИТУАЦИИ:*\n`;
+    message += `• Возраст: ${ageGroup}\n`;
+    message += `• Деятельность: ${occupation}\n`;
+    if (data.stress_level) {
+      message += `• Уровень стресса: ${data.stress_level}/10 - ${this.getStressDescription(data.stress_level)}\n`;
+    }
+    message += `• Основная проблема: ${primaryProblem}\n`;
+    message += `• Готовность к изменениям: ${segmentDescription}\n\n`;
+
+    message += `💡 *ПЕРСОНАЛЬНАЯ ПРОГРАММА:*\n\n`;
+
+    message += `🔥 *НАЧНИТЕ СЕГОДНЯ:*\n`;
+    recommendations.urgent_techniques.forEach(tech => {
+      message += `• ${tech} (5-10 мин)\n`;
+    });
+    message += `\n`;
+
+    message += `📈 *ВАША ГЛАВНАЯ ПРОГРАММА:*\n`;
+    message += `${recommendations.main_program}\n\n`;
+
+    message += `⏰ *ОЖИДАЕМЫЙ РЕЗУЛЬТАТ:* ${recommendations.timeline}\n\n`;
+
+    if (recommendations.support_materials && recommendations.support_materials.length > 0) {
+      message += `🎁 *ПЕРСОНАЛЬНЫЕ БОНУСЫ:*\n`;
+      recommendations.support_materials.forEach(material => {
+        message += `✅ ${material}\n`;
       });
+      message += `\n`;
     }
-    
-    // Загруженность расписания
-    const scheduleStress = {
-      'relaxed': 0,
-      'moderate': 5,
-      'busy': 15,
-      'overloaded': 25,
-      'intensive': 35
-    };
-    urgencyScore += scheduleStress[data.child_schedule_stress] || 5;
-    
-    // Образовательная среда (стресс-факторы)
-    const educationStress = {
-      'home_only': 0,
-      'private_kindergarten': 5,
-      'public_kindergarten': 10,
-      'private_school': 8,
-      'public_school': 15,
-      'gymnasium': 20,
-      'homeschooling': 3,
-      'alternative_school': 5
-    };
-    urgencyScore += educationStress[data.child_education_status] || 10;
-    
-    // Проблемы со сном у детей (особенно критично)
-    if (data.child_problems_detailed && data.child_problems_detailed.includes('sleep_problems')) {
-      urgencyScore += 15;
+
+    message += `📞 *СЛЕДУЮЩИЙ ШАГ:* ${recommendations.consultation_type}\n\n`;
+
+    // Мотивационное сообщение в зависимости от сегмента
+    if (segment === 'HOT_LEAD') {
+      message += `⚡ *Особая рекомендация:* Судя по вашим ответам, вам нужна срочная помощь. `;
+      message += `Начните с первой техники прямо сейчас!\n\n`;
+    } else if (segment === 'WARM_LEAD') {
+      message += `💪 *Отличная мотивация!* Вы готовы к изменениям. `;
+      message += `Регулярные занятия дадут результат уже через неделю.\n\n`;
     }
-    if (data.child_problems_detailed && data.child_problems_detailed.includes('nightmares')) {
-      urgencyScore += 12;
-    }
-    
-    return Math.min(Math.round(urgencyScore), 100);
+
+    message += `💬 Анастасия подготовит для вас персональный план и свяжется в течение 24 часов.`;
+
+    return message;
   }
 
   /**
-   * Расчет готовности родителей (0-100)
+   * Генерация персонального сообщения для детей С ПЕРЕВОДАМИ
    */
-  calculateChildReadinessScore(data) {
-    let readinessScore = 30; // базовый скор - родители заботятся
-    
-    // Кто будет заниматься (мотивация и возможности)
-    const parentInvolvementBonus = {
-      'mother': 25,        // высокая вовлеченность мам
-      'father': 20,        // отцы тоже мотивированы
-      'both_parents': 30,  // максимальная поддержка
-      'grandparent': 15,   // опыт, но меньше энергии
-      'child_independent': 10, // зависит от возраста
-      'group_sessions': 20 // внешняя мотивация
-    };
-    readinessScore += parentInvolvementBonus[data.child_parent_involvement] || 15;
-    
-    // Понимание мотивации ребенка
-    const motivationBonus = {
-      'games_stories': 25,      // отлично для всех возрастов
-      'reward_system': 20,      // хорошая система
-      'family_activities': 25,  // вовлечение семьи
-      'digital_interactive': 15, // современные дети
-      'creative_tasks': 20,     // развитие творчества
-      'adult_explanation': 10,  // для старших детей
-      'peer_group': 15          // социальная мотивация
-    };
-    readinessScore += motivationBonus[data.child_motivation_approach] || 15;
-    
-    // Время для занятий
-    const timeBonus = {
-      'morning_routine': 20,     // регулярность
-      'after_school': 25,       // хорошее время
-      'afternoon': 15,          // может быть уставший
-      'before_sleep': 30,       // идеально для релаксации
-      'during_homework': 10,    // может отвлекать
-      'stress_situations': 35,  // максимальная польза
-      'weekends': 15            // нерегулярно
-    };
-    readinessScore += timeBonus[data.child_time_availability] || 15;
-    
-    // Бонус за конкретность проблем (родители четко понимают что нужно)
-    if (data.child_problems_detailed && data.child_problems_detailed.length >= 2) {
-      readinessScore += 10;
-    }
-    
-    return Math.min(readinessScore, 100);
-  }
+  generateChildPersonalMessageWithTranslations(primaryIssue, segment, data, recommendations) {
+    const childAge = this.translateValue(data.child_age_detail) || 'не указан';
+    const education = this.translateValue(data.child_education_status) || 'не указано';
+    const primaryProblem = this.translateValue(primaryIssue);
+    const segmentDescription = this.translateValue(segment);
 
-  /**
-   * Расчет соответствия детским программам (0-100)
-   */
-  calculateChildFitScore(data) {
-    let fitScore = 40; // базовый скор - дети хорошо реагируют на дыхательные практики
-    
-    // Возрастная подходящость (sweet spot)
-    const ageFit = {
-      '3-4': 10,   // сложно удержать внимание
-      '5-6': 20,   // начинают понимать
-      '7-8': 25,   // отличный возраст для обучения
-      '9-10': 30,  // наш sweet spot
-      '11-12': 25, // хорошо, но начинается подростковость
-      '13-15': 15, // подростковое сопротивление
-      '16-17': 20  // уже более сознательные
-    };
-    fitScore += ageFit[data.child_age_detail] || 20;
-    
-    // Проблемы, которые мы хорошо решаем у детей
-    const ourChildStrengths = [
-      'anxiety', 'hyperactivity', 'sleep_problems', 
-      'concentration_issues', 'aggression', 'separation_anxiety'
-    ];
-    
-    if (data.child_problems_detailed) {
-      ourChildStrengths.forEach(strength => {
-        if (data.child_problems_detailed.includes(strength)) {
-          fitScore += 12;
-        }
+    let message = `🧸 *Детский дыхательный профиль: "${this.getTranslatedChildProfileName(data)}"*\n\n`;
+
+    // Информация о ребенке С ПЕРЕВОДАМИ
+    message += `👶 *АНАЛИЗ СИТУАЦИИ РЕБЕНКА:*\n`;
+    message += `• Возраст: ${childAge}\n`;
+    message += `• Образование: ${education}\n`;
+    message += `• Основная проблема: ${primaryProblem}\n`;
+    message += `• Готовность семьи: ${segmentDescription}\n\n`;
+
+    if (segment === 'HOT_LEAD') {
+      message += `⚠️ *СРОЧНО ТРЕБУЕТСЯ ВНИМАНИЕ*\n`;
+      message += `${primaryProblem} у ребенка требует немедленного вмешательства для правильного развития.\n\n`;
+    }
+
+    message += `🎮 *ЭКСТРЕННЫЕ ТЕХНИКИ (начните сегодня):*\n`;
+    recommendations.urgent_techniques.forEach(tech => {
+      message += `• ${tech} (5-10 мин в игровой форме)\n`;
+    });
+    message += `\n`;
+
+    message += `📋 *ДЕТСКАЯ ПРОГРАММА:* ${recommendations.main_program}\n\n`;
+
+    message += `⏰ *РЕЗУЛЬТАТ:* ${recommendations.timeline}\n\n`;
+
+    if (recommendations.support_materials && recommendations.support_materials.length > 0) {
+      message += `🎁 *СПЕЦИАЛЬНЫЕ МАТЕРИАЛЫ ДЛЯ РОДИТЕЛЕЙ:*\n`;
+      recommendations.support_materials.forEach(material => {
+        message += `✅ ${material}\n`;
       });
+      message += `\n`;
     }
-    
-    // Образовательная среда (где мы эффективны)
-    const educationFit = {
-      'home_only': 20,          // полный контроль родителей
-      'private_kindergarten': 15, // индивидуальный подход
-      'public_kindergarten': 10,  // стандартная программа
-      'private_school': 18,      // больше возможностей
-      'public_school': 12,       // стандартный подход
-      'gymnasium': 8,            // высокая нагрузка
-      'homeschooling': 25,       // максимальная гибкость
-      'alternative_school': 22   // уже ориентированы на развитие
-    };
-    fitScore += educationFit[data.child_education_status] || 12;
-    
-    // Мотивационный подход (насколько подходит нашим методам)
-    const motivationFit = {
-      'games_stories': 25,       // наш основной подход
-      'reward_system': 20,      // хорошо работает
-      'family_activities': 30,  // идеально
-      'digital_interactive': 15, // можем адаптировать
-      'creative_tasks': 22,     // наши сильные стороны
-      'adult_explanation': 10,  // не наш основной метод
-      'peer_group': 12          // можем организовать
-    };
-    fitScore += motivationFit[data.child_motivation_approach] || 15;
-    
-    return Math.min(fitScore, 100);
-  }
 
-  /**
-   * Расчет общего детского скора
-   */
-  calculateChildTotalScore(urgency, readiness, fit) {
-    return Math.round(
-      urgency * this.childSegmentWeights.urgency +
-      readiness * this.childSegmentWeights.readiness +
-      fit * this.childSegmentWeights.fit
-    );
-  }
+    message += `📞 *СЛЕДУЮЩИЙ ШАГ:* ${recommendations.consultation_type}\n\n`;
 
-  /**
-   * Определение детского сегмента
-   */
-  determineChildSegment(totalScore) {
-    // Немного другие пороги для детей
-    if (totalScore >= 75) return 'HOT_LEAD';      // 75+ (дети требуют быстрого реагирования)
-    if (totalScore >= 55) return 'WARM_LEAD';     // 55-74
-    if (totalScore >= 35) return 'COLD_LEAD';     // 35-54
-    return 'NURTURE_LEAD';                        // менее 35
-  }
-
-  /**
-   * Определение основной детской проблемы
-   */
-  identifyChildPrimaryIssue(data) {
-    const childIssuePriority = {
-      'breathing_issues': 100,    // критично для здоровья
-      'anxiety': 95,              // влияет на развитие
-      'separation_anxiety': 90,   // мешает социализации
-      'nightmares': 85,           // влияет на сон и психику
-      'sleep_problems': 80,       // основа здоровья
-      'hyperactivity': 75,        // мешает обучению
-      'aggression': 70,           // социальные проблемы
-      'concentration_issues': 65, // учебные трудности
-      'tantrums': 60,             // поведенческие проблемы
-      'social_difficulties': 55,  // коммуникация
-      'weak_immunity': 50,        // здоровье
-      'prevention': 30            // профилактика
-    };
-    
-    let topIssue = 'general_wellness';
-    let maxPriority = 0;
-    
-    if (data.child_problems_detailed) {
-      data.child_problems_detailed.forEach(problem => {
-        const priority = childIssuePriority[problem] || 0;
-        if (priority > maxPriority) {
-          maxPriority = priority;
-          topIssue = problem;
-        }
-      });
+    if (segment === 'HOT_LEAD') {
+      message += `⚠️ *Важно:* Наш детский специалист свяжется с вами сегодня до 19:00 для составления индивидуального плана помощи ребенку.\n\n`;
     }
-    
-    return topIssue;
+
+    message += `💝 *Мы понимаем вашу заботу и поможем вашему малышу ${primaryProblem.includes('дыхани') ? 'дышать легко' : 'стать спокойнее'}!*`;
+
+    return message;
   }
 
   /**
-   * Генерация детских рекомендаций
+   * Получает переведенное название профиля для взрослых
    */
-  generateChildRecommendations(primaryIssue, segment, data) {
-    const recommendations = {
-      urgent_techniques: [],
-      main_program: '',
-      support_materials: [],
-      consultation_type: '',
-      timeline: ''
+  getTranslatedProfileName(data) {
+    const profiles = {
+      'office_work': 'Стрессовое дыхание офисного работника',
+      'home_work': 'Домашний стресс и изоляция',
+      'student': 'Учебный стресс и перегрузки',
+      'maternity_leave': 'Материнское выгорание',
+      'physical_work': 'Физический стресс и усталость',
+      'management': 'Руководящий стресс и ответственность',
+      'retired': 'Возрастные изменения дыхания'
     };
     
-    // Детские программы по проблемам и сегментам
-    const childProgramMatrix = {
-      'breathing_issues': {
-        'HOT_LEAD': {
-          main: 'Срочная детская программа "Дыши легко" с индивидуальными занятиями',
-          urgent: ['Игра "Воздушный шарик"', 'Дыхание-считалочка', 'Техника "Сонный мишка"'],
-          consultation: 'Экстренная консультация родителей + педиатрическое сопровождение',
-          timeline: 'Улучшение дыхания через 3-5 дней'
-        },
-        'WARM_LEAD': {
-          main: 'Групповая программа "Дыхательные приключения" (2 недели)',
-          urgent: ['Базовое "животное дыхание"', 'Игра "Ветерок"'],
-          consultation: 'Групповые занятия + консультация для родителей',
-          timeline: 'Заметные улучшения через неделю'
-        }
-      },
-      'anxiety': {
-        'HOT_LEAD': {
-          main: 'Интенсивная программа "Спокойный ребенок" с семейной терапией',
-          urgent: ['Техника "Безопасное место"', 'Дыхание с любимой игрушкой', 'Семейное дыхание'],
-          consultation: 'Семейные сессии + индивидуальная работа с ребенком',
-          timeline: 'Снижение тревожности через 5-7 дней'
-        }
-      },
-      'hyperactivity': {
-        'HOT_LEAD': {
-          main: 'Программа "Спокойная энергия" - дыхательные игры для гиперактивных детей',
-          urgent: ['Игра "Стоп-дыхание"', 'Техника "Медленная черепаха"', 'Дыхательная пауза'],
-          consultation: 'Консультации для родителей + школьные рекомендации',
-          timeline: 'Улучшение концентрации через 1-2 недели'
-        }
-      },
-      'sleep_problems': {
-        'HOT_LEAD': {
-          main: 'Программа "Сонные дыхательные сказки" (индивидуальная)',
-          urgent: ['Дыхание "Спящий котик"', 'Вечерняя дыхательная сказка', 'Техника "Облачко"'],
-          consultation: 'Консультация по детскому сну + семейные рекомендации',
-          timeline: 'Улучшение сна через 3-7 дней'
-        }
-      }
-    };
+    const profile = profiles[data.occupation];
+    if (profile) return profile;
     
-    // Получаем рекомендации для конкретной проблемы и сегмента
-    const issuePrograms = childProgramMatrix[primaryIssue];
-    if (issuePrograms && issuePrograms[segment]) {
-      const program = issuePrograms[segment];
-      recommendations.main_program = program.main;
-      recommendations.urgent_techniques = program.urgent;
-      recommendations.consultation_type = program.consultation;
-      recommendations.timeline = program.timeline;
-    } else {
-      // Fallback для других случаев
-      recommendations.main_program = this.getDefaultChildProgram(segment, data);
-      recommendations.urgent_techniques = this.getDefaultChildTechniques(primaryIssue, data);
-      recommendations.consultation_type = this.getDefaultChildConsultation(segment);
-      recommendations.timeline = 'Первые результаты через 1-2 недели';
-    }
-    
-    // Детские поддерживающие материалы
-    recommendations.support_materials = this.getChildSupportMaterials(primaryIssue, segment, data);
-    
-    return recommendations;
+    // Fallback по уровню стресса
+    const stressLevel = data.stress_level || 0;
+    if (stressLevel >= 8) return 'Критический стресс и напряжение';
+    if (stressLevel >= 6) return 'Высокий стресс и перегрузки';
+    if (stressLevel >= 4) return 'Умеренный стресс';
+    return 'Профилактика и оздоровление';
   }
 
   /**
-   * Генерация персонального сообщения для родителей
+   * Получает переведенное название профиля для детей
    */
-  generateChildPersonalMessage(primaryIssue, segment, data, recommendations) {
-    const childAge = data.child_age_detail || 'не указан';
-    const education = data.child_education_status || 'не указано';
-    
-    const templates = {
-      'breathing_issues': {
-        'HOT_LEAD': `🌬️ *Детский дыхательный профиль: "Помощь при проблемах с дыханием"*
-
-👶 *Возраст ребенка:* ${this.getChildAgeDisplay(childAge)}
-🎓 *Обучение:* ${this.getEducationDisplay(education)}
-
-⚠️ *СРОЧНО ТРЕБУЕТСЯ ВНИМАНИЕ*
-Проблемы с дыханием у ребенка требуют немедленного вмешательства для правильного развития.
-
-🎯 *ЭКСТРЕННЫЕ ТЕХНИКИ (начните сегодня):*
-${recommendations.urgent_techniques.map(tech => `• ${tech} (5-10 мин в игровой форме)`).join('\n')}
-
-📋 *ДЕТСКАЯ ПРОГРАММА:* ${recommendations.main_program}
-
-⏰ *РЕЗУЛЬТАТ:* ${recommendations.timeline}
-
-🎁 *СПЕЦИАЛЬНЫЕ МАТЕРИАЛЫ ДЛЯ РОДИТЕЛЕЙ:*
-✅ Видеогид "Дыхательные игры дома"
-✅ Сказки с дыхательными упражнениями
-✅ Карточки-подсказки для экстренных ситуаций
-✅ Прямая связь с детским специалистом
-
-📞 *СЛЕДУЮЩИЙ ШАГ:* ${recommendations.consultation_type}
-
-⚠️ *Важно:* Наш детский специалист свяжется с вами сегодня до 19:00 для составления индивидуального плана помощи ребенку.
-
-💝 *Мы понимаем вашу заботу и поможем вашему малышу дышать легко!*`
-      },
-      
-      'anxiety': {
-        'HOT_LEAD': `🧸 *Детский профиль: "Тревожный ребенок - спокойные родители"*
-
-👶 *Возраст:* ${this.getChildAgeDisplay(childAge)}
-📊 *Ситуация:* Ребенок испытывает повышенную тревожность
-
-💡 *АНАЛИЗ ДЕТСКОГО ПСИХОЛОГА:*
-• Возраст: ${childAge} - критически важный период для формирования навыков саморегуляции
-• Среда обучения: ${this.getEducationDisplay(education)} - влияет на уровень стресса
-• Готовность семьи: Высокая (${segment === 'HOT_LEAD' ? 'приоритетный случай' : 'важный случай'})
-
-🎮 *НАЧНИТЕ ИГРАТЬ СЕГОДНЯ:*
-${recommendations.urgent_techniques.map(tech => `• ${tech} (превратите в веселую игру!)`).join('\n')}
-
-📈 *СЕМЕЙНАЯ ПРОГРАММА:*
-${recommendations.main_program}
-
-⏰ *ОЖИДАЕМЫЙ РЕЗУЛЬТАТ:* ${recommendations.timeline}
-
-🎁 *НАБОР "СПОКОЙНАЯ СЕМЬЯ":*
-${recommendations.support_materials.map(material => `✅ ${material}`).join('\n')}
-
-👨‍👩‍👧‍👦 *СЛЕДУЮЩИЙ ШАГ:* ${recommendations.consultation_type}
-
-💬 Детский психолог и специалист по дыхательным практикам подготовят семейный план и свяжутся в течение 24 часов.
-
-💖 *Вместе мы поможем вашему ребенку стать спокойнее и увереннее!*`
-      }
-    };
-    
-    // Получаем шаблон или создаем базовый
-    const template = templates[primaryIssue]?.[segment] || this.getDefaultChildTemplate(primaryIssue, segment, data, recommendations);
-    
-    return template;
-  }
-
-  /**
-   * Вспомогательные методы для детского анализа
-   */
-  getChildAgeDisplay(age) {
-    const ageMap = {
-      '3-4': '3-4 года (дошкольник)',
-      '5-6': '5-6 лет (старший дошкольник)',
-      '7-8': '7-8 лет (младший школьник)',
-      '9-10': '9-10 лет (младший школьник)',
-      '11-12': '11-12 лет (средний школьник)',
-      '13-15': '13-15 лет (подросток)',
-      '16-17': '16-17 лет (старший подросток)'
-    };
-    return ageMap[age] || age;
-  }
-
-  getEducationDisplay(education) {
-    const eduMap = {
-      'home_only': 'Домашнее воспитание',
-      'private_kindergarten': 'Частный детский сад',
-      'public_kindergarten': 'Государственный детский сад',
-      'private_school': 'Частная школа',
-      'public_school': 'Государственная школа',
-      'gymnasium': 'Гимназия/лицей',
-      'homeschooling': 'Семейное обучение',
-      'alternative_school': 'Альтернативная школа'
-    };
-    return eduMap[education] || education;
-  }
-
-  getChildSupportMaterials(primaryIssue, segment, data) {
-    const baseMaterials = [
-      'PDF-гид "Дыхательные игры для детей"',
-      'Видеоинструкции для родителей',
-      'Детские раскраски с дыханием',
-      'Доступ к родительскому чату'
-    ];
-    
-    const issueMaterials = {
-      'breathing_issues': [
-        'Карточки "SOS-дыхание для детей"',
-        'Аудиосказки "Дыши и засыпай"',
-        'Видео "Дыхательная гимнастика-игра"',
-        'Методичка для педиатра'
-      ],
-      'anxiety': [
-        'Набор "Спокойный ребенок"',
-        'Игровые карточки от тревожности',
-        'Семейные дыхательные ритуалы',
-        'Гид по детской психологии'
-      ],
-      'hyperactivity': [
-        'Игры "Стоп-дыхание"',
-        'Карточки для школы',
-        'Техники быстрого успокоения',
-        'Рекомендации для учителей'
-      ]
-    };
-    
-    return [...baseMaterials, ...(issueMaterials[primaryIssue] || [])];
-  }
-
-  getDefaultChildProgram(segment, data) {
-    const programs = {
-      'HOT_LEAD': 'Интенсивная детская программа "Дыши и играй"',
-      'WARM_LEAD': 'Семейная программа дыхательных практик',
-      'COLD_LEAD': 'Ознакомительный курс "Первые дыхательные игры"',
-      'NURTURE_LEAD': 'Профилактическая программа здорового дыхания'
-    };
-    return programs[segment];
-  }
-
-  getDefaultChildTechniques(issue, data) {
-    const childAge = data.child_age_detail;
-    
-    // Техники по возрастам
-    if (['3-4', '5-6'].includes(childAge)) {
-      return [
-        'Игра "Надуй воздушный шарик"',
-        'Дыхание "Как спит мишка"',
-        'Техника "Ветерок и листочек"'
-      ];
-    } else if (['7-8', '9-10'].includes(childAge)) {
-      return [
-        'Дыхательная считалочка',
-        'Игра "Морские волны"',
-        'Техника "Дыхание супергероя"'
-      ];
-    } else {
-      return [
-        'Подростковое спокойное дыхание',
-        'Техника снятия стресса перед экзаменами',
-        'Дыхание для концентрации'
-      ];
-    }
-  }
-
-  getDefaultChildConsultation(segment) {
-    const consultations = {
-      'HOT_LEAD': 'Срочная семейная консультация (90 мин)',
-      'WARM_LEAD': 'Групповые детские занятия + консультация родителей',
-      'COLD_LEAD': 'Ознакомительная встреча с детским специалистом',
-      'NURTURE_LEAD': 'Доступ к записям детских вебинаров'
-    };
-    return consultations[segment];
-  }
-
-  getDefaultChildTemplate(primaryIssue, segment, data, recommendations) {
-    const childAge = data.child_age_detail || 'не указан';
-    
-    return `👶 *Персональный план дыхательных практик для ребенка*
-
-🎯 *Возраст ребенка:* ${this.getChildAgeDisplay(childAge)}
-📋 *Основная проблема:* ${this.getChildProblemDescription(primaryIssue)}
-
-💡 *Рекомендованная программа:*
-${recommendations.main_program}
-
-🎮 *Начните с этих игр:*
-${recommendations.urgent_techniques.map(tech => `• ${tech}`).join('\n')}
-
-⏰ *Ожидаемые результаты:* ${recommendations.timeline}
-
-👨‍👩‍👧‍👦 *Поддержка родителей:* ${recommendations.consultation_type}
-
-Наш детский специалист свяжется с вами для составления индивидуального плана.`;
-  }
-
-  getChildProblemDescription(issue) {
-    const descriptions = {
-      'breathing_issues': 'проблемы с дыханием',
-      'anxiety': 'повышенная тревожность',
-      'separation_anxiety': 'страх разлуки с родителями',
-      'nightmares': 'ночные кошмары и беспокойный сон',
-      'sleep_problems': 'трудности с засыпанием',
-      'hyperactivity': 'гиперактивность и невнимательность',
-      'aggression': 'агрессивное поведение',
-      'concentration_issues': 'проблемы с концентрацией',
-      'tantrums': 'частые истерики',
-      'social_difficulties': 'сложности в общении',
-      'weak_immunity': 'слабый иммунитет',
-      'prevention': 'профилактика и общее развитие'
-    };
-    return descriptions[issue] || 'общие вопросы развития';
-  }
-
-  generateChildProfile(surveyData, segment, primaryIssue) {
-    return {
-      id: `child_${surveyData.child_age_detail}_${surveyData.child_education_status}_${primaryIssue}_${segment}`,
-      description: this.getChildProfileName(surveyData),
-      segment,
-      primaryIssue,
-      riskLevel: this.getChildRiskLevel(surveyData),
-      parentMotivation: this.getParentMotivationLevel(surveyData),
-      expectedSuccess: this.predictChildSuccessRate(surveyData, segment),
-      ageGroup: surveyData.child_age_detail,
-      educationEnvironment: surveyData.child_education_status,
-      scheduleStress: surveyData.child_schedule_stress
-    };
-  }
-
-  getChildProfileName(data) {
+  getTranslatedChildProfileName(data) {
     const age = data.child_age_detail || 'ребенок';
-    const problem = this.getChildProblemDescription(data.child_problems_detailed?.[0] || 'general');
-    return `${this.getChildAgeDisplay(age)} с проблемой: ${problem}`;
+    const problem = this.translateValue(data.child_problems_detailed?.[0] || 'развитие');
+    return `${this.translateValue(age)} с проблемой: ${problem}`;
   }
 
-  getChildRiskLevel(data) {
-    const criticalIssues = ['breathing_issues', 'anxiety', 'separation_anxiety', 'aggression'];
-    const hasСriticalIssues = data.child_problems_detailed?.some(p => criticalIssues.includes(p));
-    const isOverloaded = ['overloaded', 'intensive'].includes(data.child_schedule_stress);
-    
-    if (hasСriticalIssues && isOverloaded) return 'HIGH';
-    if (hasСriticalIssues || isOverloaded) return 'MEDIUM';
-    return 'LOW';
+  /**
+   * Описание уровня стресса
+   */
+  getStressDescription(level) {
+    if (level >= 8) return 'критически высокий';
+    if (level >= 6) return 'высокий';
+    if (level >= 4) return 'умеренный';
+    return 'низкий';
   }
-
-  getParentMotivationLevel(data) {
-    let motivation = 'MEDIUM';
-    
-    // Высокая мотивация родителей
-    if (data.child_parent_involvement === 'both_parents') motivation = 'HIGH';
-    if (data.child_motivation_approach === 'family_activities') motivation = 'HIGH';
-    if (data.child_time_availability === 'stress_situations') motivation = 'HIGH';
-    if (data.child_problems_detailed?.length >= 3) motivation = 'HIGH';
-    
-    // Низкая мотивация
-    if (data.child_parent_involvement === 'child_independent' && 
-        ['3-4', '5-6'].includes(data.child_age_detail)) motivation = 'LOW';
-    
-    return motivation;
-  }
-
-  predictChildSuccessRate(data, segment) {
-    let baseRate = {
-      'HOT_LEAD': 90,   // дети быстро реагируют на помощь
-      'WARM_LEAD': 85,  
-      'COLD_LEAD': 70,
-      'NURTURE_LEAD': 60
-    }[segment];
-    
-    // Модификаторы для детей
-    if (data.child_parent_involvement === 'both_parents') baseRate += 10;
-    if (data.child_motivation_approach === 'games_stories') baseRate += 8;
-    if (['7-8', '9-10'].includes(data.child_age_detail)) baseRate += 5; // sweet spot
-    if (data.child_education_status === 'homeschooling') baseRate += 7; // больше контроля
-    
-    return Math.min(baseRate, 95);
-  }
-
-  // === СУЩЕСТВУЮЩИЕ МЕТОДЫ ДЛЯ ВЗРОСЛЫХ (без изменений) ===
 
   /**
    * Расчет срочности помощи для взрослых (0-100)
@@ -1047,77 +668,392 @@ ${recommendations.urgent_techniques.map(tech => `• ${tech}`).join('\n')}
   }
 
   /**
-   * Генерация персонального сообщения для взрослых
+   * Расчет срочности для детей (0-100)
    */
-  generatePersonalMessage(primaryIssue, segment, data, recommendations) {
-    const templates = {
-      'chronic_stress': {
-        'HOT_LEAD': `🎯 *Ваш дыхательный профиль: "${this.getProfileName(data)}"*
-
-📊 *АНАЛИЗ ВАШЕЙ СИТУАЦИИ:*
-• Уровень стресса: ${data.stress_level}/10 - ${this.getStressDescription(data.stress_level)}
-• Основная проблема: ${this.getProblemDescription(primaryIssue)}
-• Готовность к изменениям: Высокая (${segment === 'HOT_LEAD' ? 'горячий лид' : 'теплый лид'})
-
-💡 *ПЕРСОНАЛЬНАЯ ПРОГРАММА:*
-
-🔥 *НАЧНИТЕ СЕГОДНЯ:*
-${recommendations.urgent_techniques.map(tech => `• ${tech} (5-10 мин)`).join('\n')}
-
-📈 *ВАША ГЛАВНАЯ ПРОГРАММА:*
-${recommendations.main_program}
-
-⏰ *ОЖИДАЕМЫЙ РЕЗУЛЬТАТ:* ${recommendations.timeline}
-
-🎁 *ПЕРСОНАЛЬНЫЕ БОНУСЫ:*
-${recommendations.support_materials.map(material => `✅ ${material}`).join('\n')}
-
-📞 *СЛЕДУЮЩИЙ ШАГ:* ${recommendations.consultation_type}
-
-💬 Анастасия подготовит для вас персональный план и свяжется в течение 24 часов.`
-      }
+  calculateChildUrgencyScore(data) {
+    let urgencyScore = 0;
+    
+    // Возрастной фактор (младшие дети - более срочно)
+    const ageUrgency = {
+      '3-4': 20,   // раннее вмешательство критично
+      '5-6': 15,   // формирование привычек
+      '7-8': 12,   // школьная адаптация
+      '9-10': 10,  // средний возраст
+      '11-12': 8,  // подростковые изменения начинаются
+      '13-15': 15, // подростковый стресс
+      '16-17': 18  // предвзрослая тревожность
     };
+    urgencyScore += ageUrgency[data.child_age_detail] || 10;
     
-    // Получаем шаблон или создаем базовый
-    const template = templates[primaryIssue]?.[segment] || this.getDefaultTemplate(primaryIssue, segment, data, recommendations);
+    // Критические детские проблемы
+    const criticalChildIssues = [
+      'breathing_issues', 'anxiety', 'separation_anxiety', 
+      'nightmares', 'aggression', 'hyperactivity'
+    ];
     
-    return template;
+    if (data.child_problems_detailed) {
+      criticalChildIssues.forEach(issue => {
+        if (data.child_problems_detailed.includes(issue)) {
+          urgencyScore += 20; // детские проблемы критичнее
+        }
+      });
+    }
+    
+    // Загруженность расписания
+    const scheduleStress = {
+      'relaxed': 0,
+      'moderate': 5,
+      'busy': 15,
+      'overloaded': 25,
+      'intensive': 35
+    };
+    urgencyScore += scheduleStress[data.child_schedule_stress] || 5;
+    
+    // Образовательная среда (стресс-факторы)
+    const educationStress = {
+      'home_only': 0,
+      'private_kindergarten': 5,
+      'public_kindergarten': 10,
+      'private_school': 8,
+      'public_school': 15,
+      'gymnasium': 20,
+      'homeschooling': 3,
+      'alternative_school': 5
+    };
+    urgencyScore += educationStress[data.child_education_status] || 10;
+    
+    // Проблемы со сном у детей (особенно критично)
+    if (data.child_problems_detailed && data.child_problems_detailed.includes('sleep_problems')) {
+      urgencyScore += 15;
+    }
+    if (data.child_problems_detailed && data.child_problems_detailed.includes('nightmares')) {
+      urgencyScore += 12;
+    }
+    
+    return Math.min(Math.round(urgencyScore), 100);
   }
 
   /**
-   * Вспомогательные методы для взрослых
+   * Расчет готовности родителей (0-100)
    */
-  getProfileName(data) {
-    const profiles = {
-      'office_work': 'Стрессовое дыхание офисного работника',
-      'home_work': 'Домашний стресс и изоляция',
-      'student': 'Учебный стресс и перегрузки',
-      'maternity_leave': 'Материнское выгорание',
-      'physical_work': 'Физический стресс и усталость'
+  calculateChildReadinessScore(data) {
+    let readinessScore = 30; // базовый скор - родители заботятся
+    
+    // Кто будет заниматься (мотивация и возможности)
+    const parentInvolvementBonus = {
+      'mother': 25,        // высокая вовлеченность мам
+      'father': 20,        // отцы тоже мотивированы
+      'both_parents': 30,  // максимальная поддержка
+      'grandparent': 15,   // опыт, но меньше энергии
+      'child_independent': 10, // зависит от возраста
+      'group_sessions': 20 // внешняя мотивация
     };
-    return profiles[data.occupation] || 'Хронический стресс и напряжение';
-  }
-
-  getStressDescription(level) {
-    if (level >= 8) return 'критически высокий';
-    if (level >= 6) return 'высокий';
-    if (level >= 4) return 'умеренный';
-    return 'низкий';
-  }
-
-  getProblemDescription(issue) {
-    const descriptions = {
-      'chronic_stress': 'хроническое напряжение и стресс',
-      'panic_attacks': 'панические атаки и острая тревожность',
-      'anxiety': 'повышенная тревожность',
-      'insomnia': 'проблемы со сном и бессонница',
-      'high_pressure': 'повышенное давление',
-      'breathing_issues': 'проблемы с дыханием',
-      'fatigue': 'хроническая усталость'
+    readinessScore += parentInvolvementBonus[data.child_parent_involvement] || 15;
+    
+    // Понимание мотивации ребенка
+    const motivationBonus = {
+      'games_stories': 25,      // отлично для всех возрастов
+      'reward_system': 20,      // хорошая система
+      'family_activities': 25,  // вовлечение семьи
+      'digital_interactive': 15, // современные дети
+      'creative_tasks': 20,     // развитие творчества
+      'adult_explanation': 10,  // для старших детей
+      'peer_group': 15          // социальная мотивация
     };
-    return descriptions[issue] || 'общие проблемы с самочувствием';
+    readinessScore += motivationBonus[data.child_motivation_approach] || 15;
+    
+    // Время для занятий
+    const timeBonus = {
+      'morning_routine': 20,     // регулярность
+      'after_school': 25,       // хорошее время
+      'afternoon': 15,          // может быть уставший
+      'before_sleep': 30,       // идеально для релаксации
+      'during_homework': 10,    // может отвлекать
+      'stress_situations': 35,  // максимальная польза
+      'weekends': 15            // нерегулярно
+    };
+    readinessScore += timeBonus[data.child_time_availability] || 15;
+    
+    // Бонус за конкретность проблем (родители четко понимают что нужно)
+    if (data.child_problems_detailed && data.child_problems_detailed.length >= 2) {
+      readinessScore += 10;
+    }
+    
+    return Math.min(readinessScore, 100);
   }
 
+  /**
+   * Расчет соответствия детским программам (0-100)
+   */
+  calculateChildFitScore(data) {
+    let fitScore = 40; // базовый скор - дети хорошо реагируют на дыхательные практики
+    
+    // Возрастная подходящость (sweet spot)
+    const ageFit = {
+      '3-4': 10,   // сложно удержать внимание
+      '5-6': 20,   // начинают понимать
+      '7-8': 25,   // отличный возраст для обучения
+      '9-10': 30,  // наш sweet spot
+      '11-12': 25, // хорошо, но начинается подростковость
+      '13-15': 15, // подростковое сопротивление
+      '16-17': 20  // уже более сознательные
+    };
+    fitScore += ageFit[data.child_age_detail] || 20;
+    
+    // Проблемы, которые мы хорошо решаем у детей
+    const ourChildStrengths = [
+      'anxiety', 'hyperactivity', 'sleep_problems', 
+      'concentration_issues', 'aggression', 'separation_anxiety'
+    ];
+    
+    if (data.child_problems_detailed) {
+      ourChildStrengths.forEach(strength => {
+        if (data.child_problems_detailed.includes(strength)) {
+          fitScore += 12;
+        }
+      });
+    }
+    
+    // Образовательная среда (где мы эффективны)
+    const educationFit = {
+      'home_only': 20,          // полный контроль родителей
+      'private_kindergarten': 15, // индивидуальный подход
+      'public_kindergarten': 10,  // стандартная программа
+      'private_school': 18,      // больше возможностей
+      'public_school': 12,       // стандартный подход
+      'gymnasium': 8,            // высокая нагрузка
+      'homeschooling': 25,       // максимальная гибкость
+      'alternative_school': 22   // уже ориентированы на развитие
+    };
+    fitScore += educationFit[data.child_education_status] || 12;
+    
+    // Мотивационный подход (насколько подходит нашим методам)
+    const motivationFit = {
+      'games_stories': 25,       // наш основной подход
+      'reward_system': 20,      // хорошо работает
+      'family_activities': 30,  // идеально
+      'digital_interactive': 15, // можем адаптировать
+      'creative_tasks': 22,     // наши сильные стороны
+      'adult_explanation': 10,  // не наш основной метод
+      'peer_group': 12          // можем организовать
+    };
+    fitScore += motivationFit[data.child_motivation_approach] || 15;
+    
+    return Math.min(fitScore, 100);
+  }
+
+  /**
+   * Расчет общего детского скора
+   */
+  calculateChildTotalScore(urgency, readiness, fit) {
+    return Math.round(
+      urgency * this.childSegmentWeights.urgency +
+      readiness * this.childSegmentWeights.readiness +
+      fit * this.childSegmentWeights.fit
+    );
+  }
+
+  /**
+   * Определение детского сегмента
+   */
+  determineChildSegment(totalScore) {
+    // Немного другие пороги для детей
+    if (totalScore >= 75) return 'HOT_LEAD';      // 75+ (дети требуют быстрого реагирования)
+    if (totalScore >= 55) return 'WARM_LEAD';     // 55-74
+    if (totalScore >= 35) return 'COLD_LEAD';     // 35-54
+    return 'NURTURE_LEAD';                        // менее 35
+  }
+
+  /**
+   * Определение основной детской проблемы
+   */
+  identifyChildPrimaryIssue(data) {
+    const childIssuePriority = {
+      'breathing_issues': 100,    // критично для здоровья
+      'anxiety': 95,              // влияет на развитие
+      'separation_anxiety': 90,   // мешает социализации
+      'nightmares': 85,           // влияет на сон и психику
+      'sleep_problems': 80,       // основа здоровья
+      'hyperactivity': 75,        // мешает обучению
+      'aggression': 70,           // социальные проблемы
+      'concentration_issues': 65, // учебные трудности
+      'tantrums': 60,             // поведенческие проблемы
+      'social_difficulties': 55,  // коммуникация
+      'weak_immunity': 50,        // здоровье
+      'prevention': 30            // профилактика
+    };
+    
+    let topIssue = 'general_wellness';
+    let maxPriority = 0;
+    
+    if (data.child_problems_detailed) {
+      data.child_problems_detailed.forEach(problem => {
+        const priority = childIssuePriority[problem] || 0;
+        if (priority > maxPriority) {
+          maxPriority = priority;
+          topIssue = problem;
+        }
+      });
+    }
+    
+    return topIssue;
+  }
+
+  /**
+   * Генерация детских рекомендаций
+   */
+  generateChildRecommendations(primaryIssue, segment, data) {
+    const recommendations = {
+      urgent_techniques: [],
+      main_program: '',
+      support_materials: [],
+      consultation_type: '',
+      timeline: ''
+    };
+    
+    // Детские программы по проблемам и сегментам
+    const childProgramMatrix = {
+      'breathing_issues': {
+        'HOT_LEAD': {
+          main: 'Срочная детская программа "Дыши легко" с индивидуальными занятиями',
+          urgent: ['Игра "Воздушный шарик"', 'Дыхание-считалочка', 'Техника "Сонный мишка"'],
+          consultation: 'Экстренная консультация родителей + педиатрическое сопровождение',
+          timeline: 'Улучшение дыхания через 3-5 дней'
+        },
+        'WARM_LEAD': {
+          main: 'Групповая программа "Дыхательные приключения" (2 недели)',
+          urgent: ['Базовое "животное дыхание"', 'Игра "Ветерок"'],
+          consultation: 'Групповые занятия + консультация для родителей',
+          timeline: 'Заметные улучшения через неделю'
+        }
+      },
+      'anxiety': {
+        'HOT_LEAD': {
+          main: 'Интенсивная программа "Спокойный ребенок" с семейной терапией',
+          urgent: ['Техника "Безопасное место"', 'Дыхание с любимой игрушкой', 'Семейное дыхание'],
+          consultation: 'Семейные сессии + индивидуальная работа с ребенком',
+          timeline: 'Снижение тревожности через 5-7 дней'
+        }
+      },
+      'hyperactivity': {
+        'HOT_LEAD': {
+          main: 'Программа "Спокойная энергия" - дыхательные игры для гиперактивных детей',
+          urgent: ['Игра "Стоп-дыхание"', 'Техника "Медленная черепаха"', 'Дыхательная пауза'],
+          consultation: 'Консультации для родителей + школьные рекомендации',
+          timeline: 'Улучшение концентрации через 1-2 недели'
+        }
+      },
+      'sleep_problems': {
+        'HOT_LEAD': {
+          main: 'Программа "Сонные дыхательные сказки" (индивидуальная)',
+          urgent: ['Дыхание "Спящий котик"', 'Вечерняя дыхательная сказка', 'Техника "Облачко"'],
+          consultation: 'Консультация по детскому сну + семейные рекомендации',
+          timeline: 'Улучшение сна через 3-7 дней'
+        }
+      }
+    };
+    
+    // Получаем рекомендации для конкретной проблемы и сегмента
+    const issuePrograms = childProgramMatrix[primaryIssue];
+    if (issuePrograms && issuePrograms[segment]) {
+      const program = issuePrograms[segment];
+      recommendations.main_program = program.main;
+      recommendations.urgent_techniques = program.urgent;
+      recommendations.consultation_type = program.consultation;
+      recommendations.timeline = program.timeline;
+    } else {
+      // Fallback для других случаев
+      recommendations.main_program = this.getDefaultChildProgram(segment, data);
+      recommendations.urgent_techniques = this.getDefaultChildTechniques(primaryIssue, data);
+      recommendations.consultation_type = this.getDefaultChildConsultation(segment);
+      recommendations.timeline = 'Первые результаты через 1-2 недели';
+    }
+    
+    // Детские поддерживающие материалы
+    recommendations.support_materials = this.getChildSupportMaterials(primaryIssue, segment, data);
+    
+    return recommendations;
+  }
+
+  // Вспомогательные методы для детского анализа
+  getChildSupportMaterials(primaryIssue, segment, data) {
+    const baseMaterials = [
+      'PDF-гид "Дыхательные игры для детей"',
+      'Видеоинструкции для родителей',
+      'Детские раскраски с дыханием',
+      'Доступ к родительскому чату'
+    ];
+    
+    const issueMaterials = {
+      'breathing_issues': [
+        'Карточки "SOS-дыхание для детей"',
+        'Аудиосказки "Дыши и засыпай"',
+        'Видео "Дыхательная гимнастика-игра"',
+        'Методичка для педиатра'
+      ],
+      'anxiety': [
+        'Набор "Спокойный ребенок"',
+        'Игровые карточки от тревожности',
+        'Семейные дыхательные ритуалы',
+        'Гид по детской психологии'
+      ],
+      'hyperactivity': [
+        'Игры "Стоп-дыхание"',
+        'Карточки для школы',
+        'Техники быстрого успокоения',
+        'Рекомендации для учителей'
+      ]
+    };
+    
+    return [...baseMaterials, ...(issueMaterials[primaryIssue] || [])];
+  }
+
+  getDefaultChildProgram(segment, data) {
+    const programs = {
+      'HOT_LEAD': 'Интенсивная детская программа "Дыши и играй"',
+      'WARM_LEAD': 'Семейная программа дыхательных практик',
+      'COLD_LEAD': 'Ознакомительный курс "Первые дыхательные игры"',
+      'NURTURE_LEAD': 'Профилактическая программа здорового дыхания'
+    };
+    return programs[segment];
+  }
+
+  getDefaultChildTechniques(issue, data) {
+    const childAge = data.child_age_detail;
+    
+    // Техники по возрастам
+    if (['3-4', '5-6'].includes(childAge)) {
+      return [
+        'Игра "Надуй воздушный шарик"',
+        'Дыхание "Как спит мишка"',
+        'Техника "Ветерок и листочек"'
+      ];
+    } else if (['7-8', '9-10'].includes(childAge)) {
+      return [
+        'Дыхательная считалочка',
+        'Игра "Морские волны"',
+        'Техника "Дыхание супергероя"'
+      ];
+    } else {
+      return [
+        'Подростковое спокойное дыхание',
+        'Техника снятия стресса перед экзаменами',
+        'Дыхание для концентрации'
+      ];
+    }
+  }
+
+  getDefaultChildConsultation(segment) {
+    const consultations = {
+      'HOT_LEAD': 'Срочная семейная консультация (90 мин)',
+      'WARM_LEAD': 'Групповые детские занятия + консультация родителей',
+      'COLD_LEAD': 'Ознакомительная встреча с детским специалистом',
+      'NURTURE_LEAD': 'Доступ к записям детских вебинаров'
+    };
+    return consultations[segment];
+  }
+
+  // Вспомогательные методы для взрослых
   getSupportMaterials(primaryIssue, segment, data) {
     const baseMaterials = [
       'PDF-гид "Основы правильного дыхания"',
@@ -1169,33 +1105,30 @@ ${recommendations.support_materials.map(material => `✅ ${material}`).join('\n'
     return consultations[segment];
   }
 
-  getDefaultTemplate(primaryIssue, segment, data, recommendations) {
-    return `🌬️ *Ваш персональный план дыхательных практик*
-
-📊 *Ваш профиль:* ${this.getProfileName(data)}
-
-💡 *Рекомендованная программа:*
-${recommendations.main_program}
-
-🎯 *Начните с этих техник:*
-${recommendations.urgent_techniques.map(tech => `• ${tech}`).join('\n')}
-
-⏰ *Ожидаемые результаты:* ${recommendations.timeline}
-
-📞 *Следующий шаг:* ${recommendations.consultation_type}
-
-Анастасия свяжется с вами для детального обсуждения программы.`;
-  }
-
   generateUserProfile(data, segment, primaryIssue) {
     return {
       id: `${data.age_group}_${data.occupation}_${primaryIssue}_${segment}`,
-      description: this.getProfileName(data),
+      description: this.getTranslatedProfileName(data),
       segment,
       primaryIssue,
       riskLevel: this.getRiskLevel(data),
       motivation: this.getMotivationLevel(data),
       expectedSuccess: this.predictSuccessRate(data, segment)
+    };
+  }
+
+  generateChildProfile(surveyData, segment, primaryIssue) {
+    return {
+      id: `child_${surveyData.child_age_detail}_${surveyData.child_education_status}_${primaryIssue}_${segment}`,
+      description: this.getTranslatedChildProfileName(surveyData),
+      segment,
+      primaryIssue,
+      riskLevel: this.getChildRiskLevel(surveyData),
+      parentMotivation: this.getParentMotivationLevel(surveyData),
+      expectedSuccess: this.predictChildSuccessRate(surveyData, segment),
+      ageGroup: surveyData.child_age_detail,
+      educationEnvironment: surveyData.child_education_status,
+      scheduleStress: surveyData.child_schedule_stress
     };
   }
 
@@ -1210,6 +1143,16 @@ ${recommendations.urgent_techniques.map(tech => `• ${tech}`).join('\n')}
     return 'LOW';
   }
 
+  getChildRiskLevel(data) {
+    const criticalIssues = ['breathing_issues', 'anxiety', 'separation_anxiety', 'aggression'];
+    const hasСriticalIssues = data.child_problems_detailed?.some(p => criticalIssues.includes(p));
+    const isOverloaded = ['overloaded', 'intensive'].includes(data.child_schedule_stress);
+    
+    if (hasСriticalIssues && isOverloaded) return 'HIGH';
+    if (hasСriticalIssues || isOverloaded) return 'MEDIUM';
+    return 'LOW';
+  }
+
   getMotivationLevel(data) {
     let motivation = 'MEDIUM';
     
@@ -1217,6 +1160,22 @@ ${recommendations.urgent_techniques.map(tech => `• ${tech}`).join('\n')}
     if (data.breathing_experience === 'never' && data.stress_level >= 7) motivation = 'HIGH';
     if (data.main_goals?.length >= 2) motivation = 'HIGH';
     if (data.time_commitment === '3-5_minutes' && data.stress_level <= 3) motivation = 'LOW';
+    
+    return motivation;
+  }
+
+  getParentMotivationLevel(data) {
+    let motivation = 'MEDIUM';
+    
+    // Высокая мотивация родителей
+    if (data.child_parent_involvement === 'both_parents') motivation = 'HIGH';
+    if (data.child_motivation_approach === 'family_activities') motivation = 'HIGH';
+    if (data.child_time_availability === 'stress_situations') motivation = 'HIGH';
+    if (data.child_problems_detailed?.length >= 3) motivation = 'HIGH';
+    
+    // Низкая мотивация
+    if (data.child_parent_involvement === 'child_independent' && 
+        ['3-4', '5-6'].includes(data.child_age_detail)) motivation = 'LOW';
     
     return motivation;
   }
@@ -1234,6 +1193,23 @@ ${recommendations.urgent_techniques.map(tech => `• ${tech}`).join('\n')}
     if (data.time_commitment === '10-15_minutes') baseRate += 8;
     if (data.stress_level >= 7) baseRate += 10; // высокая мотивация
     if (data.age_group === '31-45') baseRate += 5; // sweet spot
+    
+    return Math.min(baseRate, 95);
+  }
+
+  predictChildSuccessRate(data, segment) {
+    let baseRate = {
+      'HOT_LEAD': 90,   // дети быстро реагируют на помощь
+      'WARM_LEAD': 85,  
+      'COLD_LEAD': 70,
+      'NURTURE_LEAD': 60
+    }[segment];
+    
+    // Модификаторы для детей
+    if (data.child_parent_involvement === 'both_parents') baseRate += 10;
+    if (data.child_motivation_approach === 'games_stories') baseRate += 8;
+    if (['7-8', '9-10'].includes(data.child_age_detail)) baseRate += 5; // sweet spot
+    if (data.child_education_status === 'homeschooling') baseRate += 7; // больше контроля
     
     return Math.min(baseRate, 95);
   }
