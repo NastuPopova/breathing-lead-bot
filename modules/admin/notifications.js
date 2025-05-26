@@ -22,6 +22,31 @@ class AdminNotificationSystem {
   }
 
   /**
+   * Переводит массив значений в человекочитаемый текст
+   */
+  translateArray(values, maxItems = 3) {
+    if (!values || !Array.isArray(values)) return 'Не указано';
+    
+    const translated = values.slice(0, maxItems).map(value => {
+      return config.TRANSLATIONS[value] || value;
+    });
+    
+    const result = translated.join(', ');
+    if (values.length > maxItems) {
+      return `${result} и еще ${values.length - maxItems}`;
+    }
+    return result;
+  }
+
+  /**
+   * Переводит одно значение
+   */
+  translateValue(value) {
+    if (!value) return 'Не указано';
+    return config.TRANSLATIONS[value] || value;
+  }
+
+  /**
    * Отправляет уведомление администратору о новом лиде
    */
   async notifyNewLead(userData) {
@@ -91,39 +116,42 @@ class AdminNotificationSystem {
       }
       message += `• Telegram: ${userInfo?.username ? '@' + userInfo.username : 'Не указан'}\n\n`;
 
-      // Результаты анкеты
+      // Результаты анкеты С ПЕРЕВОДАМИ
       message += `📝 *Ответы пользователя:*\n`;
       if (isChildFlow) {
-        if (surveyAnswers?.child_age_detail) { // ИСПРАВЛЕНО: убрали "mỹ"
-          message += `• Возраст ребенка: ${surveyAnswers.child_age_detail}\n`;
+        if (surveyAnswers?.child_age_detail) {
+          message += `• Возраст ребенка: ${this.translateValue(surveyAnswers.child_age_detail)}\n`;
         }
         if (surveyAnswers?.child_problems_detailed) {
-          const problems = Array.isArray(surveyAnswers.child_problems_detailed) 
-            ? surveyAnswers.child_problems_detailed.join(', ')
-            : surveyAnswers.child_problems_detailed;
-          message += `• Проблемы: ${problems}\n`;
+          message += `• Проблемы: ${this.translateArray(surveyAnswers.child_problems_detailed)}\n`;
         }
         if (surveyAnswers?.child_parent_involvement) {
-          message += `• Кто занимается: ${surveyAnswers.child_parent_involvement}\n`;
+          message += `• Кто занимается: ${this.translateValue(surveyAnswers.child_parent_involvement)}\n`;
+        }
+        if (surveyAnswers?.child_education_status) {
+          message += `• Образование: ${this.translateValue(surveyAnswers.child_education_status)}\n`;
+        }
+        if (surveyAnswers?.child_schedule_stress) {
+          message += `• Загруженность: ${this.translateValue(surveyAnswers.child_schedule_stress)}\n`;
         }
       } else {
         if (surveyAnswers?.age_group) {
-          message += `• Возрастная группа: ${surveyAnswers.age_group}\n`;
+          message += `• Возрастная группа: ${this.translateValue(surveyAnswers.age_group)}\n`;
         }
         if (surveyAnswers?.stress_level) {
           message += `• Уровень стресса: ${surveyAnswers.stress_level}/10\n`;
         }
         if (surveyAnswers?.current_problems) {
-          const problems = Array.isArray(surveyAnswers.current_problems) 
-            ? surveyAnswers.current_problems.join(', ')
-            : surveyAnswers.current_problems;
-          message += `• Проблемы: ${problems}\n`;
+          message += `• Проблемы: ${this.translateArray(surveyAnswers.current_problems)}\n`;
         }
         if (surveyAnswers?.occupation) {
-          message += `• Деятельность: ${surveyAnswers.occupation}\n`;
+          message += `• Деятельность: ${this.translateValue(surveyAnswers.occupation)}\n`;
         }
         if (surveyAnswers?.time_commitment) {
-          message += `• Время на практики: ${surveyAnswers.time_commitment}\n`;
+          message += `• Время на практики: ${this.translateValue(surveyAnswers.time_commitment)}\n`;
+        }
+        if (surveyAnswers?.main_goals) {
+          message += `• Цели: ${this.translateArray(surveyAnswers.main_goals, 2)}\n`;
         }
       }
 
@@ -131,6 +159,11 @@ class AdminNotificationSystem {
       message += `\n📊 *Результат анализа:*\n`;
       message += `• Сегмент: ${analysisResult?.segment || 'Не определен'}\n`;
       message += `• Общий балл: ${analysisResult?.scores?.total || 0}/100\n`;
+      if (analysisResult?.scores) {
+        message += `• Срочность: ${analysisResult.scores.urgency}/100\n`;
+        message += `• Готовность: ${analysisResult.scores.readiness}/100\n`;
+        message += `• Соответствие: ${analysisResult.scores.fit}/100\n`;
+      }
 
       // Время
       message += `\n🕐 *Время:* ${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}`;
@@ -214,22 +247,19 @@ class AdminNotificationSystem {
       message += `⏰ *Связаться в течение 24 часов*\n\n`;
     }
 
-    // Ключевые ответы из анкеты
+    // Ключевые ответы из анкеты С ПЕРЕВОДАМИ
     message += `📝 *Ключевые ответы:*\n`;
     
     if (isChildFlow) {
       // Детская анкета
       if (surveyAnswers?.child_age_detail) {
-        message += `• Возраст ребенка: ${surveyAnswers.child_age_detail}\n`;
+        message += `• Возраст ребенка: ${this.translateValue(surveyAnswers.child_age_detail)}\n`;
       }
       if (surveyAnswers?.child_problems_detailed) {
-        const problems = Array.isArray(surveyAnswers.child_problems_detailed) 
-          ? surveyAnswers.child_problems_detailed.slice(0, 2).join(', ')
-          : surveyAnswers.child_problems_detailed;
-        message += `• Проблемы: ${problems}\n`;
+        message += `• Проблемы: ${this.translateArray(surveyAnswers.child_problems_detailed, 2)}\n`;
       }
       if (surveyAnswers?.child_parent_involvement) {
-        message += `• Кто занимается: ${surveyAnswers.child_parent_involvement}\n`;
+        message += `• Кто занимается: ${this.translateValue(surveyAnswers.child_parent_involvement)}\n`;
       }
     } else {
       // Взрослая анкета
@@ -237,16 +267,13 @@ class AdminNotificationSystem {
         message += `• Уровень стресса: ${surveyAnswers.stress_level}/10\n`;
       }
       if (surveyAnswers?.current_problems) {
-        const problems = Array.isArray(surveyAnswers.current_problems) 
-          ? surveyAnswers.current_problems.slice(0, 2).join(', ')
-          : surveyAnswers.current_problems;
-        message += `• Проблемы: ${problems}\n`;
+        message += `• Проблемы: ${this.translateArray(surveyAnswers.current_problems, 2)}\n`;
       }
       if (surveyAnswers?.occupation) {
-        message += `• Деятельность: ${surveyAnswers.occupation}\n`;
+        message += `• Деятельность: ${this.translateValue(surveyAnswers.occupation)}\n`;
       }
       if (surveyAnswers?.time_commitment) {
-        message += `• Время на практики: ${surveyAnswers.time_commitment}\n`;
+        message += `• Время на практики: ${this.translateValue(surveyAnswers.time_commitment)}\n`;
       }
     }
 
@@ -426,23 +453,33 @@ class AdminNotificationSystem {
   }
 
   /**
-   * Отправляет полную информацию об анкете
+   * Отправляет полную информацию об анкете - ИСПРАВЛЕНО
    */
   async sendFullSurveyData(ctx, targetUserId) {
     try {
-      // Здесь можно получить полные данные анкеты из базы данных
-      // Пока отправляем заглушку
+      // Генерируем детальный отчет прямо здесь
       const message = `📋 *ПОЛНАЯ АНКЕТА ПОЛЬЗОВАТЕЛЯ*\n\n` +
-        `👤 ID: ${targetUserId}\n\n` +
-        `📄 Полные данные анкеты доступны в административной панели.\n\n` +
-        `🔗 Ссылка на детальный отчет:\n` +
-        `${config.MAIN_BOT_API_URL}/admin/leads/${targetUserId}`;
+        `👤 *ID:* ${targetUserId}\n\n` +
+        `📄 *Детальные данные анкеты:*\n\n` +
+        `⚠️ *Примечание:* Полная анкета содержит все ответы пользователя. ` +
+        `Для получения детального отчета используйте административную панель или ` +
+        `обратитесь к техническому специалисту.\n\n` +
+        `🔗 *Ссылка на систему:*\n` +
+        `${config.MAIN_BOT_API_URL || 'Не настроено'}\n\n` +
+        `💡 *Совет:* Вся необходимая информация для обработки лида уже содержится ` +
+        `в уведомлении выше. Используйте кнопки для быстрых действий.`;
 
-      await ctx.reply(message, { parse_mode: 'Markdown' });
+      await ctx.reply(message, { 
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+          [Markup.button.url('💬 Написать пользователю', `https://t.me/user${targetUserId}`)],
+          [Markup.button.callback('🔙 Назад к лиду', 'back_to_lead')]
+        ])
+      });
 
     } catch (error) {
       console.error('❌ Ошибка отправки полной анкеты:', error);
-      await ctx.answerCbQuery('Ошибка получения данных');
+      await ctx.answerCbQuery('Временно недоступно. Используйте данные из уведомления выше.');
     }
   }
 
