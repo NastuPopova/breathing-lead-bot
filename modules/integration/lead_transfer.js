@@ -1,6 +1,4 @@
-// Файл: lead_bot/modules/integration/lead_transfer.js
-// ИСПРАВЛЕННАЯ версия с улучшенным логированием и безопасностью
-
+// Файл: modules/integration/lead_transfer.js
 const axios = require('axios');
 const config = require('../../config');
 
@@ -9,12 +7,10 @@ class LeadTransferSystem {
     this.retryAttempts = 3;
     this.retryDelay = 2000;
     
-    // ИСПРАВЛЕНО: используем правильные переменные из config
     this.mainBotWebhook = config.MAIN_BOT_API_URL;
     this.crmWebhook = config.CRM_WEBHOOK_URL;
     this.trainerContact = config.TRAINER_CONTACT;
     
-    // Добавляем безопасные значения по умолчанию
     this.enableRetries = true;
     this.enableLogging = config.NODE_ENV !== 'production';
   }
@@ -23,28 +19,23 @@ class LeadTransferSystem {
     console.log('🚀 Начинаем обработку лида:', userData.userInfo?.telegram_id);
 
     try {
-      // Основная передача данных
       await this.transferToMainBot(userData);
 
-      // CRM интеграция отключена (ENABLE_CRM=false)
       if (config.FEATURES?.enable_crm_integration && this.crmWebhook) {
         await this.transferToCRM(userData);
       } else {
         console.log('⚠️ CRM интеграция отключена или не настроена');
       }
 
-      // Уведомление о новом лиде (опционально)
       await this.logLeadSuccess(userData);
       
     } catch (error) {
       console.error('❌ Критическая ошибка обработки лида:', error.message);
-      // НЕ бросаем ошибку дальше, чтобы не прерывать работу бота
       await this.logLeadError(userData, error);
     }
   }
 
   async transferToMainBot(userData) {
-    // Если нет URL основного бота, просто логируем данные
     if (!this.mainBotWebhook) {
       console.log('⚠️ Main bot webhook не настроен, данные сохраняются локально');
       return this.saveLeadLocally(userData);
@@ -52,7 +43,6 @@ class LeadTransferSystem {
 
     const webhookUrl = `${this.mainBotWebhook}/api/leads/import`;
     console.log(`📤 Передаем лида в основной бот: ${userData.userInfo?.telegram_id}`);
-    console.log(`🔗 Webhook URL: ${webhookUrl}`);
 
     const payload = {
       timestamp: new Date().toISOString(),
@@ -82,7 +72,6 @@ class LeadTransferSystem {
         
         if (attempt === this.retryAttempts) {
           console.error('💥 Все попытки передачи в основной бот исчерпаны');
-          // Сохраняем локально при неудаче
           return this.saveLeadLocally(userData);
         }
         
@@ -96,9 +85,7 @@ class LeadTransferSystem {
 
   async transferToCRM(userData) {
     console.log(`📤 Передаем лида в CRM: ${userData.userInfo?.telegram_id}`);
-    console.log(`🔗 CRM webhook URL: ${this.crmWebhook}`);
 
-    // Формируем данные в формате, понятном CRM
     const crmPayload = {
       contact: {
         name: userData.userInfo?.first_name || 'Пользователь Telegram',
@@ -147,7 +134,6 @@ class LeadTransferSystem {
     }
   }
 
-  // НОВЫЙ: локальное сохранение лидов при неудаче
   async saveLeadLocally(userData) {
     try {
       const leadData = {
@@ -161,8 +147,6 @@ class LeadTransferSystem {
         trainer_contact: this.trainerContact
       };
 
-      // В реальном проекте здесь была бы запись в базу данных
-      // Пока просто логируем структурированно
       console.log('💾 ЛОКАЛЬНОЕ СОХРАНЕНИЕ ЛИДА:', JSON.stringify(leadData, null, 2));
       
       return { success: true, stored_locally: true, data: leadData };
@@ -172,7 +156,6 @@ class LeadTransferSystem {
     }
   }
 
-  // НОВЫЙ: логирование успешной обработки
   async logLeadSuccess(userData) {
     if (!this.enableLogging) return;
 
@@ -188,7 +171,6 @@ class LeadTransferSystem {
     console.log('✅ УСПЕШНАЯ ОБРАБОТКА ЛИДА:', JSON.stringify(logData, null, 2));
   }
 
-  // НОВЫЙ: логирование ошибок
   async logLeadError(userData, error) {
     const errorData = {
       event: 'lead_processing_error',
@@ -206,7 +188,6 @@ class LeadTransferSystem {
     console.error('💥 ОШИБКА ОБРАБОТКИ ЛИДА:', JSON.stringify(errorData, null, 2));
   }
 
-  // НОВЫЙ: метод для тестирования подключений
   async testConnections() {
     const results = {
       main_bot: { status: 'not_configured', url: this.mainBotWebhook },
@@ -214,7 +195,6 @@ class LeadTransferSystem {
       timestamp: new Date().toISOString()
     };
 
-    // Тест основного бота
     if (this.mainBotWebhook) {
       try {
         const response = await axios.get(`${this.mainBotWebhook}/api/health`, { timeout: 5000 });
@@ -226,7 +206,6 @@ class LeadTransferSystem {
       }
     }
 
-    // Тест CRM
     if (this.crmWebhook) {
       try {
         const testPayload = { test: true, timestamp: Date.now() };
@@ -241,7 +220,6 @@ class LeadTransferSystem {
     return results;
   }
 
-  // НОВЫЙ: получение статистики
   getStats() {
     return {
       configuration: {
