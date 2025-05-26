@@ -19,6 +19,10 @@ class AdminNotificationSystem {
       nurtureLeads: 0,
       lastReset: new Date().toDateString()
     };
+
+    // Хранилище сегментов в памяти (в продакшене лучше использовать БД)
+    this.segmentStorage = {};
+    this.leadDataStorage = {};
   }
 
   /**
@@ -61,6 +65,9 @@ class AdminNotificationSystem {
       
       // Обновляем статистику
       this.updateDailyStats(userData.analysisResult?.segment);
+
+      // Сохраняем данные лида для последующего использования
+      this.storeLeadData(userData.userInfo?.telegram_id, userData);
 
       // Формируем уведомление
       const message = this.generateLeadNotification(userData);
@@ -362,10 +369,12 @@ class AdminNotificationSystem {
   }
 
   /**
-   * Обрабатывает нажатия на кнопки администратора
+   * ИСПРАВЛЕННЫЙ МЕТОД: Обрабатывает нажатия на кнопки администратора
    */
   async handleAdminCallback(ctx, action, targetUserId) {
     try {
+      console.log('🔍 Admin callback:', { action, targetUserId }); // Отладка
+
       switch (action) {
         case 'urgent_call':
           await ctx.editMessageText(
@@ -442,8 +451,21 @@ class AdminNotificationSystem {
           );
           break;
 
+        // НОВЫЙ ОБРАБОТЧИК: Изменение сегмента
+        case 'change_segment':
+          await this.showSegmentChangeMenu(ctx, targetUserId);
+          break;
+
+        // НОВЫЕ ОБРАБОТЧИКИ для работы с сегментами
         default:
-          await ctx.answerCbQuery('Действие не распознано');
+          if (action.startsWith('set_segment_')) {
+            await this.handleSegmentChange(ctx, action, targetUserId);
+          } else if (action.startsWith('back_to_lead_')) {
+            await this.backToLeadInfo(ctx, targetUserId);
+          } else {
+            console.warn('⚠️ Неизвестное действие:', action);
+            await ctx.answerCbQuery('Действие не распознано');
+          }
       }
 
     } catch (error) {
@@ -453,33 +475,344 @@ class AdminNotificationSystem {
   }
 
   /**
-   * Отправляет полную информацию об анкете - ИСПРАВЛЕНО
+   * НОВЫЙ МЕТОД: Показ меню выбора сегмента
+   */
+  async showSegmentChangeMenu(ctx, targetUserId) {
+    try {
+      const currentSegment = this.getStoredSegment(targetUserId) || 'UNKNOWN';
+      const currentSegmentName = this.getSegmentDisplayName(currentSegment);
+
+      const message = `🔄 *ИЗМЕНИТЬ СЕГМЕНТ*\n\n` +
+        `👤 *Пользователь:* ${targetUserId}\n` +
+        `📊 *Текущий сегмент:* ${currentSegmentName}\n\n` +
+        `Выберите новый сегмент:`;
+
+      await ctx.editMessageText(message, {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+          [
+            Markup.button.callback('🔥 Горячий (срочно)', `admin_set_segment_HOT_LEAD_${targetUserId}`),
+            Markup.button.callback('⭐ Теплый (24ч)', `admin_set_segment_WARM_LEAD_${targetUserId}`)
+          ],
+          [
+            Markup.button.callback('❄️ Холодный (плановый)', `admin_set_segment_COLD_LEAD_${targetUserId}`),
+            Markup.button.callback('🌱 Взращивание', `admin_set_segment_NURTURE_LEAD_${targetUserId}`)
+          ],
+          [
+            Markup.button.callback('❌ Отмена', `admin_back_to_lead_${targetUserId}`)
+          ]
+        ])
+      });
+
+    } catch (error) {
+      console.error('❌ Ошибка showSegmentChangeMenu:', error);
+      await ctx.answerCbQuery('Ошибка показа меню сегментов');
+    }
+  }
+
+  /**
+   * НОВЫЙ МЕТОД: Обработка изменения сегмента
+   */
+  async handleSegmentChange(ctx, action, targetUserId) {
+    try {
+      const newSegment = action.replace('set_segment_', '');
+      const oldSegment = this.getStoredSegment(targetUserId) || 'UNKNOWN';
+
+      // Сохраняем новый сегмент
+      this.updateStoredSegment(targetUserId, newSegment);
+
+      const oldSegmentName = this.getSegmentDisplayName(oldSegment);
+      const newSegmentName = this.getSegmentDisplayName(newSegment);
+
+      const message = `✅ *СЕГМЕНТ ОБНОВЛЕН*\n\n` +
+        `👤 *Пользователь:* ${targetUserId}\n` +
+        `🔄 *Изменение:* ${oldSegmentName} → ${newSegmentName}\n` +
+        `⏰ *Время:* ${new Date().toLocaleString('ru-RU')}\n\n` +
+        `${this.getSegmentActionRecommendation(newSegment)}`;
+
+      await ctx.editMessageText(message, {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+          [Markup.button.callback('📞 Связаться', `admin_call_${targetUserId}`)],
+          [Markup.button.callback('📊 Полная анкета', `admin_full_survey_${targetUserId}`)],
+          [Markup.button.callback('✅ Обработано', `admin_mark_processed_${targetUserId}`)]
+        ])
+      });
+
+      // Логируем изменение
+      this.logSegmentChange(targetUserId, oldSegment, newSegment, ctx.from);
+
+      // Отправляем срочное уведомление если повысили до HOT_LEAD
+      if (newSegment === 'HOT_LEAD' && oldSegment !== 'HOT_LEAD') {
+        setTimeout(() => {
+          this.sendUrgentSegmentChangeNotification(targetUserId, oldSegment, newSegment);
+        }, 2000);
+      }
+
+    } catch (error) {
+      console.error('❌ Ошибка handleSegmentChange:', error);
+      await ctx.answerCbQuery('Ошибка изменения сегмента');
+    }
+  }
+
+  /**
+   * НОВЫЙ МЕТОД: Возврат к информации о лиде
+   */
+  async backToLeadInfo(ctx, targetUserId) {
+    try {
+      const segment = this.getStoredSegment(targetUserId) || 'UNKNOWN';
+      const segmentName = this.getSegmentDisplayName(segment);
+      const leadData = this.getStoredLeadData(targetUserId);
+
+      let message = `👤 *ИНФОРМАЦИЯ О ЛИДЕ*\n\n`;
+      message += `🆔 *ID:* ${targetUserId}\n`;
+      message += `📊 *Сегмент:* ${segmentName}\n`;
+      
+      if (leadData?.userInfo?.first_name) {
+        message += `👤 *Имя:* ${leadData.userInfo.first_name}\n`;
+      }
+      if (leadData?.userInfo?.username) {
+        message += `💬 *Username:* @${leadData.userInfo.username}\n`;
+      }
+      
+      message += `⏰ *Обновлено:* ${new Date().toLocaleString('ru-RU')}\n\n`;
+      message += `Выберите действие:`;
+
+      await ctx.editMessageText(message, {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+          [Markup.button.callback('🔄 Изменить сегмент', `admin_change_segment_${targetUserId}`)],
+          [Markup.button.callback('📞 Связаться', `admin_call_${targetUserId}`)],
+          [Markup.button.callback('📊 Полная анкета', `admin_full_survey_${targetUserId}`)],
+          [Markup.button.callback('✅ Обработано', `admin_mark_processed_${targetUserId}`)]
+        ])
+      });
+
+    } catch (error) {
+      console.error('❌ Ошибка backToLeadInfo:', error);
+      await ctx.answerCbQuery('Ошибка возврата к информации о лиде');
+    }
+  }
+
+  /**
+   * НОВЫЙ МЕТОД: Рекомендации по действиям для сегмента
+   */
+  getSegmentActionRecommendation(segment) {
+    const recommendations = {
+      'HOT_LEAD': `🚨 *СРОЧНЫЕ ДЕЙСТВИЯ:*\n• Связаться в течение 2 часов\n• Предложить экстренную консультацию\n• Подготовить индивидуальное предложение`,
+      'WARM_LEAD': `⏰ *РЕКОМЕНДУЕМЫЕ ДЕЙСТВИЯ:*\n• Связаться в течение 24 часов\n• Отправить персональные материалы\n• Запланировать консультацию`,
+      'COLD_LEAD': `📅 *ПЛАНОВЫЕ ДЕЙСТВИЯ:*\n• Добавить в еженедельный план\n• Отправить образовательные материалы\n• Периодически поддерживать контакт`,
+      'NURTURE_LEAD': `🌱 *ДОЛГОСРОЧНАЯ РАБОТА:*\n• Добавить в образовательную рассылку\n• Приглашать на бесплатные вебинары\n• Отслеживать изменения потребностей`
+    };
+
+    return recommendations[segment] || '💡 Стандартная обработка лида';
+  }
+
+  /**
+   * НОВЫЙ МЕТОД: Получение отображаемого имени сегмента
+   */
+  getSegmentDisplayName(segment) {
+    const segmentNames = {
+      'HOT_LEAD': '🔥 Горячий лид (срочно)',
+      'WARM_LEAD': '⭐ Теплый лид (24 часа)',
+      'COLD_LEAD': '❄️ Холодный лид (плановый)',
+      'NURTURE_LEAD': '🌱 Для взращивания',
+      'UNKNOWN': '❓ Неизвестен'
+    };
+
+    return segmentNames[segment] || `❓ ${segment}`;
+  }
+
+  /**
+   * НОВЫЙ МЕТОД: Логирование изменений сегмента
+   */
+  logSegmentChange(userId, oldSegment, newSegment, admin) {
+    const logEntry = {
+      event: 'segment_changed',
+      timestamp: new Date().toISOString(),
+      user_id: userId,
+      old_segment: oldSegment,
+      new_segment: newSegment,
+      changed_by: {
+        admin_id: admin?.id,
+        admin_username: admin?.username,
+        admin_first_name: admin?.first_name
+      }
+    };
+
+    console.log('📝 ИЗМЕНЕНИЕ СЕГМЕНТА:', JSON.stringify(logEntry, null, 2));
+    
+    // Здесь можно добавить сохранение в базу данных
+    // await this.saveSegmentChangeLog(logEntry);
+  }
+
+  /**
+   * НОВЫЙ МЕТОД: Срочное уведомление об изменении сегмента на HOT_LEAD
+   */
+  async sendUrgentSegmentChangeNotification(userId, oldSegment, newSegment) {
+    try {
+      if (!this.adminId) return;
+
+      const message = `🚨 *СРОЧНОЕ ИЗМЕНЕНИЕ СЕГМЕНТА*\n\n` +
+        `👤 *Пользователь:* ${userId}\n` +
+        `🔄 *Изменение:* ${oldSegment} → ${newSegment}\n` +
+        `⏰ *Время:* ${new Date().toLocaleString('ru-RU')}\n\n` +
+        `⚡ *Лид повышен до ГОРЯЧЕГО!*\n` +
+        `Требуется связаться в течение 2 часов.`;
+
+      await this.bot.telegram.sendMessage(this.adminId, message, {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+          [Markup.button.callback('🔥 Обработать срочно', `admin_urgent_process_${userId}`)],
+          [Markup.button.callback('📞 Связаться сейчас', `admin_urgent_call_${userId}`)]
+        ])
+      });
+
+    } catch (error) {
+      console.error('❌ Ошибка отправки срочного уведомления об изменении сегмента:', error);
+    }
+  }
+
+  /**
+   * Отправляет полную информацию об анкете
    */
   async sendFullSurveyData(ctx, targetUserId) {
     try {
-      // Генерируем детальный отчет прямо здесь
-      const message = `📋 *ПОЛНАЯ АНКЕТА ПОЛЬЗОВАТЕЛЯ*\n\n` +
-        `👤 *ID:* ${targetUserId}\n\n` +
-        `📄 *Детальные данные анкеты:*\n\n` +
-        `⚠️ *Примечание:* Полная анкета содержит все ответы пользователя. ` +
-        `Для получения детального отчета используйте административную панель или ` +
-        `обратитесь к техническому специалисту.\n\n` +
-        `🔗 *Ссылка на систему:*\n` +
-        `${config.MAIN_BOT_API_URL || 'Не настроено'}\n\n` +
-        `💡 *Совет:* Вся необходимая информация для обработки лида уже содержится ` +
-        `в уведомлении выше. Используйте кнопки для быстрых действий.`;
+      const leadData = this.getStoredLeadData(targetUserId);
+      
+      if (!leadData) {
+        await ctx.reply(
+          `📋 *ПОЛНАЯ АНКЕТА ПОЛЬЗОВАТЕЛЯ*\n\n` +
+          `👤 *ID:* ${targetUserId}\n\n` +
+          `⚠️ *Данные анкеты не найдены.*\n` +
+          `Возможно, информация была очищена или пользователь не завершил анкету.\n\n` +
+          `💡 *Рекомендация:* Свяжитесь с пользователем напрямую для получения актуальной информации.`,
+          { 
+            parse_mode: 'Markdown',
+            ...Markup.inlineKeyboard([
+              [Markup.button.callback('🔙 Назад к лиду', `admin_back_to_lead_${targetUserId}`)]
+            ])
+          }
+        );
+        return;
+      }
+
+      const { surveyAnswers, analysisResult, userInfo, surveyType } = leadData;
+      const isChildFlow = surveyType === 'child';
+
+      let message = `📋 *ПОЛНАЯ АНКЕТА ПОЛЬЗОВАТЕЛЯ*\n\n`;
+      message += `👤 *Основная информация:*\n`;
+      message += `• Имя: ${userInfo?.first_name || 'Неизвестно'}\n`;
+      message += `• Username: ${userInfo?.username ? '@' + userInfo.username : 'Не указан'}\n`;
+      message += `• Telegram ID: \`${targetUserId}\`\n`;
+      message += `• Тип анкеты: ${isChildFlow ? '👶 Детская' : '👨‍💼 Взрослая'}\n\n`;
+
+      message += `📊 *Результат анализа:*\n`;
+      message += `• Сегмент: ${analysisResult?.segment || 'Не определен'}\n`;
+      message += `• Общий балл: ${analysisResult?.scores?.total || 0}/100\n`;
+      if (analysisResult?.scores) {
+        message += `• Срочность: ${analysisResult.scores.urgency}/100\n`;
+        message += `• Готовность: ${analysisResult.scores.readiness}/100\n`;
+        message += `• Соответствие: ${analysisResult.scores.fit}/100\n`;
+      }
+      message += `• Основная проблема: ${this.translateValue(analysisResult?.primaryIssue)}\n\n`;
+
+      message += `📝 *Детальные ответы:*\n`;
+      
+      if (isChildFlow) {
+        // Детская анкета
+        if (surveyAnswers?.child_age_detail) {
+          message += `• Возраст ребенка: ${this.translateValue(surveyAnswers.child_age_detail)}\n`;
+        }
+        if (surveyAnswers?.child_education_status) {
+          message += `• Образование: ${this.translateValue(surveyAnswers.child_education_status)}\n`;
+        }
+        if (surveyAnswers?.child_schedule_stress) {
+          message += `• Загруженность: ${this.translateValue(surveyAnswers.child_schedule_stress)}\n`;
+        }
+        if (surveyAnswers?.child_problems_detailed) {
+          message += `• Проблемы: ${this.translateArray(surveyAnswers.child_problems_detailed)}\n`;
+        }
+        if (surveyAnswers?.child_parent_involvement) {
+          message += `• Кто занимается: ${this.translateValue(surveyAnswers.child_parent_involvement)}\n`;
+        }
+        if (surveyAnswers?.child_motivation_approach) {
+          message += `• Мотивация: ${this.translateValue(surveyAnswers.child_motivation_approach)}\n`;
+        }
+        if (surveyAnswers?.child_time_availability) {
+          message += `• Время занятий: ${this.translateValue(surveyAnswers.child_time_availability)}\n`;
+        }
+      } else {
+        // Взрослая анкета
+        if (surveyAnswers?.age_group) {
+          message += `• Возраст: ${this.translateValue(surveyAnswers.age_group)}\n`;
+        }
+        if (surveyAnswers?.occupation) {
+          message += `• Деятельность: ${this.translateValue(surveyAnswers.occupation)}\n`;
+        }
+        if (surveyAnswers?.physical_activity) {
+          message += `• Физ.активность: ${this.translateValue(surveyAnswers.physical_activity)}\n`;
+        }
+        if (surveyAnswers?.stress_level) {
+          message += `• Уровень стресса: ${surveyAnswers.stress_level}/10\n`;
+        }
+        if (surveyAnswers?.sleep_quality) {
+          message += `• Качество сна: ${surveyAnswers.sleep_quality}/10\n`;
+        }
+        if (surveyAnswers?.current_problems) {
+          message += `• Текущие проблемы: ${this.translateArray(surveyAnswers.current_problems)}\n`;
+        }
+        if (surveyAnswers?.priority_problem) {
+          message += `• Приоритетная проблема: ${this.translateValue(surveyAnswers.priority_problem)}\n`;
+        }
+        if (surveyAnswers?.breathing_method) {
+          message += `• Метод дыхания: ${this.translateValue(surveyAnswers.breathing_method)}\n`;
+        }
+        if (surveyAnswers?.breathing_frequency) {
+          message += `• Частота проблем с дыханием: ${this.translateValue(surveyAnswers.breathing_frequency)}\n`;
+        }
+        if (surveyAnswers?.shallow_breathing) {
+          message += `• Поверхностное дыхание: ${this.translateValue(surveyAnswers.shallow_breathing)}\n`;
+        }
+        if (surveyAnswers?.stress_breathing) {
+          message += `• Дыхание в стрессе: ${this.translateValue(surveyAnswers.stress_breathing)}\n`;
+        }
+        if (surveyAnswers?.breathing_experience) {
+          message += `• Опыт с практиками: ${this.translateValue(surveyAnswers.breathing_experience)}\n`;
+        }
+        if (surveyAnswers?.time_commitment) {
+          message += `• Время на практики: ${this.translateValue(surveyAnswers.time_commitment)}\n`;
+        }
+        if (surveyAnswers?.format_preferences) {
+          message += `• Предпочитаемые форматы: ${this.translateArray(surveyAnswers.format_preferences)}\n`;
+        }
+        if (surveyAnswers?.main_goals) {
+          message += `• Основные цели: ${this.translateArray(surveyAnswers.main_goals)}\n`;
+        }
+      }
+
+      message += `\n🕐 *Дата анкетирования:* ${new Date(leadData.timestamp || Date.now()).toLocaleString('ru-RU')}`;
 
       await ctx.reply(message, { 
         parse_mode: 'Markdown',
         ...Markup.inlineKeyboard([
-          [Markup.button.url('💬 Написать пользователю', `https://t.me/user${targetUserId}`)],
-          [Markup.button.callback('🔙 Назад к лиду', 'back_to_lead')]
+          [Markup.button.callback('🔙 Назад к лиду', `admin_back_to_lead_${targetUserId}`)],
+          [Markup.button.url('💬 Написать пользователю', `https://t.me/${userInfo?.username || 'user'}`)]
         ])
       });
 
     } catch (error) {
       console.error('❌ Ошибка отправки полной анкеты:', error);
-      await ctx.answerCbQuery('Временно недоступно. Используйте данные из уведомления выше.');
+      await ctx.reply(
+        `😔 Произошла ошибка при получении данных анкеты.\n\n` +
+        `📞 Свяжитесь с пользователем напрямую: ${targetUserId}`,
+        { 
+          parse_mode: 'Markdown',
+          ...Markup.inlineKeyboard([
+            [Markup.button.callback('🔙 Назад', `admin_back_to_lead_${targetUserId}`)]
+          ])
+        }
+      );
     }
   }
 
@@ -554,6 +887,37 @@ class AdminNotificationSystem {
   }
 
   /**
+   * НОВЫЕ ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ: Хранение данных лидов в памяти
+   */
+  getStoredSegment(userId) {
+    if (!this.segmentStorage) this.segmentStorage = {};
+    return this.segmentStorage[userId];
+  }
+
+  updateStoredSegment(userId, segment) {
+    if (!this.segmentStorage) this.segmentStorage = {};
+    this.segmentStorage[userId] = segment;
+  }
+
+  storeLeadData(userId, leadData) {
+    if (!this.leadDataStorage) this.leadDataStorage = {};
+    this.leadDataStorage[userId] = {
+      ...leadData,
+      timestamp: new Date().toISOString()
+    };
+    
+    // Также сохраняем сегмент отдельно для быстрого доступа
+    if (leadData.analysisResult?.segment) {
+      this.updateStoredSegment(userId, leadData.analysisResult.segment);
+    }
+  }
+
+  getStoredLeadData(userId) {
+    if (!this.leadDataStorage) this.leadDataStorage = {};
+    return this.leadDataStorage[userId];
+  }
+
+  /**
    * Включает/выключает уведомления
    */
   toggleNotifications(enabled) {
@@ -569,8 +933,35 @@ class AdminNotificationSystem {
       daily_stats: this.dailyStats,
       admin_id: this.adminId,
       notifications_enabled: this.enableNotifications,
+      stored_segments_count: Object.keys(this.segmentStorage || {}).length,
+      stored_leads_count: Object.keys(this.leadDataStorage || {}).length,
       last_updated: new Date().toISOString()
     };
+  }
+
+  /**
+   * Очистка старых данных (рекомендуется вызывать периодически)
+   */
+  cleanupOldData(daysToKeep = 7) {
+    if (!this.leadDataStorage) return;
+
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
+    
+    let cleanedCount = 0;
+    
+    Object.entries(this.leadDataStorage).forEach(([userId, data]) => {
+      const dataDate = new Date(data.timestamp);
+      if (dataDate < cutoffDate) {
+        delete this.leadDataStorage[userId];
+        delete this.segmentStorage[userId];
+        cleanedCount++;
+      }
+    });
+    
+    if (cleanedCount > 0) {
+      console.log(`🧹 Очищено ${cleanedCount} старых записей лидов`);
+    }
   }
 }
 
