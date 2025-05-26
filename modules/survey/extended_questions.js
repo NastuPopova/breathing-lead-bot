@@ -1,6 +1,3 @@
-// Файл: lead_bot/modules/survey/extended_questions.js
-// Расширенная анкета из 18+ вопросов с исправленной логикой выбора
-
 const { Markup } = require('telegraf');
 const config = require('../../config');
 
@@ -102,26 +99,35 @@ class ExtendedSurveyQuestions {
       stress_level: {
         id: 'stress_level',
         block: 'B',
-        text: `📊 *Уровень стресса за последние 2 недели:*\n\n1 - почти нет стресса, живу спокойно\n10 - критический стресс, на пределе\n\nОцените честно - это поможет подобрать правильный подход.`,
+        text: `😰 *Оцените уровень стресса:*\n\n` +
+              `Насколько часто вы испытываете стресс по шкале от 1 до 10?\n\n` +
+              `*1-3:* Низкий уровень\n` +
+              `*4-6:* Умеренный стресс\n` +
+              `*7-10:* Высокий уровень`,
         keyboard: Markup.inlineKeyboard([
           [
-            Markup.button.callback('😌 1', 'stress_1'),
-            Markup.button.callback('😊 2', 'stress_2'),
-            Markup.button.callback('🙂 3', 'stress_3'),
-            Markup.button.callback('😐 4', 'stress_4'),
-            Markup.button.callback('😕 5', 'stress_5')
+            Markup.button.callback('1️⃣ Минимальный', 'stress_1'),
+            Markup.button.callback('2️⃣', 'stress_2'),
+            Markup.button.callback('3️⃣', 'stress_3')
           ],
           [
-            Markup.button.callback('😟 6', 'stress_6'),
-            Markup.button.callback('😰 7', 'stress_7'),
-            Markup.button.callback('😨 8', 'stress_8'),
-            Markup.button.callback('😱 9', 'stress_9'),
-            Markup.button.callback('🆘 10', 'stress_10')
+            Markup.button.callback('4️⃣', 'stress_4'),
+            Markup.button.callback('5️⃣ Средний', 'stress_5'),
+            Markup.button.callback('6️⃣', 'stress_6')
+          ],
+          [
+            Markup.button.callback('7️⃣', 'stress_7'),
+            Markup.button.callback('8️⃣ Высокий', 'stress_8'),
+            Markup.button.callback('9️⃣', 'stress_9')
+          ],
+          [
+            Markup.button.callback('🔟 Критический', 'stress_10')
           ],
           [Markup.button.callback('⬅️ Назад', 'nav_back')]
         ]),
         required: true,
         type: 'scale',
+        note: '💡 Чем выше число, тем сильнее стресс',
         allowBack: true
       },
 
@@ -711,10 +717,53 @@ class ExtendedSurveyQuestions {
   }
 
   // ИСПРАВЛЕННАЯ ВАЛИДАЦИЯ С ПОДДЕРЖКОЙ ОГРАНИЧЕНИЙ
+  improvedValidateStressLevel(questionId, answer) {
+    if (questionId !== 'stress_level') return { valid: true };
+
+    // Проверяем формат stress_X
+    const isValidFormat = /^stress_\d+$/.test(answer);
+    
+    if (!isValidFormat) {
+      return {
+        valid: false,
+        error: 'Пожалуйста, выберите уровень стресса от 1 до 10'
+      };
+    }
+
+    // Извлекаем число и проверяем диапазон
+    const value = parseInt(answer.split('_')[1]);
+    
+    if (isNaN(value) || value < 1 || value > 10) {
+      return {
+        valid: false,
+        error: 'Уровень стресса должен быть от 1 до 10'
+      };
+    }
+
+    // Добавляем специальные сообщения для высоких уровней стресса
+    if (value >= 8) {
+      return {
+        valid: true,
+        warning: '⚠️ Высокий уровень стресса. Рекомендуем экстренную программу поддержки.'
+      };
+    }
+
+    return { valid: true };
+  }
+
   validateAnswer(questionId, answer, currentSelections = []) {
     const question = this.questions[questionId];
     if (!question) {
       return { valid: false, error: 'Неизвестный вопрос' };
+    }
+
+    // Проверяем stress_level с помощью улучшенной валидации
+    if (questionId === 'stress_level') {
+      const stressValidation = this.improvedValidateStressLevel(questionId, answer);
+      if (!stressValidation.valid) {
+        return stressValidation;
+      }
+      return stressValidation;
     }
 
     switch (question.type) {
