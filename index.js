@@ -1,11 +1,12 @@
 const { Telegraf, Markup, session } = require('telegraf');
 const config = require('./config');
 
-let ExtendedSurveyQuestions, BreathingVERSEAnalysis, LeadTransferSystem;
+let ExtendedSurveyQuestions, BreathingVERSEAnalysis, LeadTransferSystem, PDFBonusManager;
 try {
   ExtendedSurveyQuestions = require('./modules/survey/extended_questions');
   BreathingVERSEAnalysis = require('./modules/analysis/verse_analysis');
   LeadTransferSystem = require('./modules/integration/lead_transfer');
+  PDFBonusManager = require('./modules/bonus/pdf_manager');
   console.log('✅ Все модули загружены успешно');
 } catch (error) {
   console.error('❌ Ошибка загрузки модулей:', error.message);
@@ -18,6 +19,7 @@ class BreathingLeadBot {
     this.surveyQuestions = new ExtendedSurveyQuestions();
     this.verseAnalysis = new BreathingVERSEAnalysis();
     this.leadTransfer = new LeadTransferSystem();
+    this.pdfManager = new PDFBonusManager();
 
     this.setupMiddleware();
     this.setupHandlers();
@@ -64,6 +66,11 @@ class BreathingLeadBot {
   setupHandlers() {
     this.bot.start(ctx => this.handleStart(ctx));
     this.bot.command('reset', ctx => this.handleReset(ctx));
+    this.bot.action(/^download_(.+)$/, ctx => this.handlePDFDownload(ctx));
+    this.bot.action('more_materials', ctx => this.handleMoreMaterials(ctx));
+    this.bot.action('pdf_error_retry', ctx => this.handlePDFRetry(ctx));
+    this.bot.command('pdf_stats', ctx => this.handleAdminPDFStats(ctx));
+    this.bot.command('test_pdf', ctx => this.handleTestPDF(ctx));
     this.bot.on('callback_query', ctx => this.handleCallback(ctx));
     this.bot.on('text', ctx => this.handleText(ctx));
   }
@@ -114,7 +121,6 @@ class BreathingLeadBot {
         return this.handleStart(ctx);
       }
 
-      // Специальные обработчики
       if (data === 'nav_back') {
         await this.handleBackNavigation(ctx);
       } else if (data === 'start_survey') {
@@ -131,7 +137,6 @@ class BreathingLeadBot {
         await this.handleSurveyAnswer(ctx, data);
       }
 
-      // Подтверждаем callback после обработки
       await ctx.answerCbQuery();
     } catch (error) {
       console.error('❌ Ошибка callback:', error, { data });
@@ -139,7 +144,6 @@ class BreathingLeadBot {
     }
   }
 
-  // НОВЫЙ: обработчик связи с тренером
   async handleContactRequest(ctx) {
     try {
       const contactMessage = config.MESSAGES.CONTACT_TRAINER;
@@ -158,29 +162,24 @@ class BreathingLeadBot {
     }
   }
 
-  // НОВЫЙ: показ результатов
   async showResults(ctx) {
     try {
       if (!ctx.session.analysisResult) {
         return this.handleStart(ctx);
       }
 
-      const message = ctx.session.analysisResult.personalMessage;
-      const isChildFlow = this.surveyQuestions.isChildFlow(ctx.session.answers);
+      const bonus = this.pdfManager.getBonusForUser(
+        ctx.session.analysisResult, 
+        ctx.session.answers
+      );
       
-      const keyboard = isChildFlow
-        ? Markup.inlineKeyboard([
-            [Markup.button.callback('📞 Связаться с экспертом', 'contact_request')],
-            [Markup.button.callback('📋 Программа', 'child_program_details')],
-            [Markup.button.callback('🎁 Материалы', 'child_materials')]
-          ])
-        : Markup.inlineKeyboard([
-            [Markup.button.callback('📞 Связаться с экспертом', 'contact_request')],
-            [Markup.button.callback('📋 Программа', 'program_details')],
-            [Markup.button.callback('🎁 Материалы', 'free_materials')]
-          ]);
+      const message = this.pdfManager.generateBonusMessage(bonus, ctx.session.analysisResult);
+      const keyboard = this.pdfManager.generateBonusKeyboard(bonus, 'file');
 
-      await ctx.editMessageText(message, { parse_mode: 'Markdown', ...keyboard });
+      await ctx.editMessageText(message, {
+        parse_mode: 'Markdown',
+        ...keyboard
+      });
     } catch (error) {
       console.error('❌ Ошибка showResults:', error);
       await this.sendErrorMessage(ctx, 'Ошибка показа результатов');
@@ -205,7 +204,6 @@ class BreathingLeadBot {
         return;
       }
 
-      // ИСПРАВЛЕНО: правильно очищаем данные предыдущего вопроса
       if (ctx.session.answers[currentQuestion]) {
         delete ctx.session.answers[currentQuestion];
       }
@@ -261,7 +259,6 @@ class BreathingLeadBot {
     }
   }
 
-  // ИСПРАВЛЕНО: улучшенное отображение вопросов с переводами
   async askQuestion(ctx, questionId) {
     try {
       if (!ctx.session?.answers) {
@@ -287,7 +284,6 @@ class BreathingLeadBot {
 
       let message = `${this.generateProgressBar(progress.percentage)} *${progress.completed}/${progress.total}*\n\n${question.text}`;
 
-      // ИСПРАВЛЕНО: отображение выбранных элементов с переводами
       if (question.type === 'multiple_choice') {
         const selections = ctx.session.multipleChoiceSelections[questionId] || [];
         if (selections.length > 0) {
@@ -317,7 +313,6 @@ class BreathingLeadBot {
     }
   }
 
-  // НОВЫЙ: метод для получения переводов выбранных элементов
   getTranslatedSelections(selections) {
     return selections.map(selection => {
       return config.TRANSLATIONS[selection] || selection;
@@ -338,7 +333,6 @@ class BreathingLeadBot {
         return this.handleStart(ctx);
       }
 
-      // Детальное логирование для stress_level
       if (questionId === 'stress_level') {
         this.debugStressLevelCallback(ctx, callbackData);
       }
@@ -362,14 +356,12 @@ class BreathingLeadBot {
         return;
       }
 
-      // Сохраняем ответ
       ctx.session.answers[questionId] = mappedValue;
       console.log(`🔍 Текущие ответы:`, ctx.session.answers);
       if (!ctx.session.completedQuestions.includes(questionId)) {
         ctx.session.completedQuestions.push(questionId);
       }
 
-      // Обратная связь для stress_level
       if (questionId === 'stress_level') {
         const stressLevel = mappedValue;
         let feedbackMessage = `✅ Вы выбрали уровень стресса: ${stressLevel}`;
@@ -386,7 +378,6 @@ class BreathingLeadBot {
     }
   }
 
-  // ИСПРАВЛЕНО: улучшенная обработка множественного выбора
   async handleMultipleChoice(ctx, questionId, value, callbackData) {
     try {
       if (!ctx.session.multipleChoiceSelections[questionId]) {
@@ -407,15 +398,12 @@ class BreathingLeadBot {
         return this.moveToNextQuestion(ctx);
       }
 
-      // ИСПРАВЛЕНО: правильная обработка удаления/добавления элементов
       const index = selections.indexOf(value);
       if (index > -1) {
-        // Удаляем элемент
         selections.splice(index, 1);
         const translatedValue = config.TRANSLATIONS[value] || value;
         await ctx.answerCbQuery(`❌ Убрано: ${translatedValue}`);
       } else {
-        // Добавляем элемент с проверкой ограничений
         const validation = this.surveyQuestions.validateAnswer(questionId, value, selections);
         if (!validation.valid) {
           await ctx.answerCbQuery(validation.error, { show_alert: true });
@@ -426,7 +414,6 @@ class BreathingLeadBot {
         await ctx.answerCbQuery(`✅ Добавлено: ${translatedValue}`);
       }
       
-      // Обновляем отображение вопроса
       await this.askQuestion(ctx, questionId);
     } catch (error) {
       console.error('❌ Ошибка handleMultipleChoice:', error);
@@ -460,6 +447,7 @@ class BreathingLeadBot {
     try {
       const isChildFlow = this.surveyQuestions.isChildFlow(ctx.session.answers);
       const surveyType = isChildFlow ? 'детскую' : 'взрослую';
+      
       await ctx.editMessageText(
         `🧠 *Анализирую ${surveyType} анкету...*\n\nПодождите несколько секунд ⏳`,
         { parse_mode: 'Markdown' }
@@ -468,31 +456,39 @@ class BreathingLeadBot {
       const analysisResult = this.verseAnalysis.analyzeUser(ctx.session.answers);
       ctx.session.analysisResult = analysisResult;
 
-      const message = analysisResult.personalMessage;
-      
-      // ИСПРАВЛЕНО: добавлена кнопка связи с тренером
-      const keyboard = isChildFlow
-        ? Markup.inlineKeyboard([
-            [Markup.button.callback('📞 Связаться с экспертом', 'contact_request')],
-            [Markup.button.callback('📋 Программа', 'child_program_details')],
-            [Markup.button.callback('🎁 Материалы', 'child_materials')]
-          ])
-        : Markup.inlineKeyboard([
-            [Markup.button.callback('📞 Связаться с экспертом', 'contact_request')],
-            [Markup.button.callback('📋 Программа', 'program_details')],
-            [Markup.button.callback('🎁 Материалы', 'free_materials')]
-          ]);
+      const bonus = this.pdfManager.getBonusForUser(analysisResult, ctx.session.answers);
+      const bonusMessage = this.pdfManager.generateBonusMessage(bonus, analysisResult);
+      const bonusKeyboard = this.pdfManager.generateBonusKeyboard(bonus, 'file');
 
-      await ctx.editMessageText(message, { parse_mode: 'Markdown', ...keyboard });
+      await ctx.editMessageText(bonusMessage, {
+        parse_mode: 'Markdown',
+        ...bonusKeyboard
+      });
+
+      if (analysisResult.segment === 'HOT_LEAD') {
+        setTimeout(async () => {
+          await this.pdfManager.sendPDFFile(ctx, bonus);
+          await ctx.reply(
+            '⚡ *Срочная рекомендация:* Начните с первой техники прямо сейчас!',
+            { parse_mode: 'Markdown' }
+          );
+        }, 2000);
+      }
+
       await this.transferLeadAsync(ctx);
     } catch (error) {
       console.error('❌ Ошибка completeSurvey:', error);
       await this.sendErrorMessage(ctx, 'Ошибка анализа');
     }
   }
-  
+
   async transferLeadAsync(ctx) {
     try {
+      const bonus = this.pdfManager.getBonusForUser(
+        ctx.session.analysisResult, 
+        ctx.session.answers
+      );
+
       const userData = {
         userInfo: {
           telegram_id: ctx.from?.id?.toString() || 'unknown',
@@ -501,11 +497,17 @@ class BreathingLeadBot {
         },
         surveyAnswers: ctx.session.answers || {},
         analysisResult: ctx.session.analysisResult || {},
+        bonusDelivered: {
+          bonus_id: bonus.id,
+          bonus_title: bonus.title,
+          delivery_time: new Date().toISOString()
+        },
         contactInfo: ctx.session.contactInfo || {},
         surveyType: this.surveyQuestions.isChildFlow(ctx.session.answers) ? 'child' : 'adult',
         startTime: ctx.session.startTime
       };
-      console.log(`🔍 Передача лида с userData:`, userData);
+      
+      console.log(`🔍 Передача лида с бонусом:`, userData);
       await this.leadTransfer.processLead(userData);
     } catch (error) {
       console.error('❌ Ошибка передачи лида:', error);
@@ -536,6 +538,80 @@ class BreathingLeadBot {
     }
   }
 
+  async handlePDFDownload(ctx) {
+    try {
+      const bonusId = ctx.match[1];
+      await this.pdfManager.handleDownloadRequest(ctx, bonusId);
+      
+      this.pdfManager.logBonusDelivery(
+        ctx.from.id,
+        bonusId,
+        'telegram_file',
+        ctx.session?.analysisResult?.segment || 'UNKNOWN'
+      );
+      
+    } catch (error) {
+      console.error('❌ Ошибка handlePDFDownload:', error);
+      await ctx.answerCbQuery('Ошибка загрузки', { show_alert: true });
+    }
+  }
+
+  async handleMoreMaterials(ctx) {
+    try {
+      await this.pdfManager.showMoreMaterials(ctx);
+    } catch (error) {
+      console.error('❌ Ошибка handleMoreMaterials:', error);
+      await ctx.answerCbQuery('Ошибка загрузки материалов');
+    }
+  }
+
+  async handlePDFRetry(ctx) {
+    try {
+      if (!ctx.session?.analysisResult) {
+        await ctx.answerCbQuery('Пройдите анкету заново');
+        return;
+      }
+
+      const bonus = this.pdfManager.getBonusForUser(
+        ctx.session.analysisResult, 
+        ctx.session.answers
+      );
+      
+      await ctx.answerCbQuery('📥 Повторно отправляю файл...');
+      await this.pdfManager.sendPDFFile(ctx, bonus);
+      
+    } catch (error) {
+      console.error('❌ Ошибка handlePDFRetry:', error);
+      await ctx.answerCbQuery('Ошибка отправки');
+    }
+  }
+
+  async handleAdminPDFStats(ctx) {
+    if (ctx.from.id.toString() !== config.ADMIN_ID) return;
+    
+    const stats = this.pdfManager.getBonusStats();
+    const message = `📊 *СТАТИСТИКА PDF-БОНУСОВ*\n\n` +
+      `📚 Доступно бонусов: ${stats.available_bonuses}\n` +
+      `🎯 Типы: ${stats.bonus_types.join(', ')}\n` +
+      `📈 Сегменты: ${stats.target_segments.length}\n` +
+      `🕐 Обновлено: ${new Date(stats.last_updated).toLocaleString('ru')}`;
+    
+    await ctx.reply(message, { parse_mode: 'Markdown' });
+  }
+
+  async handleTestPDF(ctx) {
+    if (ctx.from.id.toString() !== config.ADMIN_ID) return;
+    
+    try {
+      const bonus = this.pdfManager.bonuses.adult;
+      await this.pdfManager.sendPDFFile(ctx, bonus);
+      await ctx.reply('✅ Тестовый PDF отправлен');
+    } catch (error) {
+      console.error('❌ Ошибка тестовой отправки PDF:', error);
+      await ctx.reply('❌ Ошибка отправки тестового PDF');
+    }
+  }
+
   generateProgressBar(percentage) {
     const total = 10;
     const filled = Math.round((percentage / 100) * total);
@@ -557,7 +633,7 @@ class BreathingLeadBot {
   }
 
   launch() {
-    console.log('🤖 Запуск бота v2.4 (исправленная версия)...');
+    console.log('🤖 Запуск бота v2.5 (с PDF-бонусами)...');
     this.bot.launch();
     console.log('✅ Бот запущен');
     process.once('SIGINT', () => this.bot.stop('SIGINT'));
@@ -565,7 +641,6 @@ class BreathingLeadBot {
   }
 }
 
-// Запуск бота
 try {
   const bot = new BreathingLeadBot();
   bot.launch();
