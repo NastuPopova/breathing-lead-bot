@@ -1,12 +1,13 @@
 const { Telegraf, Markup, session } = require('telegraf');
 const config = require('./config');
 
-let ExtendedSurveyQuestions, BreathingVERSEAnalysis, LeadTransferSystem, PDFBonusManager;
+let ExtendedSurveyQuestions, BreathingVERSEAnalysis, LeadTransferSystem, PDFBonusManager, AdminNotificationSystem;
 try {
   ExtendedSurveyQuestions = require('./modules/survey/extended_questions');
   BreathingVERSEAnalysis = require('./modules/analysis/verse_analysis');
   LeadTransferSystem = require('./modules/integration/lead_transfer');
   PDFBonusManager = require('./modules/bonus/pdf_manager');
+  AdminNotificationSystem = require('./modules/admin/notifications');
   console.log('✅ Все модули загружены успешно');
 } catch (error) {
   console.error('❌ Ошибка загрузки модулей:', error.message);
@@ -20,6 +21,7 @@ class BreathingLeadBot {
     this.verseAnalysis = new BreathingVERSEAnalysis();
     this.leadTransfer = new LeadTransferSystem();
     this.pdfManager = new PDFBonusManager();
+    this.adminNotifications = new AdminNotificationSystem(this.bot);
 
     this.setupMiddleware();
     this.setupHandlers();
@@ -74,6 +76,7 @@ class BreathingLeadBot {
     this.bot.action('pdf_error_retry', ctx => this.handlePDFRetry(ctx));
     this.bot.command('pdf_stats', ctx => this.handleAdminPDFStats(ctx));
     this.bot.command('test_pdf', ctx => this.handleTestPDF(ctx));
+    this.bot.action(/^admin_(.+)_(\d+)$/, ctx => this.handleAdminAction(ctx));
     this.bot.on('callback_query', ctx => this.handleCallback(ctx));
     this.bot.on('text', ctx => this.handleText(ctx));
   }
@@ -196,6 +199,13 @@ class BreathingLeadBot {
       console.error('❌ Ошибка callback:', error, { data });
       await this.sendErrorMessage(ctx, 'Ошибка обработки');
     }
+  }
+
+  async handleAdminAction(ctx) {
+    const action = ctx.match[1];
+    const targetUserId = ctx.match[2];
+    await this.adminNotifications.handleAdminCallback(ctx, action, targetUserId);
+    await ctx.answerCbQuery();
   }
 
   async handleContactRequest(ctx) {
@@ -529,7 +539,9 @@ class BreathingLeadBot {
         }, 2000);
       }
 
+      // Отправляем данные администратору и передаем лид
       await this.transferLeadAsync(ctx);
+
     } catch (error) {
       console.error('❌ Ошибка completeSurvey:', error);
       await this.sendErrorMessage(ctx, 'Ошибка анализа');
@@ -562,7 +574,16 @@ class BreathingLeadBot {
       };
       
       console.log(`🔍 Передача лида с бонусом:`, userData);
+      
+      // Отправляем результаты анкетирования администратору
+      await this.adminNotifications.notifySurveyResults(userData);
+      
+      // Отправляем уведомление о новом лиде
+      await this.adminNotifications.notifyNewLead(userData);
+      
+      // Передаем лид в систему
       await this.leadTransfer.processLead(userData);
+
     } catch (error) {
       console.error('❌ Ошибка передачи лида:', error);
     }
