@@ -8,7 +8,7 @@ const config = require('../../config');
 
 class PDFBonusManager {
   constructor() {
-    // Конфигурация PDF-бонусов (без file_path, так как будем генерировать PDF динамически)
+    // Конфигурация PDF-бонусов
     this.bonuses = {
       adult: {
         id: 'adult_antistress_guide',
@@ -26,7 +26,6 @@ class PDFBonusManager {
 🎯 *Результат:* Снятие стресса за 2-3 минуты`,
         target_segments: ['HOT_LEAD', 'WARM_LEAD', 'COLD_LEAD', 'NURTURE_LEAD']
       },
-      
       child: {
         id: 'child_breathing_games',
         title: '🎈 ДЫХАТЕЛЬНЫЕ ИГРЫ',
@@ -44,6 +43,17 @@ class PDFBonusManager {
         target_segments: ['HOT_LEAD', 'WARM_LEAD', 'COLD_LEAD', 'NURTURE_LEAD']
       }
     };
+
+    // Статистика бонусов
+    this.stats = {
+      available_bonuses: Object.keys(this.bonuses).length,
+      bonus_types: Object.keys(this.bonuses),
+      target_segments: [...new Set(Object.values(this.bonuses).flatMap(b => b.target_segments))],
+      last_updated: new Date().toISOString()
+    };
+
+    // Логирование доставки бонусов
+    this.deliveryLog = [];
   }
 
   /**
@@ -144,7 +154,7 @@ class PDFBonusManager {
       doc.moveDown(0.5);
       
       if (surveyData.age_group) {
-        doc.text(`Возрастная群: ${surveyData.age_group}`);
+        doc.text(`Возрастная группа: ${surveyData.age_group}`);
       }
       if (surveyData.stress_level) {
         doc.text(`Уровень стресса: ${surveyData.stress_level}/10`);
@@ -233,7 +243,7 @@ class PDFBonusManager {
    */
   async sendPDFFile(ctx, bonus) {
     try {
-      // Генерируем персонализированный PDF
+      // Пробуем сгенерировать и отправить динамический PDF
       const filePath = await this.generatePersonalizedPDF(
         ctx.from.id,
         bonus,
@@ -241,7 +251,6 @@ class PDFBonusManager {
         ctx.session.analysisResult
       );
 
-      // Отправляем файл
       await ctx.replyWithDocument(
         { source: filePath },
         {
@@ -260,13 +269,26 @@ class PDFBonusManager {
       fs.unlinkSync(filePath);
       
     } catch (error) {
-      console.error('❌ Ошибка отправки PDF:', error);
-      await ctx.reply(
-        '⚠️ Не удалось отправить файл. Напишите @NastuPopova для получения бонуса.',
-        Markup.inlineKeyboard([
-          [Markup.button.url('💬 Написать Анастасии', 'https://t.me/NastuPopova')]
-        ])
-      );
+      console.error('❌ Ошибка отправки динамического PDF:', error.message);
+      console.error(error.stack);
+      // Fallback: отправляем статичный PDF по URL
+      if (bonus.file_url) {
+        await ctx.reply(
+          `⚠️ Не удалось сгенерировать персонализированный PDF, но вы можете скачать общий гид:\n\n📖 ${bonus.title}`,
+          Markup.inlineKeyboard([
+            [Markup.button.url('📥 Скачать PDF', bonus.file_url)],
+            [Markup.button.url('💬 Написать Анастасии', 'https://t.me/NastuPopova')]
+          ])
+        );
+        console.log(`✅ Отправлен статичный PDF пользователю ${ctx.from.id}: ${bonus.file_url}`);
+      } else {
+        await ctx.reply(
+          '⚠️ Не удалось отправить файл. Напишите @NastuPopova для получения бонуса.',
+          Markup.inlineKeyboard([
+            [Markup.button.url('💬 Написать Анастасии', 'https://t.me/NastuPopova')]
+          ])
+        );
+      }
     }
   }
 
@@ -310,35 +332,28 @@ class PDFBonusManager {
   }
 
   /**
-   * Логирование выдачи бонусов
+   * Логирует доставку бонуса
    */
-  logBonusDelivery(userId, bonusId, method, segment) {
-    const logData = {
-      timestamp: new Date().toISOString(),
+  logBonusDelivery(userId, bonusId, deliveryMethod, segment) {
+    const logEntry = {
       user_id: userId,
       bonus_id: bonusId,
-      delivery_method: method,
-      user_segment: segment,
-      event: 'bonus_delivered'
+      delivery_method: deliveryMethod,
+      segment: segment,
+      timestamp: new Date().toISOString()
     };
-    
-    console.log('🎁 БОНУС ВЫДАН:', JSON.stringify(logData, null, 2));
-    
-    // Здесь можно добавить отправку в аналитику
-    // analytics.track('bonus_delivered', logData);
+    this.deliveryLog.push(logEntry);
+    console.log(`📊 Лог доставки бонуса:`, logEntry);
   }
 
   /**
-   * Получение статистики по бонусам
+   * Возвращает статистику бонусов (для админ-команд)
    */
   getBonusStats() {
     return {
-      available_bonuses: Object.keys(this.bonuses).length,
-      bonus_types: Object.keys(this.bonuses),
-      delivery_methods: ['file', 'url'],
-      target_segments: ['HOT_LEAD', 'WARM_LEAD', 'COLD_LEAD', 'NURTURE_LEAD'],
-      total_materials: 2,
-      last_updated: new Date().toISOString()
+      ...this.stats,
+      delivery_log: this.deliveryLog,
+      delivery_count: this.deliveryLog.length
     };
   }
 }
