@@ -1,6 +1,3 @@
-// Файл: lead_bot/index.js
-// ПОЛНАЯ ИСПРАВЛЕННАЯ версия с поддержкой переводов, ограничений выбора и связи с тренером
-
 const { Telegraf, Markup, session } = require('telegraf');
 const config = require('./config');
 
@@ -112,7 +109,6 @@ class BreathingLeadBot {
   async handleCallback(ctx) {
     const data = ctx.callbackQuery.data;
     try {
-      await ctx.answerCbQuery();
       if (!ctx.session.answers) {
         console.warn('⚠️ Answers отсутствует, перезапускаем');
         return this.handleStart(ctx);
@@ -120,25 +116,23 @@ class BreathingLeadBot {
 
       // Специальные обработчики
       if (data === 'nav_back') {
-        return this.handleBackNavigation(ctx);
-      }
-      if (data === 'start_survey') {
-        return this.startSurvey(ctx);
-      }
-      if (data === 'about_survey') {
-        return this.showSurveyInfo(ctx);
-      }
-      if (data === 'contact_request') {
-        return this.handleContactRequest(ctx);
-      }
-      if (data === 'back_to_start') {
-        return this.handleStart(ctx);
-      }
-      if (data === 'back_to_results') {
-        return this.showResults(ctx);
+        await this.handleBackNavigation(ctx);
+      } else if (data === 'start_survey') {
+        await this.startSurvey(ctx);
+      } else if (data === 'about_survey') {
+        await this.showSurveyInfo(ctx);
+      } else if (data === 'contact_request') {
+        await this.handleContactRequest(ctx);
+      } else if (data === 'back_to_start') {
+        await this.handleStart(ctx);
+      } else if (data === 'back_to_results') {
+        await this.showResults(ctx);
+      } else {
+        await this.handleSurveyAnswer(ctx, data);
       }
 
-      return this.handleSurveyAnswer(ctx, data);
+      // Подтверждаем callback после обработки
+      await ctx.answerCbQuery();
     } catch (error) {
       console.error('❌ Ошибка callback:', error, { data });
       await this.sendErrorMessage(ctx, 'Ошибка обработки');
@@ -344,13 +338,9 @@ class BreathingLeadBot {
         return this.handleStart(ctx);
       }
 
-      // Дебаг для stress_level
+      // Детальное логирование для stress_level
       if (questionId === 'stress_level') {
-        console.log('🔬 STRESS_LEVEL DEBUG:', {
-          callbackData,
-          expectedFormat: 'stress_1 to stress_10',
-          isValidFormat: /^stress_\d+$/.test(callbackData)
-        });
+        this.debugStressLevelCallback(ctx, callbackData);
       }
 
       const mappedValue = this.surveyQuestions.mapCallbackToValue(callbackData);
@@ -366,17 +356,29 @@ class BreathingLeadBot {
         return this.handleMultipleChoice(ctx, questionId, mappedValue, callbackData);
       }
 
-      const validation = this.surveyQuestions.validateAnswer(questionId, mappedValue);
+      const validation = this.surveyQuestions.validateAnswer(questionId, callbackData);
       if (!validation.valid) {
         await ctx.answerCbQuery(validation.error, { show_alert: true });
         return;
       }
 
+      // Сохраняем ответ
       ctx.session.answers[questionId] = mappedValue;
       console.log(`🔍 Текущие ответы:`, ctx.session.answers);
       if (!ctx.session.completedQuestions.includes(questionId)) {
         ctx.session.completedQuestions.push(questionId);
       }
+
+      // Обратная связь для stress_level
+      if (questionId === 'stress_level') {
+        const stressLevel = mappedValue;
+        let feedbackMessage = `✅ Вы выбрали уровень стресса: ${stressLevel}`;
+        if (validation.warning) {
+          feedbackMessage += `\n${validation.warning}`;
+        }
+        await ctx.answerCbQuery(feedbackMessage, { show_alert: true });
+      }
+
       await this.moveToNextQuestion(ctx);
     } catch (error) {
       console.error('❌ Ошибка handleSurveyAnswer:', error);
@@ -489,7 +491,6 @@ class BreathingLeadBot {
     }
   }
   
-  
   async transferLeadAsync(ctx) {
     try {
       const userData = {
@@ -539,6 +540,20 @@ class BreathingLeadBot {
     const total = 10;
     const filled = Math.round((percentage / 100) * total);
     return '🟩'.repeat(filled) + '⬜'.repeat(total - filled);
+  }
+
+  debugStressLevelCallback(ctx, callbackData) {
+    console.log('🔬 ULTRA DETAILED STRESS_LEVEL DEBUG:', {
+      callbackData,
+      expectedFormat: 'stress_1 to stress_10',
+      isValidFormat: /^stress_\d+$/.test(callbackData),
+      extractedValue: callbackData.split('_')[1],
+      parsedIntValue: parseInt(callbackData.split('_')[1]),
+      isValidValue: parseInt(callbackData.split('_')[1]) >= 1 && 
+                    parseInt(callbackData.split('_')[1]) <= 10,
+      sessionCurrentQuestion: ctx.session.currentQuestion,
+      questionType: 'scale'
+    });
   }
 
   launch() {
