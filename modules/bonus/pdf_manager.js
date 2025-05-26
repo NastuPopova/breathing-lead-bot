@@ -17,12 +17,13 @@ class PDFBonusManager {
     // Дополнительные материалы (ранее отдельные бонусы)
     this.additionalMaterials = {
       'adult_antistress': {
-        url: 'https://github.com/NastuPopova/breathing-lead-bot/raw/main/assets/pdf/antistress_breathing.pdf',
+       url: 'https://raw.githubusercontent.com/NastuPopova/breathing-lead-bot/main/assets/pdf/antistress_breathing.pdf',
+
         title: '📄 Базовый гид "Антистресс дыхание"',
         description: 'Универсальные техники для снятия стресса для взрослых'
       },
       'child_games': {
-        url: 'https://github.com/NastuPopova/breathing-lead-bot/raw/main/assets/pdf/child_breathing_games.pdf',
+        url: 'https://raw.githubusercontent.com/NastuPopova/breathing-lead-bot/main/assets/pdf/child_breathing_games.pdf',
         title: '📄 Базовый гид "Дыхательные игры"',
         description: 'Игровые техники для детей всех возрастов'
       }
@@ -1094,7 +1095,7 @@ class PDFBonusManager {
       `💡 *Дополняет ваш персональный гид* - используйте оба материала для максимального эффекта!\n\n` +
       `📞 *Хотите еще больше техник?* Запишитесь на консультацию: @NastuPopova`;
     
-    await ctx.reply(message, {
+    await ctx.replyWithDocument({ url: pdf.url }, {
       parse_mode: 'Markdown',
       ...Markup.inlineKeyboard([
         [Markup.button.url('📥 Скачать PDF', pdf.url)],
