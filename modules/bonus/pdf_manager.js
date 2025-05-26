@@ -1,9 +1,31 @@
 const { Markup } = require('telegraf');
 const fs = require('fs');
+const path = require('path');
 const config = require('../../config');
 
 class PDFBonusManager {
   constructor() {
+    // Конфигурация PDF-бонусов
+    this.bonuses = {
+      adult: {
+        id: 'adult_antistress_guide',
+        title: '🌬️ АНТИСТРЕСС ДЫХАНИЕ',
+        subtitle: '2 техники быстрой помощи',
+        description: 'Научитесь справляться со стрессом за 2-5 минут',
+        file_url: 'https://your-domain.com/bonus/antistress_breathing.html',
+        static_file: './static_bonuses/adult_antistress_guide.html',
+        preview_text: `📖 *Что внутри гида:*
+• Техника "Экстренное дыхание" от панических атак
+• Техника "Морская волна" для глубокого расслабления
+• Научное обоснование каждого метода
+• Пошаговые инструкции
+
+⏱️ *Время освоения:* 10 минут
+🎯 *Результат:* Снятие стресса за 2-3 минуты`,
+        target_segments: ['HOT_LEAD', 'WARM_LEAD']
+      }
+    };
+
     // Master techniques for adults
     this.masterTechniques = {
       'chronic_stress': {
@@ -184,24 +206,24 @@ class PDFBonusManager {
   }
 
   /**
-   * Generates personalized HTML content
+   * Генерирует персонализированный HTML-контент
    */
   async generatePersonalizedHTML(userId, analysisResult, surveyData) {
     try {
       if (!fs.existsSync('./temp')) {
-        fs.mkdirSync('./temp');
+        fs.mkdirSync('./temp', { recursive: true });
       }
 
       const filePath = `./temp/bonus_${userId}.html`;
       
-      // Get personalized data
+      // Получение персонализированных данных
       const technique = this.getMasterTechnique(analysisResult, surveyData);
       const title = this.generatePersonalizedTitle(analysisResult, surveyData);
       const subtitle = this.generatePersonalizedSubtitle(analysisResult, surveyData);
       const isChildFlow = analysisResult.analysisType === 'child';
       const threeDayPlan = this.generate3DayPlan(technique, isChildFlow, analysisResult.segment);
 
-      // Function to clean text from emojis
+      // Функция для очистки текста от эмодзи
       const cleanText = (text) => {
         return text.replace(/[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '');
       };
@@ -214,108 +236,158 @@ class PDFBonusManager {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${cleanText(title)}</title>
     <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        :root {
+            --primary-color: #1a3c87;
+            --secondary-color: #48bb78;
+            --accent-color: #ed8936;
+            --bg-color: #f7fafc;
+            --text-color: #2d3748;
+            --card-bg: #ffffff;
+        }
+        * {
+            box-sizing: border-box;
             margin: 0;
-            padding: 20px;
-            background: #f0f2f5;
-            color: #333;
+            padding: 0;
+        }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-color);
+            color: var(--text-color);
             line-height: 1.6;
+            padding: 1rem;
         }
         .container {
-            max-width: 600px;
+            max-width: 700px;
             margin: 0 auto;
-            background: white;
-            border-radius: 15px;
-            padding: 30px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
         }
         .header {
             text-align: center;
-            margin-bottom: 30px;
+            margin-bottom: 2rem;
         }
         .header h1 {
-            font-size: 28px;
-            color: #1a3c87;
-            margin: 0;
+            font-size: 2rem;
+            color: var(--primary-color);
+            margin-bottom: 0.5rem;
         }
         .header h2 {
-            font-size: 20px;
+            font-size: 1.25rem;
             color: #4a5568;
-            margin: 10px 0 0;
-            font-weight: normal;
+            font-weight: 500;
         }
         .section-title {
-            font-size: 22px;
-            font-weight: bold;
-            color: #1a3c87;
-            margin: 30px 0 15px;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin: 2rem 0 1rem;
         }
         .urgent-banner {
-            background: #fefcbf;
-            padding: 15px;
-            border-radius: 10px;
-            margin: 20px 0;
-            border-left: 5px solid #ed8936;
+            background: #fffaf0;
+            padding: 1rem;
+            border-radius: 8px;
+            border-left: 4px solid var(--accent-color);
+            margin: 1.5rem 0;
+            font-size: 0.95rem;
         }
         .technique-details {
-            background: #edf2ff;
-            padding: 20px;
-            border-radius: 10px;
-            margin: 20px 0;
+            background: #e6fffa;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin: 1.5rem 0;
         }
         .technique-details ul {
-            padding-left: 20px;
-            margin: 15px 0;
+            padding-left: 1.5rem;
+            margin: 1rem 0;
         }
         .technique-details li {
-            margin-bottom: 10px;
+            margin-bottom: 0.75rem;
         }
         .info-box {
-            background: #e6fffa;
-            padding: 15px;
-            border-radius: 10px;
-            margin: 15px 0;
+            background: #edf2ff;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            font-size: 0.95rem;
         }
         .day-plan {
-            background: #f7fafc;
-            padding: 15px;
-            border-radius: 10px;
-            margin: 15px 0;
+            background: var(--bg-color);
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+        .day-plan h3 {
+            font-size: 1.1rem;
+            color: var(--primary-color);
+            margin-bottom: 0.5rem;
         }
         .day-plan ul {
-            padding-left: 20px;
-            margin: 10px 0;
+            padding-left: 1.5rem;
+            margin: 0.5rem 0;
+        }
+        .progress-bar {
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 4px;
+            margin-top: 0.5rem;
+            overflow: hidden;
+        }
+        .progress-bar-fill {
+            height: 100%;
+            background: var(--secondary-color);
+            transition: width 0.3s ease;
         }
         .contact-section {
             text-align: center;
-            margin: 40px 0;
-            background: #4c51bf;
-            padding: 30px;
-            border-radius: 15px;
+            background: var(--primary-color);
             color: white;
+            padding: 2rem;
+            border-radius: 12px;
+            margin: 2rem 0;
         }
         .cta-button {
             display: inline-block;
-            background: #48bb78;
+            background: var(--secondary-color);
             color: white;
-            padding: 12px 24px;
-            border-radius: 25px;
+            padding: 0.75rem 1.5rem;
+            border-radius: 9999px;
             text-decoration: none;
-            margin: 10px;
-            font-weight: bold;
-            transition: background 0.3s;
+            font-weight: 600;
+            margin: 0.5rem;
+            transition: background 0.3s ease, transform 0.2s ease;
         }
         .cta-button:hover {
             background: #38a169;
+            transform: translateY(-2px);
         }
         .footer {
             text-align: center;
-            margin-top: 40px;
-            padding-top: 20px;
+            margin-top: 2rem;
+            padding-top: 1.5rem;
             border-top: 1px solid #e2e8f0;
             color: #718096;
-            font-size: 14px;
+            font-size: 0.85rem;
+        }
+        @media (max-width: 600px) {
+            .container {
+                padding: 1.5rem;
+            }
+            .header h1 {
+                font-size: 1.5rem;
+            }
+            .header h2 {
+                font-size: 1rem;
+            }
+            .section-title {
+                font-size: 1.25rem;
+            }
+            .cta-button {
+                display: block;
+                margin: 0.5rem auto;
+                width: fit-content;
+            }
         }
     </style>
 </head>
@@ -407,11 +479,12 @@ class PDFBonusManager {
         </div>
 `;
 
-      // 3-day plan
+      // 3-day plan with progress bar
       htmlContent += `
         <div class="section-title">📅 ПЛАН ОСВОЕНИЯ НА 3 ДНЯ</div>
 `;
-      Object.entries(threeDayPlan).forEach(([day, plan]) => {
+      Object.entries(threeDayPlan).forEach(([day, plan], index) => {
+        const progress = ((index + 1) / 3) * 100;
         htmlContent += `
         <div class="day-plan">
             <h3>${plan.title}</h3>
@@ -423,6 +496,9 @@ class PDFBonusManager {
         htmlContent += `
             </ul>
             <p><strong>🎯 Цель дня:</strong> ${plan.goal}</p>
+            <div class="progress-bar">
+                <div class="progress-bar-fill" style="width: ${progress}%"></div>
+            </div>
         </div>
 `;
       });
@@ -454,23 +530,23 @@ class PDFBonusManager {
       // Contact section and CTA
       htmlContent += `
         <div class="contact-section">
-            <div class="section-title" style="color: white; margin-bottom: 25px;">
+            <div class="section-title" style="color: white; margin-bottom: 1.5rem;">
                 📞 ХОТИТЕ БОЛЬШЕ ТЕХНИК?
             </div>
-            <p style="font-size: 18px; margin-bottom: 25px;">
+            <p style="font-size: 1.1rem; margin-bottom: 1.5rem;">
                 Это только 1 из 15+ техник в моей авторской системе!<br>
                 На персональной консультации подберем полную программу под вашу ситуацию.
             </p>
-            <div style="margin: 30px 0;">
-                <p style="font-size: 20px; font-weight: bold;">👩‍⚕️ Анастасия Попова</p>
-                <p style="font-size: 16px; margin: 10px 0;">Эксперт по дыхательным практикам</p>
-                <p style="font-size: 16px;">Telegram: @NastuPopova</p>
+            <div style="margin: 1.5rem 0;">
+                <p style="font-size: 1.25rem; font-weight: bold;">👩‍⚕️ Анастасия Попова</p>
+                <p style="font-size: 0.95rem; margin: 0.5rem 0;">Эксперт по дыхательным практикам</p>
+                <p style="font-size: 0.95rem;">Telegram: @NastuPopova</p>
             </div>
-            <div style="margin-top: 30px;">
+            <div style="margin-top: 1.5rem;">
                 <a href="https://t.me/NastuPopova" class="cta-button">💬 Записаться на консультацию</a>
                 <a href="https://t.me/NastuPopova" class="cta-button">📞 Задать вопрос</a>
             </div>
-            <p style="font-size: 14px; margin-top: 30px; opacity: 0.9;">
+            <p style="font-size: 0.85rem; margin-top: 1.5rem; opacity: 0.9;">
                 💝 Консультация поможет: подобрать техники под вашу проблему • составить план на 30 дней • 
                 отследить прогресс • ответить на все вопросы
             </p>
@@ -482,7 +558,7 @@ class PDFBonusManager {
         <div class="footer">
             <p><strong>Создано специально для вас</strong> • ${new Date().toLocaleDateString('ru-RU')}</p>
             <p>Дыхательные практики дополняют, но не заменяют медицинское лечение</p>
-            <p style="margin-top: 15px; color: #667eea;">
+            <p style="margin-top: 1rem; color: var(--primary-color);">
                 🌬️ Начните прямо сейчас - ваше дыхание изменит вашу жизнь!
             </p>
         </div>
@@ -491,20 +567,29 @@ class PDFBonusManager {
 </html>
 `;
 
-      // Write HTML file
+      // Запись HTML-файла
       fs.writeFileSync(filePath, htmlContent, 'utf8');
       console.log(`✅ Минималистичный HTML создан: ${filePath}`);
       return filePath;
     } catch (error) {
-      console.error('❌ Ошибка генерации минималистичного HTML:', error);
+      console.error('❌ Ошибка генерации минималистичного HTML:', {
+        error: error.message,
+        stack: error.stack,
+        userId,
+        analysisResult,
+        surveyData
+      });
       throw error;
     }
   }
 
   /**
-   * Gets one master technique for the user
+   * Получает одну мастер-технику для пользователя
    */
   getMasterTechnique(analysisResult, surveyData) {
+    if (!analysisResult || !surveyData) {
+      throw new Error('Недостаточно данных для выбора техники');
+    }
     const isChildFlow = analysisResult.analysisType === 'child';
     const primaryIssue = analysisResult.primaryIssue || 'chronic_stress';
     
@@ -516,7 +601,7 @@ class PDFBonusManager {
   }
 
   /**
-   * Creates personalized title
+   * Создает персонализированный заголовок
    */
   generatePersonalizedTitle(analysisResult, surveyData) {
     const isChildFlow = analysisResult.analysisType === 'child';
@@ -555,7 +640,7 @@ class PDFBonusManager {
   }
 
   /**
-   * Creates personalized subtitle
+   * Создает персонализированный подзаголовок
    */
   generatePersonalizedSubtitle(analysisResult, surveyData) {
     const technique = this.getMasterTechnique(analysisResult, surveyData);
@@ -563,7 +648,7 @@ class PDFBonusManager {
   }
 
   /**
-   * Generates 3-day plan
+   * Генерирует план на 3 дня
    */
   generate3DayPlan(technique, isChildFlow, segment) {
     if (isChildFlow) {
@@ -662,7 +747,7 @@ class PDFBonusManager {
   }
 
   /**
-   * Gets bonus for user
+   * Получает бонус для пользователя
    */
   getBonusForUser(analysisResult, surveyData) {
     const title = this.generatePersonalizedTitle(analysisResult, surveyData);
@@ -683,7 +768,7 @@ class PDFBonusManager {
   }
 
   /**
-   * Generates bonus message
+   * Генерирует сообщение о бонусе
    */
   generateBonusMessage(bonus, analysisResult) {
     const segment = analysisResult.segment;
@@ -738,7 +823,7 @@ class PDFBonusManager {
   }
 
   /**
-   * Sends PDF file (HTML in this case)
+   * Отправляет PDF-файл (в данном случае HTML)
    */
   async sendPDFFile(ctx, bonus) {
     try {
@@ -828,60 +913,155 @@ class PDFBonusManager {
   }
 
   /**
-   * Shows more available materials
+   * Показывает дополнительные доступные материалы
    */
   async showMoreMaterials(ctx) {
     const isChildFlow = ctx.session?.analysisResult?.analysisType === 'child';
     const primaryIssue = ctx.session?.analysisResult?.primaryIssue;
     const translatedIssue = this.translateValue(primaryIssue);
     
-    let message = `🎁 *ЧТО ЕЩЕ ДОСТУПНО?*\n\n`;
+    let message = `🎁 *ДОПОЛНИТЕЛЬНЫЕ МАТЕРИАЛЫ*\n\n`;
     
-    message += `💡 *Вы получили 1 из 15+ техник!*\n\n`;
+    message += `💡 *Вы получили персональный HTML-гид!*\n`;
+    message += `Это только 1 из 15+ техник в авторской системе.\n\n`;
+    
+    // БЕСПЛАТНЫЕ БОНУСЫ
+    message += `🎁 *БЕСПЛАТНЫЕ БОНУСЫ:*\n`;
     
     if (isChildFlow) {
-      message += `👶 *Полная детская программа включает:*\n`;
-      message += `• 🎮 5 игровых техник для разных ситуаций\n`;
-      message += `• 😴 Специальные техники для сна\n`;
+      message += `• 📱 Ваш персональный HTML-гид (уже получили)\n`;
+      message += `• 📄 Базовый PDF "Дыхательные игры для детей"\n`;
+      message += `• 🎥 Видео "Как научить ребенка дышать" (3 мин)\n`;
+      message += `• 📝 Чек-лист "Признаки стресса у детей"\n\n`;
+    } else {
+      message += `• 📱 Ваш персональный HTML-гид (уже получили)\n`;
+      message += `• 📄 Базовый PDF "Антистресс дыхание"\n`;
+      message += `• 🎥 Видео "3 техники на каждый день" (5 мин)\n`;
+      message += `• 📝 Чек-лист "Самодиагностика дыхания"\n\n`;
+    }
+    
+    // ПЛАТНАЯ ПРОГРАММА
+    if (isChildFlow) {
+      message += `👶 *ПОЛНАЯ ДЕТСКАЯ ПРОГРАММА (от 3500₽):*\n`;
+      message += `• 🎮 15 игровых техник для разных ситуаций\n`;
+      message += `• 😴 5 специальных техник для сна\n`;
       message += `• 🎯 Техники для концентрации в учебе\n`;
       message += `• 👨‍👩‍👧‍👦 Семейные дыхательные практики\n`;
       message += `• 📱 Мобильное приложение с напоминаниями\n`;
-      message += `• 🎥 Видеоуроки с демонстрацией\n`;
-      message += `• 📞 Индивидуальные консультации детского специалиста\n\n`;
+      message += `• 🎥 12 видеоуроков с демонстрацией\n`;
+      message += `• 📞 3 индивидуальные консультации детского специалиста\n`;
+      message += `• 📊 Система отслеживания прогресса\n\n`;
     } else {
-      message += `🧘 *Полная программа для "${translatedIssue}" включает:*\n`;
+      message += `🧘 *ПОЛНАЯ ПРОГРАММА "${translatedIssue.toUpperCase()}" (от 3500₽):*\n`;
       message += `• 🚨 5 экстренных техник (2-5 мин)\n`;
       message += `• 📅 7 ежедневных практик (5-20 мин)\n`;
-      message += `• 🎯 3 специализированные техники под вашу проблему\n`;
+      message += `• 🎯 5 специализированных техник под вашу проблему\n`;
       message += `• 🔧 Коррекция неправильных привычек дыхания\n`;
       message += `• 📊 Система отслеживания прогресса\n`;
-      message += `• 🎥 Видеоуроки с правильной техникой\n`;
-      message += `• 📞 Персональные консультации с экспертом\n\n`;
+      message += `• 🎥 20 видеоуроков с правильной техникой\n`;
+      message += `• 📞 5 персональных консультаций с экспертом\n`;
+      message += `• 📱 Доступ к закрытому сообществу\n\n`;
     }
     
-    message += `📈 *Результат через 30 дней:*\n`;
+    // РЕЗУЛЬТАТЫ
+    message += `📈 *РЕЗУЛЬТАТ ЧЕРЕЗ 30 ДНЕЙ:*\n`;
     message += `• Полный контроль над своим состоянием\n`;
-    message += `• Навыки быстрой самопомощи\n`;
-    message += `• Улучшение качества жизни\n`;
+    message += `• Навыки быстрой самопомощи в любой ситуации\n`;
+    message += `• Значительное улучшение качества жизни\n`;
     message += `• Снижение зависимости от лекарств\n\n`;
     
-    message += `💝 *Стоимость полной программы:* от 3500₽\n`;
-    message += `🎁 *Консультация:* БЕСПЛАТНО при записи сегодня!\n\n`;
+    // АКЦИЯ
+    message += `🔥 *АКЦИЯ СЕГОДНЯ:*\n`;
+    message += `💝 Консультация: БЕСПЛАТНО (обычно 2000₽)\n`;
+    message += `📦 Программа: скидка 30% при записи сегодня\n`;
+    message += `🎁 Все бонусы: в подарок при покупке программы\n\n`;
     
     message += `👩‍⚕️ *Записаться к Анастасии:* @NastuPopova`;
 
+    // Генерируем клавиатуру с бонусами
+    const keyboard = [];
+    
+    // Первая строка - основные действия
+    keyboard.push([
+      Markup.button.callback('🔥 Хочу полную программу!', 'contact_request')
+    ]);
+    
+    // Вторая строка - бесплатные бонусы
+    if (isChildFlow) {
+      keyboard.push([
+        Markup.button.url('📄 PDF: Игры для детей', 'https://breathing-lead-bot-production.up.railway.app/pdf/child_breathing_games.pdf')
+      ]);
+    } else {
+      keyboard.push([
+        Markup.button.url('📄 PDF: Антистресс', 'https://breathing-lead-bot-production.up.railway.app/pdf/antistress_breathing.pdf')
+      ]);
+    }
+    
+    // Третья строка - контакты
+    keyboard.push([
+      Markup.button.url('💬 Записаться на консультацию', 'https://t.me/NastuPopova')
+    ]);
+    
+    // Четвертая строка - навигация
+    keyboard.push([
+      Markup.button.callback('🔙 К моей технике', 'back_to_results')
+    ]);
+
     await ctx.editMessageText(message, {
       parse_mode: 'Markdown',
-      ...Markup.inlineKeyboard([
-        [Markup.button.callback('🔥 Хочу полную программу!', 'contact_request')],
-        [Markup.button.url('💬 Записаться на консультацию', 'https://t.me/NastuPopova')],
-        [Markup.button.callback('🔙 К моей технике', 'back_to_results')]
-      ])
+      ...Markup.inlineKeyboard(keyboard)
     });
   }
 
   /**
-   * Helper methods
+   * Отправляет конкретный PDF-бонус
+   */
+  async sendAdditionalPDF(ctx, pdfType) {
+    const pdfUrls = {
+      'adult_antistress': {
+        url: 'https://breathing-lead-bot-production.up.railway.app/pdf/antistress_breathing.pdf',
+        title: '📄 Базовый гид "Антистресс дыхание"',
+        description: 'Универсальные техники для снятия стресса'
+      },
+      'child_games': {
+        url: 'https://breathing-lead-bot-production.up.railway.app/pdf/child_breathing_games.pdf', 
+        title: '📄 Базовый гид "Дыхательные игры"',
+        description: 'Игровые техники для детей всех возрастов'
+      }
+    };
+    
+    const pdf = pdfUrls[pdfType];
+    if (!pdf) {
+      console.error(`❌ PDF с типом ${pdfType} не найден`);
+      await ctx.reply('⚠️ Запрошенный PDF временно недоступен. Свяжитесь с @NastuPopova для получения бонуса!', {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+          [Markup.button.url('💬 Написать Анастасии', 'https://t.me/NastuPopova')]
+        ])
+      });
+      return;
+    }
+    
+    const message = `🎁 *ДОПОЛНИТЕЛЬНЫЙ БОНУС*\n\n` +
+      `${pdf.title}\n\n` +
+      `📝 *Что внутри:* ${pdf.description}\n\n` +
+      `💡 *Дополняет ваш персональный гид* - используйте оба материала для максимального эффекта!\n\n` +
+      `📞 *Хотите еще больше техник?* Запишитесь на консультацию: @NastuPopova`;
+    
+    await ctx.reply(message, {
+      parse_mode: 'Markdown',
+      ...Markup.inlineKeyboard([
+        [Markup.button.url('📥 Скачать PDF', pdf.url)],
+        [Markup.button.callback('📞 Записаться на консультацию', 'contact_request')],
+        [Markup.button.url('💬 Написать Анастасии', 'https://t.me/NastuPopova')]
+      ])
+    });
+
+    console.log(`✅ Отправлен PDF-бонус: ${pdf.title} для пользователя ${ctx.from.id}`);
+  }
+
+  /**
+   * Вспомогательные методы
    */
   translateValue(value) {
     return config.TRANSLATIONS[value] || value;
@@ -900,7 +1080,7 @@ class PDFBonusManager {
   }
 
   /**
-   * Logging for minimalist approach
+   * Логирование для минималистичного подхода
    */
   logBonusDelivery(userId, bonusId, deliveryMethod, segment, primaryIssue) {
     const logEntry = {
@@ -918,7 +1098,7 @@ class PDFBonusManager {
   }
 
   /**
-   * Statistics
+   * Статистика
    */
   getBonusStats() {
     const minimalistCount = this.deliveryLog.filter(log => log.approach === 'minimalist').length;
