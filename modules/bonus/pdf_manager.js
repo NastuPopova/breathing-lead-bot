@@ -2,11 +2,13 @@
 // Система управления PDF-бонусами для лид-бота
 
 const { Markup } = require('telegraf');
+const PDFDocument = require('pdfkit');
+const fs = require('fs');
 const config = require('../../config');
 
 class PDFBonusManager {
   constructor() {
-    // Конфигурация PDF-бонусов
+    // Конфигурация PDF-бонусов (без file_path, так как будем генерировать PDF динамически)
     this.bonuses = {
       adult: {
         id: 'adult_antistress_guide',
@@ -14,12 +16,11 @@ class PDFBonusManager {
         subtitle: '2 техники быстрой помощи',
         description: 'Научитесь справляться со стрессом за 2-5 минут',
         file_url: 'https://your-domain.com/bonus/antistress_breathing.pdf',
-        file_path: './assets/pdf/antistress_breathing.pdf', // ← подчеркивания
         preview_text: `📖 *Что внутри гида:*
 • Техника "Экстренное дыхание" от панических атак
 • Техника "Морская волна" для глубокого расслабления
 • Научное обоснование каждого метода
-• Пошаговые инструкции с иллюстрациями
+• Пошаговые инструкции
 
 ⏱️ *Время освоения:* 10 минут
 🎯 *Результат:* Снятие стресса за 2-3 минуты`,
@@ -32,7 +33,6 @@ class PDFBonusManager {
         subtitle: '2 техники для спокойствия ребенка',
         description: 'Превратите дыхание в увлекательную игру',
         file_url: 'https://your-domain.com/bonus/child_breathing_games.pdf',
-        file_path: './assets/pdf/child_breathing_games.pdf', // ← подчеркивания
         preview_text: `🎮 *Что внутри гида:*
 • Игра "Воздушный шарик" от истерик и капризов
 • Игра "Как спит мишка" для быстрого засыпания
@@ -116,21 +116,134 @@ class PDFBonusManager {
   }
 
   /**
+   * Генерирует персонализированный PDF на основе ответов (2 страницы)
+   */
+  async generatePersonalizedPDF(userId, bonus, surveyData, analysisResult) {
+    return new Promise((resolve, reject) => {
+      // Проверяем и создаем папку temp, если она не существует
+      if (!fs.existsSync('./temp')) {
+        fs.mkdirSync('./temp');
+      }
+
+      const doc = new PDFDocument({ size: 'A4', margin: 40 });
+      const filePath = `./temp/personalized_bonus_${userId}.pdf`;
+      const stream = fs.createWriteStream(filePath);
+      
+      doc.pipe(stream);
+
+      // Страница 1: Заголовок и персонализированные данные
+      doc.fontSize(20).fillColor('#2E2E2E').text(bonus.title, { align: 'center' });
+      doc.fontSize(14).fillColor('#4A4A4A').text(bonus.subtitle, { align: 'center' });
+      doc.moveDown(2);
+
+      // Персонализированные данные
+      doc.fontSize(12).fillColor('#333333').text('Ваш персонализированный гид', { align: 'center', underline: true });
+      doc.moveDown(1);
+      
+      doc.fontSize(11).fillColor('#555555').text('Основные данные анкеты:', { underline: true });
+      doc.moveDown(0.5);
+      
+      if (surveyData.age_group) {
+        doc.text(`Возрастная群: ${surveyData.age_group}`);
+      }
+      if (surveyData.stress_level) {
+        doc.text(`Уровень стресса: ${surveyData.stress_level}/10`);
+      }
+      if (analysisResult.segment) {
+        doc.text(`Сегмент: ${analysisResult.segment}`);
+      }
+      if (surveyData.current_problems) {
+        const problems = Array.isArray(surveyData.current_problems) 
+          ? surveyData.current_problems.slice(0, 2).join(', ')
+          : surveyData.current_problems;
+        doc.text(`Проблемы: ${problems}`);
+      }
+      doc.moveDown(1);
+
+      // Рекомендации на основе ответов
+      doc.fontSize(12).fillColor('#333333').text('Рекомендации:', { underline: true });
+      doc.moveDown(0.5);
+      
+      if (bonus.id === 'adult_antistress_guide') {
+        doc.fontSize(10).fillColor('#444444').text('Техника "Экстренное дыхание":');
+        doc.text('1. Сядьте удобно, выпрямите спину.');
+        doc.text('2. Сделайте глубокий вдох через нос на 4 секунды.');
+        doc.text('3. Задержите дыхание на 4 секунды.');
+        doc.text('4. Медленно выдохните через рот на 6 секунд.');
+        doc.text('5. Повторите 5-10 раз.');
+        doc.moveDown(1);
+
+        if (surveyData.stress_level && parseInt(surveyData.stress_level) > 7) {
+          doc.fontSize(10).fillColor('#444444').text('Дополнительно для высокого стресса:');
+          doc.text('Попробуйте технику "Морская волна" перед сном:');
+          doc.text('1. Лягте, закройте глаза.');
+          doc.text('2. Представьте волны моря.');
+          doc.text('3. Вдох на 5 секунд, выдох на 7 секунд.');
+          doc.text('4. Повторите 5 минут.');
+        }
+      } else if (bonus.id === 'child_breathing_games') {
+        doc.fontSize(10).fillColor('#444444').text('Игра "Воздушный шарик":');
+        doc.text('1. Попросите ребенка представить, что его живот — шарик.');
+        doc.text('2. На вдохе через нос "надуваем шарик" (живот).');
+        doc.text('3. На выдохе через рот "сдуваем шарик".');
+        doc.text('4. Повторите 5 раз, делая процесс игривым.');
+        doc.moveDown(1);
+
+        if (surveyData.age_group && surveyData.age_group.includes('3-6')) {
+          doc.fontSize(10).fillColor('#444444').text('Для возраста 3-6 лет:');
+          doc.text('Добавьте звуки, например, "Фшшш" при выдохе.');
+        }
+      }
+
+      // Переход на вторую страницу
+      doc.addPage();
+
+      // Страница 2: Дополнительные рекомендации и контакты
+      doc.fontSize(12).fillColor('#333333').text('Дополнительные советы:', { align: 'center', underline: true });
+      doc.moveDown(1);
+
+      if (bonus.id === 'adult_antistress_guide') {
+        doc.fontSize(10).fillColor('#444444').text('Совет:');
+        doc.text('Практикуйте дыхательные упражнения утром и вечером.');
+        doc.text('Это поможет поддерживать уровень стресса под контролем.');
+      } else {
+        doc.fontSize(10).fillColor('#444444').text('Совет:');
+        doc.text('Превратите дыхательные игры в ежедневный ритуал.');
+        doc.text('Например, делайте их перед сном или после школы.');
+      }
+
+      // Контактная информация (внизу страницы)
+      doc.moveDown(3);
+      doc.fontSize(12).fillColor('#2E2E2E').text('Свяжитесь с нами:', { align: 'center', underline: true });
+      doc.moveDown(0.5);
+      doc.fontSize(10).fillColor('#444444').text('Тренер: Анастасия Попова', { align: 'center' });
+      doc.text('📞 Telegram: @breathing_opros_bot', { align: 'center' });
+      doc.text('💬 Личный контакт: @NastuPopova', { align: 'center' });
+      doc.text('📅 Запишитесь на консультацию!', { align: 'center' });
+
+      doc.end();
+
+      stream.on('finish', () => resolve(filePath));
+      stream.on('error', (err) => reject(err));
+    });
+  }
+
+  /**
    * Отправляет PDF файл пользователю
    */
   async sendPDFFile(ctx, bonus) {
     try {
-      // Проверяем, существует ли файл
-      const fs = require('fs');
-      if (!fs.existsSync(bonus.file_path)) {
-        console.error(`PDF файл не найден: ${bonus.file_path}`);
-        await ctx.reply('⚠️ Файл временно недоступен. Свяжитесь с @NastuPopova');
-        return;
-      }
+      // Генерируем персонализированный PDF
+      const filePath = await this.generatePersonalizedPDF(
+        ctx.from.id,
+        bonus,
+        ctx.session.answers,
+        ctx.session.analysisResult
+      );
 
       // Отправляем файл
       await ctx.replyWithDocument(
-        { source: bonus.file_path },
+        { source: filePath },
         {
           caption: `📖 ${bonus.title}\n\n💝 Ваш персональный бонус готов!\n\n📞 Запишитесь на консультацию: @breathing_opros_bot\n💬 Личный контакт: @NastuPopova`,
           parse_mode: 'Markdown',
@@ -142,6 +255,9 @@ class PDFBonusManager {
       );
       
       console.log(`✅ PDF отправлен пользователю ${ctx.from.id}: ${bonus.title}`);
+      
+      // Удаляем временный файл после отправки
+      fs.unlinkSync(filePath);
       
     } catch (error) {
       console.error('❌ Ошибка отправки PDF:', error);
