@@ -66,6 +66,9 @@ class BreathingLeadBot {
   setupHandlers() {
     this.bot.start(ctx => this.handleStart(ctx));
     this.bot.command('reset', ctx => this.handleReset(ctx));
+    this.bot.command('help', ctx => this.handleHelp(ctx));
+    this.bot.command('about', ctx => this.handleAbout(ctx));
+    this.bot.command('contact', ctx => this.handleContact(ctx));
     this.bot.action(/^download_(.+)$/, ctx => this.handlePDFDownload(ctx));
     this.bot.action('more_materials', ctx => this.handleMoreMaterials(ctx));
     this.bot.action('pdf_error_retry', ctx => this.handlePDFRetry(ctx));
@@ -111,6 +114,57 @@ class BreathingLeadBot {
       console.error('❌ Ошибка /reset:', error);
       await this.sendErrorMessage(ctx, 'Ошибка сброса');
     }
+  }
+
+  async handleHelp(ctx) {
+    const helpMessage = `🌬️ *ПОМОЩЬ ПО ДИАГНОСТИКЕ ДЫХАНИЯ*\n\n` +
+      `🚀 */start* - Начать диагностику дыхания\n` +
+      `🔄 */reset* - Сбросить и начать заново\n` +
+      `❓ */help* - Показать эту справку\n\n` +
+      `📋 *О диагностике:*\n` +
+      `• 4-7 минут персональной анкеты\n` +
+      `• Анализ по методу VERSE\n` +
+      `• Бесплатные PDF-гиды с техниками\n` +
+      `• Персональные рекомендации\n` +
+      `• Детская версия для родителей\n\n` +
+      `👩‍⚕️ *Тренер:* Анастасия Попова\n` +
+      `💬 *Личный контакт:* @NastuPopova`;
+
+    await ctx.reply(helpMessage, {
+      parse_mode: 'Markdown',
+      ...Markup.inlineKeyboard([
+        [Markup.button.callback('🚀 Начать диагностику', 'start_survey')],
+        [Markup.button.url('💬 Написать тренеру', 'https://t.me/NastuPopova')]
+      ])
+    });
+  }
+
+  async handleAbout(ctx) {
+    const aboutMessage = `🌬️ *ДЫХАТЕЛЬНЫЕ ПРАКТИКИ*\n\n` +
+      `Дыхание — единственная функция организма, которой мы можем управлять сознательно. ` +
+      `Правильные техники помогают:\n\n` +
+      `🔥 *Срочно:*\n` +
+      `• Снять стресс за 2-3 минуты\n` +
+      `• Справиться с паникой\n` +
+      `• Быстро заснуть\n\n` +
+      `🎯 *Долгосрочно:*\n` +
+      `• Нормализовать давление\n` +
+      `• Улучшить сон и энергию\n` +
+      `• Повысить концентрацию\n` +
+      `• Укрепить иммунитет\n\n` +
+      `📚 Методы основаны на работах К.П. Бутейко, А.Н. Стрельниковой и современных исследованиях.`;
+
+    await ctx.reply(aboutMessage, {
+      parse_mode: 'Markdown',
+      ...Markup.inlineKeyboard([
+        [Markup.button.callback('🚀 Пройти диагностику', 'start_survey')],
+        [Markup.button.callback('📞 Консультация', 'contact_request')]
+      ])
+    });
+  }
+
+  async handleContact(ctx) {
+    await this.handleContactRequest(ctx);
   }
 
   async handleCallback(ctx) {
