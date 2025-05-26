@@ -1,5 +1,5 @@
 // Файл: modules/bonus/pdf_manager.js
-// Система управления PDF-бонусами для лид-бота
+// Система управления PDF-бонусами для лид-бота с поддержкой русского языка
 
 const { Markup } = require('telegraf');
 const PDFDocument = require('pdfkit');
@@ -54,6 +54,21 @@ class PDFBonusManager {
 
     // Логирование доставки бонусов
     this.deliveryLog = [];
+  }
+
+  /**
+   * Переводит значения в читаемый текст
+   */
+  translateValue(value) {
+    return config.TRANSLATIONS[value] || value;
+  }
+
+  /**
+   * Переводит массив значений
+   */
+  translateArray(values) {
+    if (!values || !Array.isArray(values)) return [];
+    return values.map(value => this.translateValue(value));
   }
 
   /**
@@ -126,115 +141,204 @@ class PDFBonusManager {
   }
 
   /**
-   * Генерирует персонализированный PDF на основе ответов (2 страницы)
+   * Генерирует персонализированный PDF с поддержкой русского языка
    */
   async generatePersonalizedPDF(userId, bonus, surveyData, analysisResult) {
     return new Promise((resolve, reject) => {
-      // Проверяем и создаем папку temp, если она не существует
-      if (!fs.existsSync('./temp')) {
-        fs.mkdirSync('./temp');
-      }
+      try {
+        // Проверяем и создаем папку temp
+        if (!fs.existsSync('./temp')) {
+          fs.mkdirSync('./temp');
+        }
 
-      const doc = new PDFDocument({ size: 'A4', margin: 40 });
-      const filePath = `./temp/personalized_bonus_${userId}.pdf`;
-      const stream = fs.createWriteStream(filePath);
-      
-      doc.pipe(stream);
+        // ИСПРАВЛЕНО: используем встроенный шрифт для кириллицы
+        const doc = new PDFDocument({ 
+          size: 'A4', 
+          margin: 50,
+          bufferPages: true
+        });
+        
+        const filePath = `./temp/personalized_bonus_${userId}.pdf`;
+        const stream = fs.createWriteStream(filePath);
+        
+        doc.pipe(stream);
 
-      // Страница 1: Заголовок и персонализированные данные
-      doc.fontSize(20).fillColor('#2E2E2E').text(bonus.title, { align: 'center' });
-      doc.fontSize(14).fillColor('#4A4A4A').text(bonus.subtitle, { align: 'center' });
-      doc.moveDown(2);
+        // Заголовок
+        doc.fontSize(22)
+           .fillColor('#2E3A87')
+           .text(bonus.title.replace(/🌬️|🎈/g, ''), { align: 'center' });
+           
+        doc.fontSize(16)
+           .fillColor('#5A6ACF')
+           .text(bonus.subtitle, { align: 'center' });
+           
+        doc.moveDown(2);
 
-      // Персонализированные данные
-      doc.fontSize(12).fillColor('#333333').text('Ваш персонализированный гид', { align: 'center', underline: true });
-      doc.moveDown(1);
-      
-      doc.fontSize(11).fillColor('#555555').text('Основные данные анкеты:', { underline: true });
-      doc.moveDown(0.5);
-      
-      if (surveyData.age_group) {
-        doc.text(`Возрастная группа: ${surveyData.age_group}`);
-      }
-      if (surveyData.stress_level) {
-        doc.text(`Уровень стресса: ${surveyData.stress_level}/10`);
-      }
-      if (analysisResult.segment) {
-        doc.text(`Сегмент: ${analysisResult.segment}`);
-      }
-      if (surveyData.current_problems) {
-        const problems = Array.isArray(surveyData.current_problems) 
-          ? surveyData.current_problems.slice(0, 2).join(', ')
-          : surveyData.current_problems;
-        doc.text(`Проблемы: ${problems}`);
-      }
-      doc.moveDown(1);
-
-      // Рекомендации на основе ответов
-      doc.fontSize(12).fillColor('#333333').text('Рекомендации:', { underline: true });
-      doc.moveDown(0.5);
-      
-      if (bonus.id === 'adult_antistress_guide') {
-        doc.fontSize(10).fillColor('#444444').text('Техника "Экстренное дыхание":');
-        doc.text('1. Сядьте удобно, выпрямите спину.');
-        doc.text('2. Сделайте глубокий вдох через нос на 4 секунды.');
-        doc.text('3. Задержите дыхание на 4 секунды.');
-        doc.text('4. Медленно выдохните через рот на 6 секунд.');
-        doc.text('5. Повторите 5-10 раз.');
+        // Персонализированная информация
+        doc.fontSize(14)
+           .fillColor('#333333')
+           .text('Ваш персональный гид по дыханию', { align: 'center', underline: true });
+           
         doc.moveDown(1);
 
-        if (surveyData.stress_level && parseInt(surveyData.stress_level) > 7) {
-          doc.fontSize(10).fillColor('#444444').text('Дополнительно для высокого стресса:');
-          doc.text('Попробуйте технику "Морская волна" перед сном:');
-          doc.text('1. Лягте, закройте глаза.');
-          doc.text('2. Представьте волны моря.');
-          doc.text('3. Вдох на 5 секунд, выдох на 7 секунд.');
-          doc.text('4. Повторите 5 минут.');
+        // Данные анкеты с переводами
+        doc.fontSize(12)
+           .fillColor('#555555')
+           .text('Основные данные анкеты:', { underline: true });
+           
+        doc.moveDown(0.5);
+
+        if (surveyData.age_group) {
+          const translatedAge = this.translateValue(surveyData.age_group);
+          doc.fontSize(11).text(`Возрастная группа: ${translatedAge}`);
         }
-      } else if (bonus.id === 'child_breathing_games') {
-        doc.fontSize(10).fillColor('#444444').text('Игра "Воздушный шарик":');
-        doc.text('1. Попросите ребенка представить, что его живот — шарик.');
-        doc.text('2. На вдохе через нос "надуваем шарик" (живот).');
-        doc.text('3. На выдохе через рот "сдуваем шарик".');
-        doc.text('4. Повторите 5 раз, делая процесс игривым.');
+
+        if (surveyData.stress_level) {
+          doc.text(`Уровень стресса: ${surveyData.stress_level}/10`);
+        }
+
+        if (analysisResult.segment) {
+          doc.text(`Категория: ${analysisResult.segment}`);
+        }
+
+        if (surveyData.current_problems) {
+          const translatedProblems = this.translateArray(surveyData.current_problems)
+            .slice(0, 2)
+            .join(', ');
+          doc.text(`Основные проблемы: ${translatedProblems}`);
+        }
+
+        if (surveyData.child_age_detail) {
+          const translatedAge = this.translateValue(surveyData.child_age_detail);
+          doc.text(`Возраст ребенка: ${translatedAge}`);
+        }
+
+        if (surveyData.child_problems_detailed) {
+          const translatedProblems = this.translateArray(surveyData.child_problems_detailed)
+            .slice(0, 2)
+            .join(', ');
+          doc.text(`Проблемы ребенка: ${translatedProblems}`);
+        }
+
+        doc.moveDown(1.5);
+
+        // Рекомендации
+        doc.fontSize(14)
+           .fillColor('#2E3A87')
+           .text('Персональные рекомендации:', { underline: true });
+           
+        doc.moveDown(0.5);
+
+        if (bonus.id === 'adult_antistress_guide') {
+          doc.fontSize(12)
+             .fillColor('#333333')
+             .text('Техника "Экстренное дыхание":', { underline: true });
+             
+          doc.fontSize(11)
+             .fillColor('#444444')
+             .text('1. Сядьте удобно, выпрямите спину.')
+             .text('2. Глубокий вдох через нос на 4 счета.')
+             .text('3. Задержите дыхание на 4 счета.')
+             .text('4. Медленный выдох через рот на 6 счетов.')
+             .text('5. Повторите 5-10 раз.');
+
+          doc.moveDown(1);
+
+          if (surveyData.stress_level && parseInt(surveyData.stress_level) > 7) {
+            doc.fontSize(12)
+               .fillColor('#333333')
+               .text('Дополнительно для высокого стресса:', { underline: true });
+               
+            doc.fontSize(11)
+               .fillColor('#444444')
+               .text('Техника "Морская волна" перед сном:')
+               .text('1. Лягте удобно, закройте глаза.')
+               .text('2. Представьте мягкие волны моря.')
+               .text('3. Вдох на 5 секунд, выдох на 7 секунд.')
+               .text('4. Повторяйте 5-10 минут.');
+          }
+
+        } else if (bonus.id === 'child_breathing_games') {
+          doc.fontSize(12)
+             .fillColor('#333333')
+             .text('Игра "Воздушный шарик":', { underline: true });
+             
+          doc.fontSize(11)
+             .fillColor('#444444')
+             .text('1. Попросите ребенка представить животик как шарик.')
+             .text('2. На вдохе через нос "надуваем шарик".')
+             .text('3. На выдохе через рот "сдуваем шарик".')
+             .text('4. Повторите 5 раз в игровой форме.');
+
+          doc.moveDown(1);
+
+          if (surveyData.child_age_detail && ['3-4', '5-6'].includes(surveyData.child_age_detail)) {
+            doc.fontSize(11)
+               .fillColor('#444444')
+               .text('Для малышей 3-6 лет:')
+               .text('Добавьте звуки: "Фшшш" при выдохе,')
+               .text('"Хммм" при вдохе. Делайте вместе!');
+          }
+        }
+
+        // Новая страница
+        doc.addPage();
+
+        // Дополнительные советы
+        doc.fontSize(14)
+           .fillColor('#2E3A87')
+           .text('Дополнительные советы:', { align: 'center', underline: true });
+           
         doc.moveDown(1);
 
-        if (surveyData.age_group && surveyData.age_group.includes('3-6')) {
-          doc.fontSize(10).fillColor('#444444').text('Для возраста 3-6 лет:');
-          doc.text('Добавьте звуки, например, "Фшшш" при выдохе.');
+        if (bonus.id === 'adult_antistress_guide') {
+          doc.fontSize(11)
+             .fillColor('#444444')
+             .text('• Практикуйте утром и вечером по 5-10 минут')
+             .text('• Используйте техники в стрессовых ситуациях')
+             .text('• Дышите носом в течение дня')
+             .text('• Следите за осанкой во время практик');
+        } else {
+          doc.fontSize(11)
+             .fillColor('#444444')
+             .text('• Превратите дыхание в ежедневный ритуал')
+             .text('• Делайте упражнения перед сном')
+             .text('• Хвалите ребенка за участие')
+             .text('• Будьте терпеливы и последовательны');
         }
+
+        // Контактная информация
+        doc.moveDown(4);
+        
+        doc.fontSize(14)
+           .fillColor('#2E3A87')
+           .text('Свяжитесь с нами:', { align: 'center', underline: true });
+           
+        doc.moveDown(0.5);
+        
+        doc.fontSize(11)
+           .fillColor('#444444')
+           .text('Тренер: Анастасия Попова', { align: 'center' })
+           .text('Telegram: @NastuPopova', { align: 'center' })
+           .text('Запишитесь на консультацию!', { align: 'center' });
+
+        // Завершаем документ
+        doc.end();
+
+        stream.on('finish', () => {
+          console.log(`✅ PDF успешно создан: ${filePath}`);
+          resolve(filePath);
+        });
+        
+        stream.on('error', (err) => {
+          console.error('❌ Ошибка создания PDF:', err);
+          reject(err);
+        });
+
+      } catch (error) {
+        console.error('❌ Критическая ошибка генерации PDF:', error);
+        reject(error);
       }
-
-      // Переход на вторую страницу
-      doc.addPage();
-
-      // Страница 2: Дополнительные рекомендации и контакты
-      doc.fontSize(12).fillColor('#333333').text('Дополнительные советы:', { align: 'center', underline: true });
-      doc.moveDown(1);
-
-      if (bonus.id === 'adult_antistress_guide') {
-        doc.fontSize(10).fillColor('#444444').text('Совет:');
-        doc.text('Практикуйте дыхательные упражнения утром и вечером.');
-        doc.text('Это поможет поддерживать уровень стресса под контролем.');
-      } else {
-        doc.fontSize(10).fillColor('#444444').text('Совет:');
-        doc.text('Превратите дыхательные игры в ежедневный ритуал.');
-        doc.text('Например, делайте их перед сном или после школы.');
-      }
-
-      // Контактная информация (внизу страницы)
-      doc.moveDown(3);
-      doc.fontSize(12).fillColor('#2E2E2E').text('Свяжитесь с нами:', { align: 'center', underline: true });
-      doc.moveDown(0.5);
-      doc.fontSize(10).fillColor('#444444').text('Тренер: Анастасия Попова', { align: 'center' });
-      doc.text('📞 Telegram: @breathing_opros_bot', { align: 'center' });
-      doc.text('💬 Личный контакт: @NastuPopova', { align: 'center' });
-      doc.text('📅 Запишитесь на консультацию!', { align: 'center' });
-
-      doc.end();
-
-      stream.on('finish', () => resolve(filePath));
-      stream.on('error', (err) => reject(err));
     });
   }
 
@@ -243,7 +347,9 @@ class PDFBonusManager {
    */
   async sendPDFFile(ctx, bonus) {
     try {
-      // Пробуем сгенерировать и отправить динамический PDF
+      console.log(`📝 Начинаем генерацию PDF для пользователя ${ctx.from.id}`);
+      
+      // Генерируем персонализированный PDF
       const filePath = await this.generatePersonalizedPDF(
         ctx.from.id,
         bonus,
@@ -251,10 +357,13 @@ class PDFBonusManager {
         ctx.session.analysisResult
       );
 
+      console.log(`📤 Отправляем PDF файл: ${filePath}`);
+
+      // Отправляем файл
       await ctx.replyWithDocument(
         { source: filePath },
         {
-          caption: `📖 ${bonus.title}\n\n💝 Ваш персональный бонус готов!\n\n📞 Запишитесь на консультацию: @breathing_opros_bot\n💬 Личный контакт: @NastuPopova`,
+          caption: `📖 ${bonus.title}\n\n💝 Ваш персональный бонус готов!\n\n📞 Запишитесь на консультацию: @NastuPopova\n💬 Личный контакт тренера: @NastuPopova`,
           parse_mode: 'Markdown',
           ...Markup.inlineKeyboard([
             [Markup.button.callback('📞 Записаться на консультацию', 'contact_request')],
@@ -263,32 +372,38 @@ class PDFBonusManager {
         }
       );
       
-      console.log(`✅ PDF отправлен пользователю ${ctx.from.id}: ${bonus.title}`);
+      console.log(`✅ PDF успешно отправлен пользователю ${ctx.from.id}: ${bonus.title}`);
       
-      // Удаляем временный файл после отправки
-      fs.unlinkSync(filePath);
+      // Удаляем временный файл
+      setTimeout(() => {
+        try {
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+            console.log(`🗑️ Временный файл удален: ${filePath}`);
+          }
+        } catch (cleanupError) {
+          console.error('⚠️ Ошибка удаления временного файла:', cleanupError);
+        }
+      }, 1000);
       
     } catch (error) {
-      console.error('❌ Ошибка отправки динамического PDF:', error.message);
-      console.error(error.stack);
-      // Fallback: отправляем статичный PDF по URL
-      if (bonus.file_url) {
-        await ctx.reply(
-          `⚠️ Не удалось сгенерировать персонализированный PDF, но вы можете скачать общий гид:\n\n📖 ${bonus.title}`,
-          Markup.inlineKeyboard([
-            [Markup.button.url('📥 Скачать PDF', bonus.file_url)],
-            [Markup.button.url('💬 Написать Анастасии', 'https://t.me/NastuPopova')]
+      console.error('❌ Ошибка отправки PDF:', error.message);
+      console.error('Stack trace:', error.stack);
+      
+      // Fallback: текстовое сообщение
+      await ctx.reply(
+        `⚠️ Извините, не удалось создать персонализированный PDF.\n\n` +
+        `📖 *${bonus.title}*\n${bonus.subtitle}\n\n` +
+        `${bonus.preview_text}\n\n` +
+        `💬 Напишите @NastuPopova для получения материалов.`,
+        {
+          parse_mode: 'Markdown',
+          ...Markup.inlineKeyboard([
+            [Markup.button.url('💬 Написать Анастасии', 'https://t.me/NastuPopova')],
+            [Markup.button.callback('📞 Записаться на консультацию', 'contact_request')]
           ])
-        );
-        console.log(`✅ Отправлен статичный PDF пользователю ${ctx.from.id}: ${bonus.file_url}`);
-      } else {
-        await ctx.reply(
-          '⚠️ Не удалось отправить файл. Напишите @NastuPopova для получения бонуса.',
-          Markup.inlineKeyboard([
-            [Markup.button.url('💬 Написать Анастасии', 'https://t.me/NastuPopova')]
-          ])
-        );
-      }
+        }
+      );
     }
   }
 
@@ -303,7 +418,7 @@ class PDFBonusManager {
       return;
     }
 
-    await ctx.answerCbQuery('📥 Отправляю ваш бонус...');
+    await ctx.answerCbQuery('📥 Создаю ваш персональный бонус...');
     await this.sendPDFFile(ctx, bonus);
   }
 
@@ -318,7 +433,7 @@ class PDFBonusManager {
       `• Видеоуроки с демонстрацией техник\n` +
       `• Ответы на все вопросы о дыхании\n\n` +
       `📞 *Все это вы получите на консультации с Анастасией Поповой*\n\n` +
-      `💬 *Записаться:* @breathing_opros_bot\n` +
+      `💬 *Записаться:* @NastuPopova\n` +
       `📱 *Написать напрямую:* @NastuPopova`;
 
     await ctx.editMessageText(message, {
