@@ -96,40 +96,40 @@ class ExtendedSurveyQuestions {
         allowBack: true
       },
 
-      stress_level: {
-        id: 'stress_level',
-        block: 'B',
-        text: `😰 *Оцените уровень стресса:*\n\n` +
-              `Насколько часто вы испытываете стресс по шкале от 1 до 10?\n\n` +
-              `*1-3:* Низкий уровень\n` +
-              `*4-6:* Умеренный стресс\n` +
-              `*7-10:* Высокий уровень`,
-        keyboard: Markup.inlineKeyboard([
-          [
-            Markup.button.callback('1️⃣ Минимальный', 'stress_1'),
-            Markup.button.callback('2️⃣', 'stress_2'),
-            Markup.button.callback('3️⃣', 'stress_3')
-          ],
-          [
-            Markup.button.callback('4️⃣', 'stress_4'),
-            Markup.button.callback('5️⃣ Средний', 'stress_5'),
-            Markup.button.callback('6️⃣', 'stress_6')
-          ],
-          [
-            Markup.button.callback('7️⃣', 'stress_7'),
-            Markup.button.callback('8️⃣ Высокий', 'stress_8'),
-            Markup.button.callback('9️⃣', 'stress_9')
-          ],
-          [
-            Markup.button.callback('🔟 Критический', 'stress_10')
-          ],
-          [Markup.button.callback('⬅️ Назад', 'nav_back')]
-        ]),
-        required: true,
-        type: 'scale',
-        note: '💡 Чем выше число, тем сильнее стресс',
-        allowBack: true
-      },
+   stress_level: {
+  id: 'stress_level',
+  block: 'B',
+  text: `😰 *Оцените уровень стресса:*\n\n` +
+        `Насколько часто вы испытываете стресс по шкале от 1 до 10?\n\n` +
+        `*1-3:* Низкий уровень\n` +
+        `*4-6:* Умеренный стресс\n` +
+        `*7-10:* Высокий уровень`,
+  keyboard: Markup.inlineKeyboard([
+    [
+      Markup.button.callback('1️⃣ Минимальный (почти нет стресса)', 'stress_1'),
+      Markup.button.callback('2️⃣ Очень низкий', 'stress_2'),
+      Markup.button.callback('3️⃣ Низкий', 'stress_3')
+    ],
+    [
+      Markup.button.callback('4️⃣ Легкий', 'stress_4'),
+      Markup.button.callback('5️⃣ Средний', 'stress_5'),
+      Markup.button.callback('6️⃣ Умеренный', 'stress_6')
+    ],
+    [
+      Markup.button.callback('7️⃣ Повышенный', 'stress_7'),
+      Markup.button.callback('8️⃣ Высокий', 'stress_8'),
+      Markup.button.callback('9️⃣ Очень высокий', 'stress_9')
+    ],
+    [
+      Markup.button.callback('🔟 Критический (не справляюсь)', 'stress_10')
+    ],
+    [Markup.button.callback('⬅️ Назад', 'nav_back')]
+  ]),
+  required: true,
+  type: 'scale',
+  note: '💡 Чем выше число, тем сильнее стресс',
+  allowBack: true
+},
 
       sleep_quality: {
         id: 'sleep_quality',
