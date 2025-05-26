@@ -17,12 +17,12 @@ class PDFBonusManager {
     // Дополнительные материалы (ранее отдельные бонусы)
     this.additionalMaterials = {
       'adult_antistress': {
-        url: 'https://breathing-lead-bot-production.up.railway.app/pdf/antistress_breathing.pdf',
+        url: 'https://github.com/NastuPopova/breathing-lead-bot/raw/main/assets/pdf/antistress_breathing.pdf',
         title: '📄 Базовый гид "Антистресс дыхание"',
         description: 'Универсальные техники для снятия стресса для взрослых'
       },
       'child_games': {
-        url: 'https://breathing-lead-bot-production.up.railway.app/pdf/child_breathing_games.pdf',
+        url: 'https://github.com/NastuPopova/breathing-lead-bot/raw/main/assets/pdf/child_breathing_games.pdf',
         title: '📄 Базовый гид "Дыхательные игры"',
         description: 'Игровые техники для детей всех возрастов'
       }
@@ -1165,6 +1165,37 @@ class PDFBonusManager {
       conversion_focus: 'single_technique_mastery'
     };
   }
-}
 
+
+async handleDownloadRequest(ctx, bonusId) {
+    try {
+      console.log(`📥 Запрос на скачивание персонального гида: ${bonusId}`);
+      
+      if (!ctx.session?.analysisResult) {
+        await ctx.answerCbQuery('⚠️ Пройдите анкету заново', { show_alert: true });
+        return;
+      }
+
+      const bonus = this.getBonusForUser(
+        ctx.session.analysisResult,
+        ctx.session.answers
+      );
+
+      await ctx.answerCbQuery('📥 Готовлю ваш персональный гид...');
+      await this.sendPDFFile(ctx, bonus);
+      
+      this.logBonusDelivery(
+        ctx.from.id,
+        bonus.id,
+        'file',
+        ctx.session.analysisResult.segment,
+        ctx.session.analysisResult.primaryIssue
+      );
+      
+    } catch (error) {
+      console.error('❌ Ошибка handleDownloadRequest:', error);
+      await ctx.answerCbQuery('❌ Ошибка загрузки. Попробуйте позже.', { show_alert: true });
+    }
+  }
+ }
 module.exports = PDFBonusManager;
