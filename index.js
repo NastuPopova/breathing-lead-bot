@@ -72,23 +72,23 @@ class BreathingLeadBot {
     this.bot.command('about', ctx => this.handleAbout(ctx));
     this.bot.command('contact', ctx => this.handleContact(ctx));
     
-	// ИСПРАВЛЕНО: Обработчик статичных PDF
-	this.bot.action(/^download_pdf_(.+)$/, ctx => {
-	const pdfType = ctx.match[1]; // adult_antistress или child_games
-	console.log(`📄 Запрос статичного PDF: ${pdfType}`);
-	return this.handleStaticPDFDownload(ctx);
-});
+    // ИСПРАВЛЕНО: Обработчик статичных PDF
+    this.bot.action(/^download_pdf_(.+)$/, ctx => {
+      const pdfType = ctx.match[1]; // adult_antistress или child_games
+      console.log(`📄 Запрос статичного PDF: ${pdfType}`);
+      return this.handleStaticPDFDownload(ctx);
+    });
 
-// Обработчик персональных гидов
-this.bot.action(/^download_(.+)$/, ctx => {
-  const bonusId = ctx.match[1];
-  // Проверяем, что это НЕ статичный PDF
-  if (bonusId.startsWith('pdf_')) {
-    console.log(`⚠️ Статичный PDF должен обрабатываться выше: ${bonusId}`);
-    return; // Игнорируем
-  }
-  return this.handlePDFDownload(ctx);
-});
+    // Обработчик персональных гидов
+    this.bot.action(/^download_(.+)$/, ctx => {
+      const bonusId = ctx.match[1];
+      // Проверяем, что это НЕ статичный PDF
+      if (bonusId.startsWith('pdf_')) {
+        console.log(`⚠️ Статичный PDF должен обрабатываться выше: ${bonusId}`);
+        return; // Игнорируем
+      }
+      return this.handlePDFDownload(ctx);
+    });
     
     this.bot.action('more_materials', ctx => this.handleMoreMaterials(ctx));
     this.bot.action('pdf_error_retry', ctx => this.handlePDFRetry(ctx));
@@ -209,7 +209,6 @@ this.bot.action(/^download_(.+)$/, ctx => {
   async handleCallback(ctx) {
     const data = ctx.callbackQuery.data;
     
-    // ДОБАВЛЕНО: Диагностические логи
     console.log(`🔍 DEBUG: Получен callback: ${data}`);
     if (data.startsWith('download_pdf_')) {
       console.log(`🎯 Это статичный PDF запрос: ${data}`);
@@ -233,6 +232,13 @@ this.bot.action(/^download_(.+)$/, ctx => {
         await this.handleStart(ctx);
       } else if (data === 'back_to_results') {
         await this.showResults(ctx);
+      } else if (data === 'other_programs') {
+        await this.pdfManager.showAllPrograms(ctx);
+      } else if (data.startsWith('order_')) {
+        const programType = data.replace('order_', '');
+        await this.pdfManager.showOrderDetails(ctx, programType);
+      } else if (data === 'help_choose') {
+        await this.pdfManager.showProgramHelper(ctx);
       } else {
         await this.handleSurveyAnswer(ctx, data);
       }
@@ -270,7 +276,6 @@ this.bot.action(/^download_(.+)$/, ctx => {
     try {
       const bonusId = ctx.match[1];
       
-           
       console.log(`📥 Запрос персонального гида: ${bonusId}`);
       
       if (!ctx.session?.analysisResult) {
@@ -768,6 +773,37 @@ this.bot.action(/^download_(.+)$/, ctx => {
       sessionCurrentQuestion: ctx.session.currentQuestion,
       questionType: 'scale'
     });
+  }
+
+  async handleOtherPrograms(ctx) {
+    try {
+      await this.pdfManager.showAllPrograms(ctx);
+      await ctx.answerCbQuery();
+    } catch (error) {
+      console.error('❌ Ошибка handleOtherPrograms:', error);
+      await ctx.answerCbQuery('Ошибка загрузки программ');
+    }
+  }
+
+  async handleOrderProgram(ctx) {
+    try {
+      const programType = ctx.match[1];
+      await this.pdfManager.showOrderDetails(ctx, programType);
+      await ctx.answerCbQuery();
+    } catch (error) {
+      console.error('❌ Ошибка handleOrderProgram:', error);
+      await ctx.answerCbQuery('Ошибка обработки заказа');
+    }
+  }
+
+  async handleHelpChoose(ctx) {
+    try {
+      await this.pdfManager.showProgramHelper(ctx);
+      await ctx.answerCbQuery();
+    } catch (error) {
+      console.error('❌ Ошибка handleHelpChoose:', error);
+      await ctx.answerCbQuery('Ошибка помощника выбора');
+    }
   }
 
   launch() {
