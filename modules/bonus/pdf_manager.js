@@ -848,94 +848,98 @@ class PDFBonusManager {
   }
 
   /**
-   * Отправляет HTML-файл (называемый PDF в контексте бота)
-   */
-  async sendPDFFile(ctx, bonus) {
-    try {
-      console.log(`📝 Генерация минималистичного гида для пользователя ${ctx.from.id}`);
-      
-      const filePath = await this.generatePersonalizedHTML(
-        ctx.from.id,
-        ctx.session.analysisResult,
-        ctx.session.answers
-      );
+ * Отправляет HTML-файл (называемый PDF в контексте бота)
+ */
+async sendPDFFile(ctx, bonus) {
+  try {
+    console.log(`📝 Генерация минималистичного гида для пользователя ${ctx.from.id}`);
+    
+    const filePath = await this.generatePersonalizedHTML(
+      ctx.from.id,
+      ctx.session.analysisResult,
+      ctx.session.answers
+    );
 
-      console.log(`📤 Отправляем минималистичный файл: ${filePath}`);
+    console.log(`📤 Отправляем минималистичный файл: ${filePath}`);
 
-      const isChildFlow = ctx.session.analysisResult.analysisType === 'child';
-      const isHotLead = ctx.session.analysisResult.segment === 'HOT_LEAD';
-      const technique = bonus.technique;
+    const isChildFlow = ctx.session.analysisResult.analysisType === 'child';
+    const isHotLead = ctx.session.analysisResult.segment === 'HOT_LEAD';
+    const technique = bonus.technique;
 
-      let caption = `🎁 *${bonus.title}*\n\n`;
-      
-      if (isChildFlow) {
-        caption += `🧸 Персональная игровая техника для вашего ребенка!\n\n`;
-      } else {
-        caption += `🌬️ Ваша персональная дыхательная техника!\n\n`;
-      }
-      
-      caption += `✨ *В файле:*\n`;
-      caption += `• ${technique.name}\n`;
-      caption += `• Пошаговая инструкция\n`;
-      caption += `• План освоения на 3 дня\n`;
-      caption += `• Ожидаемые результаты\n\n`;
-      
-      if (isHotLead) {
-        caption += `⚡ *ВАЖНО:* Начните с техники прямо сейчас!\n\n`;
-      }
-      
-      caption += `📱 Откройте файл в браузере для лучшего отображения.\n\n`;
-      caption += `📞 Больше техник у @NastuPopova`;
+    let caption = `🎁 *${bonus.title}*\n\n`;
+    
+    if (isChildFlow) {
+      caption += `🧸 Персональная игровая техника для вашего ребенка!\n\n`;
+    } else {
+      caption += `🌬️ Ваша персональная дыхательная техника!\n\n`;
+    }
+    
+    caption += `✨ *В файле:*\n`;
+    caption += `• ${technique.name}\n`;
+    caption += `• Пошаговая инструкция\n`;
+    caption += `• План освоения на 3 дня\n`;
+    caption += `• Ожидаемые результаты\n\n`;
+    
+    if (isHotLead) {
+      caption += `⚡ *ВАЖНО:* Начните с техники прямо сейчас!\n\n`;
+    }
+    
+    caption += `📱 Откройте файл в браузере для лучшего отображения.\n\n`;
+    caption += `📞 Больше техник у @NastuPopova`;
 
-      await ctx.replyWithDocument(
-        { source: filePath },
-        {
-          caption: caption,
-          parse_mode: 'Markdown',
-          ...Markup.inlineKeyboard([
-            [Markup.button.callback('📞 Хочу больше техник!', 'contact_request')],
-            [Markup.button.url('💬 Написать Анастасии', 'https://t.me/NastuPopova')],
-            [Markup.button.callback('🎁 Дополнительные материалы', 'more_materials')]
-          ])
-        }
-      );
-      
-      console.log(`✅ Минималистичный гид отправлен: ${bonus.title}`);
-      
-      setTimeout(() => {
-        try {
-          if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
-            console.log(`🗑️ Временный файл удален: ${filePath}`);
-          }
-        } catch (cleanupError) {
-          console.error('⚠️ Ошибка удаления временного файла:', cleanupError);
-        }
-      }, 1000);
-      
-    } catch (error) {
-      console.error('❌ Ошибка отправки минималистичного гида:', error.message);
-      
-      const technique = bonus.technique;
-      let fallbackMessage = `⚠️ Файл временно недоступен, но вот ваша техника:\n\n`;
-      fallbackMessage += `🎯 *${technique.name}*\n\n`;
-      fallbackMessage += `*Пошаговая инструкция:*\n`;
-      technique.steps.forEach((step, index) => {
-        fallbackMessage += `${index + 1}. ${step}\n`;
-      });
-      fallbackMessage += `\n⏱️ *Время:* ${technique.duration}\n`;
-      fallbackMessage += `✨ *Результат:* ${technique.result}\n\n`;
-      fallbackMessage += `💬 Напишите @NastuPopova за полным гидом и планом на 3 дня!`;
-      
-      await ctx.reply(fallbackMessage, {
+    // Определяем тип потока для правильного PDF
+    const pdfCallback = isChildFlow ? 'download_pdf_child_games' : 'download_pdf_adult_antistress';
+    const pdfTitle = isChildFlow ? '📄 PDF: Игры для детей' : '📄 PDF: Антистресс';
+
+    await ctx.replyWithDocument(
+      { source: filePath },
+      {
+        caption: caption,
         parse_mode: 'Markdown',
         ...Markup.inlineKeyboard([
-          [Markup.button.url('💬 Написать Анастасии', 'https://t.me/NastuPopova')],
-          [Markup.button.callback('📞 Записаться на консультацию', 'contact_request')]
+          [Markup.button.callback('📞 Хочу больше техник!', 'contact_request')],
+          [Markup.button.callback(pdfTitle, pdfCallback)],
+          [Markup.button.url('💬 Написать Анастасии', 'https://t.me/NastuPopova')]
         ])
-      });
-    }
+      }
+    );
+    
+    console.log(`✅ Минималистичный гид отправлен: ${bonus.title}`);
+    
+    setTimeout(() => {
+      try {
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+          console.log(`🗑️ Временный файл удален: ${filePath}`);
+        }
+      } catch (cleanupError) {
+        console.error('⚠️ Ошибка удаления временного файла:', cleanupError);
+      }
+    }, 1000);
+    
+  } catch (error) {
+    console.error('❌ Ошибка отправки минималистичного гида:', error.message);
+    
+    const technique = bonus.technique;
+    let fallbackMessage = `⚠️ Файл временно недоступен, но вот ваша техника:\n\n`;
+    fallbackMessage += `🎯 *${technique.name}*\n\n`;
+    fallbackMessage += `*Пошаговая инструкция:*\n`;
+    technique.steps.forEach((step, index) => {
+      fallbackMessage += `${index + 1}. ${step}\n`;
+    });
+    fallbackMessage += `\n⏱️ *Время:* ${technique.duration}\n`;
+    fallbackMessage += `✨ *Результат:* ${technique.result}\n\n`;
+    fallbackMessage += `💬 Напишите @NastuPopova за полным гидом и планом на 3 дня!`;
+    
+    await ctx.reply(fallbackMessage, {
+      parse_mode: 'Markdown',
+      ...Markup.inlineKeyboard([
+        [Markup.button.url('💬 Написать Анастасии', 'https://t.me/NastuPopova')],
+        [Markup.button.callback('📞 Записаться на консультацию', 'contact_request')]
+      ])
+    });
   }
+}
 
   /**
    * Показывает дополнительные доступные материалы
