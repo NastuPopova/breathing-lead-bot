@@ -2,15 +2,32 @@ const { Telegraf, Markup, session } = require('telegraf');
 const config = require('./config');
 
 let ExtendedSurveyQuestions, BreathingVERSEAnalysis, LeadTransferSystem, PDFBonusManager, AdminNotificationSystem;
+
 try {
+  console.log('✅ Загружаем ExtendedSurveyQuestions...');
   ExtendedSurveyQuestions = require('./modules/survey/extended_questions');
+  console.log('✅ ExtendedSurveyQuestions загружен');
+  
+  console.log('✅ Загружаем BreathingVERSEAnalysis...');
   BreathingVERSEAnalysis = require('./modules/analysis/verse_analysis');
+  console.log('✅ BreathingVERSEAnalysis загружен');
+  
+  console.log('✅ Загружаем LeadTransferSystem...');
   LeadTransferSystem = require('./modules/integration/lead_transfer');
+  console.log('✅ LeadTransferSystem загружен');
+  
+  console.log('✅ Загружаем PDFBonusManager...');
   PDFBonusManager = require('./modules/bonus/pdf_manager');
+  console.log('✅ PDFBonusManager загружен');
+  
+  console.log('✅ Загружаем AdminNotificationSystem...');
   AdminNotificationSystem = require('./modules/admin/notifications');
+  console.log('✅ AdminNotificationSystem загружен');
+  
   console.log('✅ Все модули загружены успешно');
 } catch (error) {
   console.error('❌ Ошибка загрузки модулей:', error.message);
+  console.error('Файл:', error.stack.split('\n')[1]);
   process.exit(1);
 }
 
