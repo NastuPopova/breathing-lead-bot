@@ -5,7 +5,7 @@ const config = require('../../config');
 
 class PDFBonusManager {
   constructor() {
-    // Общий шаблон для персонализированного гида (без конкретных бонусов)
+    // Общий шаблон для персонализированного гида
     this.bonusesTemplate = {
       id: 'personalized_guide',
       title: '🌬️ ПЕРСОНАЛЬНЫЙ ДЫХАТЕЛЬНЫЙ ГИД',
@@ -14,11 +14,10 @@ class PDFBonusManager {
       target_segments: ['HOT_LEAD', 'WARM_LEAD', 'COLD_LEAD', 'NURTURE_LEAD']
     };
 
-    // Дополнительные материалы (ранее отдельные бонусы)
+    // Статичные PDF-материалы
     this.additionalMaterials = {
       'adult_antistress': {
-       url: 'https://raw.githubusercontent.com/NastuPopova/breathing-lead-bot/main/assets/pdf/antistress_breathing.pdf',
-
+        url: 'https://raw.githubusercontent.com/NastuPopova/breathing-lead-bot/main/assets/pdf/antistress_breathing.pdf',
         title: '📄 Базовый гид "Антистресс дыхание"',
         description: 'Универсальные техники для снятия стресса для взрослых'
       },
@@ -29,12 +28,12 @@ class PDFBonusManager {
       }
     };
 
-    // Master techniques for adults
+    // Техники для взрослых
     this.masterTechniques = {
       'chronic_stress': {
         name: 'Дыхание "4-7-8" - мгновенное успокоение',
         problem: 'хронический стресс и напряжение',
-        result: 'Снятие стресса за 2-3 минуты',
+        result: 'Снятие стресса за 2-3 минуты', // ИСПРАВЛЕНО: убрана латинская 'а'
         timeframe: 'Эффект через 30 секунд',
         steps: [
           'Сядьте удобно, выпрямите спину',
@@ -158,7 +157,7 @@ class PDFBonusManager {
       }
     };
 
-    // Child techniques
+    // Техники для детей
     this.childMasterTechniques = {
       'anxiety': {
         name: 'Игра "Медвежонок спит"',
@@ -265,215 +264,134 @@ class PDFBonusManager {
         return text.replace(/[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '');
       };
 
-      let htmlContent = `
-<!DOCTYPE html>
+      // Полный HTML с DOCTYPE и стилями
+      let htmlContent = `<!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${cleanText(title)}</title>
-    <style>
-        :root {
-            --primary-color: #1a3c87;
-            --secondary-color: #48bb78;
-            --accent-color: #ed8936;
-            --bg-color: #f7fafc;
-            --text-color: #2d3748;
-            --card-bg: #ffffff;
-        }
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: var(--bg-color);
-            color: var(--text-color);
-            line-height: 1.6;
-            padding: 1rem;
-        }
-        .container {
-            max-width: 700px;
-            margin: 0 auto;
-            background: var(--card-bg);
-            border-radius: 12px;
-            padding: 2rem;
-            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
-        }
-        .header {
-            text-align: center;
-            margin-bottom: 2rem;
-        }
-        .header h1 {
-            font-size: 2rem;
-            color: var(--primary-color);
-            margin-bottom: 0.5rem;
-        }
-        .header h2 {
-            font-size: 1.25rem;
-            color: #4a5568;
-            font-weight: 500;
-        }
-        .section-title {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--primary-color);
-            margin: 2rem 0 1rem;
-        }
-        .urgent-banner {
-            background: #fffaf0;
-            padding: 1rem;
-            border-radius: 8px;
-            border-left: 4px solid var(--accent-color);
-            margin: 1.5rem 0;
-            font-size: 0.95rem;
-        }
-        .technique-details {
-            background: #e6fffa;
-            padding: 1.5rem;
-            border-radius: 8px;
-            margin: 1.5rem 0;
-        }
-        .technique-details ul {
-            padding-left: 1.5rem;
-            margin: 1rem 0;
-        }
-        .technique-details li {
-            margin-bottom: 0.75rem;
-        }
-        .info-box {
-            background: #edf2ff;
-            padding: 1rem;
-            border-radius: 8px;
-            margin: 1rem 0;
-            font-size: 0.95rem;
-        }
-        .day-plan {
-            background: var(--bg-color);
-            padding: 1.5rem;
-            border-radius: 8px;
-            margin: 1rem 0;
-        }
-        .day-plan h3 {
-            font-size: 1.1rem;
-            color: var(--primary-color);
-            margin-bottom: 0.5rem;
-        }
-        .day-plan ul {
-            padding-left: 1.5rem;
-            margin: 0.5rem 0;
-        }
-        .progress-bar {
-            height: 8px;
-            background: #e2e8f0;
-            border-radius: 4px;
-            margin-top: 0.5rem;
-            overflow: hidden;
-        }
-        .progress-bar-fill {
-            height: 100%;
-            background: var(--secondary-color);
-            transition: width 0.3s ease;
-        }
-        .contact-section {
-            text-align: center;
-            background: var(--primary-color);
-            color: white;
-            padding: 2rem;
-            border-radius: 12px;
-            margin: 2rem 0;
-        }
-        .cta-button {
-            display: inline-block;
-            background: var(--secondary-color);
-            color: white;
-            padding: 0.75rem 1.5rem;
-            border-radius: 9999px;
-            text-decoration: none;
-            font-weight: 600;
-            margin: 0.5rem;
-            transition: background 0.3s ease, transform 0.2s ease;
-        }
-        .cta-button:hover {
-            background: #38a169;
-            transform: translateY(-2px);
-        }
-        .footer {
-            text-align: center;
-            margin-top: 2rem;
-            padding-top: 1.5rem;
-            border-top: 1px solid #e2e8f0;
-            color: #718096;
-            font-size: 0.85rem;
-        }
-        @media (max-width: 600px) {
-            .container {
-                padding: 1.5rem;
-            }
-            .header h1 {
-                font-size: 1.5rem;
-            }
-            .header h2 {
-                font-size: 1rem;
-            }
-            .section-title {
-                font-size: 1.25rem;
-            }
-            .cta-button {
-                display: block;
-                margin: 0.5rem auto;
-                width: fit-content;
-            }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${cleanText(title)}</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      line-height: 1.6;
+      color: #333;
+      background-color: #f9f9f9;
+    }
+    h1 {
+      color: #2c3e50;
+      text-align: center;
+      font-size: 24px;
+    }
+    h2 {
+      color: #34495e;
+      font-size: 20px;
+      margin-top: 20px;
+    }
+    h3 {
+      color: #34495e;
+      font-size: 18px;
+    }
+    .section {
+      background: #fff;
+      padding: 20px;
+      margin-bottom: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .urgent {
+      background: #ffebee;
+      border-left: 4px solid #e74c3c;
+      padding: 15px;
+      margin-bottom: 20px;
+      color: #c0392b;
+    }
+    ul {
+      list-style-type: disc;
+      padding-left: 20px;
+    }
+    .progress-bar {
+      background: #ecf0f1;
+      height: 10px;
+      border-radius: 5px;
+      margin: 10px 0;
+    }
+    .progress {
+      background: #3498db;
+      height: 100%;
+      border-radius: 5px;
+    }
+    .cta {
+      text-align: center;
+      background: #e8f4f8;
+      padding: 20px;
+      border-radius: 8px;
+      margin-top: 20px;
+    }
+    .button {
+      display: inline-block;
+      padding: 10px 20px;
+      background: #3498db;
+      color: #fff;
+      text-decoration: none;
+      border-radius: 5px;
+      margin: 10px;
+    }
+    .footer {
+      text-align: center;
+      font-size: 14px;
+      color: #7f8c8d;
+      margin-top: 20px;
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>${cleanText(title)}</h1>
-            <h2>${cleanText(subtitle)}</h2>
-            <p>Ваша персональная техника дыхания</p>
-        </div>
+  <div class="section">
+    <h1>${cleanText(title)}</h1>
+    <h2>${cleanText(subtitle)}</h2>
+    <p>Ваша персональная техника дыхания</p>
+  </div>
 `;
 
-      // Urgent banner for HOT_LEAD
+      // Срочное уведомление для HOT_LEAD
       if (analysisResult.segment === 'HOT_LEAD') {
         htmlContent += `
-        <div class="urgent-banner">
-            <p><strong>⚡ СРОЧНО:</strong> Ваши ответы показывают критический уровень проблемы.</p>
-            <p>Освойте эту технику прямо сейчас - она поможет уже через 2-3 минуты!</p>
-        </div>
+  <div class="urgent">
+    <p>⚡ СРОЧНО: Ваши ответы показывают критический уровень проблемы.</p>
+    <p>Освойте эту технику прямо сейчас - она поможет уже через 2-3 минуты!</p>
+  </div>
 `;
       }
 
-      // User profile
+      // Профиль пользователя
       htmlContent += `
-        <div class="section-title">📊 Ваш персональный профиль</div>
-        <div class="info-box">
+  <div class="section">
+    <h2>📊 Ваш персональный профиль</h2>
+    <ul>
 `;
       if (isChildFlow) {
         if (surveyData.child_age_detail) {
-          htmlContent += `<p><strong>Возраст ребенка:</strong> ${this.translateValue(surveyData.child_age_detail)}</p>`;
+          htmlContent += `      <li>Возраст ребенка: ${this.translateValue(surveyData.child_age_detail)}</li>\n`;
         }
         if (surveyData.child_problems_detailed) {
           const problems = this.translateArray(surveyData.child_problems_detailed).slice(0, 2).join(', ');
-          htmlContent += `<p><strong>Основные проблемы:</strong> ${problems}</p>`;
+          htmlContent += `      <li>Основные проблемы: ${problems}</li>\n`;
         }
         if (surveyData.child_parent_involvement) {
-          htmlContent += `<p><strong>Кто занимается:</strong> ${this.translateValue(surveyData.child_parent_involvement)}</p>`;
+          htmlContent += `      <li>Кто занимается: ${this.translateValue(surveyData.child_parent_involvement)}</li>\n`;
         }
       } else {
         if (surveyData.age_group) {
-          htmlContent += `<p><strong>Возраст:</strong> ${this.translateValue(surveyData.age_group)}</p>`;
+          htmlContent += `      <li>Возраст: ${this.translateValue(surveyData.age_group)}</li>\n`;
         }
         if (surveyData.stress_level) {
           const stressDesc = this.getStressDescription(surveyData.stress_level);
-          htmlContent += `<p><strong>Уровень стресса:</strong> ${surveyData.stress_level}/10 (${stressDesc})</p>`;
+          htmlContent += `      <li>Уровень стресса: ${surveyData.stress_level}/10 (${stressDesc})</li>\n`;
         }
         if (surveyData.current_problems) {
           const problems = this.translateArray(surveyData.current_problems).slice(0, 2).join(', ');
-          htmlContent += `<p><strong>Проблемы:</strong> ${problems}</p>`;
+          htmlContent += `      <li>Проблемы: ${problems}</li>\n`;
         }
       }
 
@@ -485,121 +403,112 @@ class PDFBonusManager {
       };
 
       htmlContent += `
-            <p><strong>Категория:</strong> ${segmentNames[analysisResult.segment]}</p>
-            <p><strong>Персональная проблема:</strong> ${technique.problem}</p>
-        </div>
+      <li>Категория: ${segmentNames[analysisResult.segment]}</li>
+      <li>Персональная проблема: ${technique.problem}</li>
+    </ul>
+  </div>
 `;
 
-      // Main technique
+      // Основная техника
       htmlContent += `
-        <div class="section-title">${technique.name}</div>
-        <div class="technique-details">
-            <p><strong>Решает проблему:</strong> ${technique.problem}</p>
-            <ul>
+  <div class="section">
+    <h2>${technique.name}</h2>
+    <p><strong>Решает проблему:</strong> ${technique.problem}</p>
+    <ul>
 `;
       technique.steps.forEach(step => {
-        htmlContent += `<li>${step}</li>`;
+        htmlContent += `      <li>${step}</li>\n`;
       });
       htmlContent += `
-            </ul>
-            <p><strong>⏱️ Время выполнения:</strong> ${technique.duration}</p>
-            <p><strong>✨ Результат:</strong> ${technique.timeframe}</p>
-            <p><strong>💡 Научное обоснование:</strong> ${technique.science || 'Проверенная техника с доказанной эффективностью'}</p>
+    </ul>
+    <p><strong>⏱️ Время выполнения:</strong> ${technique.duration}</p>
+    <p><strong>✨ Результат:</strong> ${technique.timeframe}</p>
+    <p><strong>💡 Научное обоснование:</strong> ${technique.science || 'Проверенная техника с доказанной эффективностью'}</p>
 `;
       if (technique.emergency_note) {
-        htmlContent += `<p><strong>⚠️ Важно:</strong> ${technique.emergency_note}</p>`;
+        htmlContent += `    <p><strong>⚠️ Важно:</strong> ${technique.emergency_note}</p>\n`;
       }
       if (technique.parent_tip && isChildFlow) {
-        htmlContent += `<p><strong>👨‍👩‍👧‍👦 Совет родителям:</strong> ${technique.parent_tip}</p>`;
+        htmlContent += `    <p><strong>👨‍👩‍👧‍👦 Совет родителям:</strong> ${technique.parent_tip}</p>\n`;
       }
       htmlContent += `
-        </div>
+  </div>
 `;
 
-      // 3-day plan with progress bar
+      // План на 3 дня
       htmlContent += `
-        <div class="section-title">📅 ПЛАН ОСВОЕНИЯ НА 3 ДНЯ</div>
+  <div class="section">
+    <h2>📅 ПЛАН ОСВОЕНИЯ НА 3 ДНЯ</h2>
 `;
       Object.entries(threeDayPlan).forEach(([day, plan], index) => {
         const progress = ((index + 1) / 3) * 100;
         htmlContent += `
-        <div class="day-plan">
-            <h3>${plan.title}</h3>
-            <ul>
+    <div>
+      <h3>${plan.title}</h3>
+      <ul>
 `;
         plan.tasks.forEach(task => {
-          htmlContent += `<li>${task}</li>`;
+          htmlContent += `        <li>${task}</li>\n`;
         });
         htmlContent += `
-            </ul>
-            <p><strong>🎯 Цель дня:</strong> ${plan.goal}</p>
-            <div class="progress-bar">
-                <div class="progress-bar-fill" style="width: ${progress}%"></div>
-            </div>
-        </div>
+      </ul>
+      <p><strong>🎯 Цель дня:</strong> ${plan.goal}</p>
+      <div class="progress-bar">
+        <div class="progress" style="width: ${progress}%"></div>
+      </div>
+    </div>
 `;
       });
-
-      // Expected results
       htmlContent += `
-        <div class="section-title">🎯 ОЖИДАЕМЫЕ РЕЗУЛЬТАТЫ</div>
-        <div class="info-box">
+  </div>
+`;
+
+      // Ожидаемые результаты
+      htmlContent += `
+  <div class="section">
+    <h2>🎯 ОЖИДАЕМЫЕ РЕЗУЛЬТАТЫ</h2>
+    <ul>
 `;
       if (isChildFlow) {
         htmlContent += `
-            <p>📈 Улучшение поведения через 2-3 дня</p>
-            <p>😴 Более спокойный сон и засыпание</p>
-            <p>🎯 Развитие навыков самоуспокоения</p>
-            <p>👨‍👩‍👧‍👦 Укрепление связи с родителями</p>
+      <li>📈 Улучшение поведения через 2-3 дня</li>
+      <li>😴 Более спокойный сон и засыпание</li>
+      <li>🎯 Развитие навыков самоуспокоения</li>
+      <li>👨‍👩‍👧‍👦 Укрепление связи с родителями</li>
 `;
       } else {
         htmlContent += `
-            <p>⚡ ${technique.result}</p>
-            <p>📈 Снижение общего уровня стресса</p>
-            <p>💪 Развитие навыков самопомощи</p>
-            <p>🌟 Улучшение общего самочувствия</p>
+      <li>⚡ ${technique.result}</li>
+      <li>📈 Снижение общего уровня стресса</li>
+      <li>💪 Развитие навыков самопомощи</li>
+      <li>🌟 Улучшение общего самочувствия</li>
 `;
       }
       htmlContent += `
-        </div>
+    </ul>
+  </div>
 `;
 
-      // Contact section and CTA
+      // Контакты и CTA
       htmlContent += `
-        <div class="contact-section">
-            <div class="section-title" style="color: white; margin-bottom: 1.5rem;">
-                📞 ХОТИТЕ БОЛЬШЕ ТЕХНИК?
-            </div>
-            <p style="font-size: 1.1rem; margin-bottom: 1.5rem;">
-                Это только 1 из 15+ техник в моей авторской системе!<br>
-                На персональной консультации подберем полную программу под вашу ситуацию.
-            </p>
-            <div style="margin: 1.5rem 0;">
-                <p style="font-size: 1.25rem; font-weight: bold;">👩‍⚕️ Анастасия Попова</p>
-                <p style="font-size: 0.95rem; margin: 0.5rem 0;">Эксперт по дыхательным практикам</p>
-                <p style="font-size: 0.95rem;">Telegram: @NastuPopova</p>
-            </div>
-            <div style="margin-top: 1.5rem;">
-                <a href="https://t.me/NastuPopova" class="cta-button">💬 Записаться на консультацию</a>
-                <a href="https://t.me/NastuPopova" class="cta-button">📞 Задать вопрос</a>
-            </div>
-            <p style="font-size: 0.85rem; margin-top: 1.5rem; opacity: 0.9;">
-                💝 Консультация поможет: подобрать техники под вашу проблему • составить план на 30 дней • 
-                отследить прогресс • ответить на все вопросы
-            </p>
-        </div>
+  <div class="cta">
+    <h2>📞 ХОТИТЕ БОЛЬШЕ ТЕХНИК?</h2>
+    <p>Это только 1 из 15+ техник в моей авторской системе!</p>
+    <p>На персональной консультации подберем полную программу под вашу ситуацию.</p>
+    <p><strong>👩‍⚕️ Анастасия Попова</strong><br>Эксперт по дыхательным практикам<br>Telegram: @NastuPopova</p>
+    <a href="https://t.me/NastuPopova" class="button">💬 Записаться на консультацию</a>
+    <a href="https://t.me/NastuPopova" class="button">📞 Задать вопрос</a>
+    <p>💝 Консультация поможет: подобрать техники под вашу проблему • составить план на 30 дней • отследить прогресс • ответить на все вопросы</p>
+  </div>
 `;
 
-      // Footer
+      // Футер
       htmlContent += `
-        <div class="footer">
-            <p><strong>Создано специально для вас</strong> • ${new Date().toLocaleDateString('ru-RU')}</p>
-            <p>Дыхательные практики дополняют, но не заменяют медицинское лечение</p>
-            <p style="margin-top: 1rem; color: var(--primary-color);">
-                🌬️ Начните прямо сейчас - ваше дыхание изменит вашу жизнь!
-            </p>
-        </div>
-    </div>
+  <div class="footer">
+    <p>Создано специально для вас • ${new Date().toLocaleDateString('ru-RU')}</p>
+    <p>Дыхательные практики дополняют, но не заменяют медицинское лечение</p>
+    <p><strong>🌬️ Начните прямо сейчас - ваше дыхание изменит вашу жизнь!</strong></p>
+  </div>
 </body>
 </html>
 `;
@@ -685,6 +594,62 @@ class PDFBonusManager {
   generatePersonalizedSubtitle(analysisResult, surveyData) {
     const technique = this.getMasterTechnique(analysisResult, surveyData);
     return `${technique.result} за ${technique.duration}`;
+  }
+
+  /**
+   * Отправляет статичные PDF
+   */
+  async sendAdditionalPDF(ctx, pdfType) {
+    console.log(`📥 Отправка статичного PDF: ${pdfType}`);
+    
+    const pdf = this.additionalMaterials[pdfType];
+    if (!pdf) {
+      console.error(`❌ PDF с типом ${pdfType} не найден в additionalMaterials`);
+      console.log('Доступные PDF:', Object.keys(this.additionalMaterials));
+      
+      await ctx.reply('⚠️ Запрошенный PDF временно недоступен. Свяжитесь с @NastuPopova для получения бонуса!', {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+          [Markup.button.url('💬 Написать Анастасии', 'https://t.me/NastuPopova')]
+        ])
+      });
+      return;
+    }
+    
+    const message = `🎁 *ДОПОЛНИТЕЛЬНЫЙ БОНУС*\n\n` +
+      `${pdf.title}\n\n` +
+      `📝 *Что внутри:* ${pdf.description}\n\n` +
+      `💡 *Дополняет ваш персональный гид* - используйте оба материала для максимального эффекта!\n\n` +
+      `📞 *Хотите еще больше техник?* Запишитесь на консультацию: @NastuPopova`;
+    
+    try {
+      console.log(`📤 Отправляем PDF по URL: ${pdf.url}`);
+      
+      await ctx.replyWithDocument({ url: pdf.url }, {
+        caption: message,
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+          [Markup.button.url('📞 Записаться на консультацию', 'https://t.me/NastuPopova')],
+          [Markup.button.callback('🔙 К материалам', 'more_materials')]
+        ])
+      });
+
+      console.log(`✅ Отправлен статичный PDF: ${pdf.title} для пользователя ${ctx.from.id}`);
+      
+    } catch (error) {
+      console.error(`❌ Ошибка отправки PDF по URL: ${error.message}`);
+      
+      // Fallback - отправляем только ссылку
+      await ctx.reply(message + `\n\n📥 [Скачать PDF](${pdf.url})`, {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+          [Markup.button.url('📥 Открыть PDF', pdf.url)],
+          [Markup.button.url('📞 Написать Анастасии', 'https://t.me/NastuPopova')]
+        ])
+      });
+      
+      console.log(`✅ Отправлена ссылка на PDF: ${pdf.title}`);
+    }
   }
 
   /**
@@ -883,7 +848,7 @@ class PDFBonusManager {
   }
 
   /**
-   * Отправляет PDF-файл (в данном случае HTML)
+   * Отправляет HTML-файл (называемый PDF в контексте бота)
    */
   async sendPDFFile(ctx, bonus) {
     try {
@@ -1074,40 +1039,6 @@ class PDFBonusManager {
   }
 
   /**
-   * Отправляет конкретный PDF-бонус
-   */
-  async sendAdditionalPDF(ctx, pdfType) {
-    const pdf = this.additionalMaterials[pdfType];
-    if (!pdf) {
-      console.error(`❌ PDF с типом ${pdfType} не найден`);
-      await ctx.reply('⚠️ Запрошенный PDF временно недоступен. Свяжитесь с @NastuPopova для получения бонуса!', {
-        parse_mode: 'Markdown',
-        ...Markup.inlineKeyboard([
-          [Markup.button.url('💬 Написать Анастасии', 'https://t.me/NastuPopova')]
-        ])
-      });
-      return;
-    }
-    
-    const message = `🎁 *ДОПОЛНИТЕЛЬНЫЙ БОНУС*\n\n` +
-      `${pdf.title}\n\n` +
-      `📝 *Что внутри:* ${pdf.description}\n\n` +
-      `💡 *Дополняет ваш персональный гид* - используйте оба материала для максимального эффекта!\n\n` +
-      `📞 *Хотите еще больше техник?* Запишитесь на консультацию: @NastuPopova`;
-    
-    await ctx.replyWithDocument({ url: pdf.url }, {
-      parse_mode: 'Markdown',
-      ...Markup.inlineKeyboard([
-        [Markup.button.url('📥 Скачать PDF', pdf.url)],
-        [Markup.button.callback('📞 Записаться на консультацию', 'contact_request')],
-        [Markup.button.url('💬 Написать Анастасии', 'https://t.me/NastuPopova')]
-      ])
-    });
-
-    console.log(`✅ Отправлен PDF-бонус: ${pdf.title} для пользователя ${ctx.from.id}`);
-  }
-
-  /**
    * Вспомогательные методы
    */
   translateValue(value) {
@@ -1127,7 +1058,7 @@ class PDFBonusManager {
   }
 
   /**
-   * Логирование для минималистичного подхода
+   * Логирование доставки бонусов
    */
   logBonusDelivery(userId, bonusId, deliveryMethod, segment, primaryIssue) {
     const logEntry = {
@@ -1145,7 +1076,7 @@ class PDFBonusManager {
   }
 
   /**
-   * Статистика
+   * Получение статистики
    */
   getBonusStats() {
     const minimalistCount = this.deliveryLog.filter(log => log.approach === 'minimalist').length;
@@ -1167,8 +1098,10 @@ class PDFBonusManager {
     };
   }
 
-
-async handleDownloadRequest(ctx, bonusId) {
+  /**
+   * Обработка запроса на скачивание
+   */
+  async handleDownloadRequest(ctx, bonusId) {
     try {
       console.log(`📥 Запрос на скачивание персонального гида: ${bonusId}`);
       
@@ -1198,5 +1131,6 @@ async handleDownloadRequest(ctx, bonusId) {
       await ctx.answerCbQuery('❌ Ошибка загрузки. Попробуйте позже.', { show_alert: true });
     }
   }
- }
+}
+
 module.exports = PDFBonusManager;
