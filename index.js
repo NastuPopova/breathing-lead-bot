@@ -71,8 +71,25 @@ class BreathingLeadBot {
     this.bot.command('help', ctx => this.handleHelp(ctx));
     this.bot.command('about', ctx => this.handleAbout(ctx));
     this.bot.command('contact', ctx => this.handleContact(ctx));
-    this.bot.action(/^download_(.+)$/, ctx => this.handlePDFDownload(ctx));
-	this.bot.action(/^download_pdf_(.+)$/, ctx => this.handleStaticPDFDownload(ctx));
+    
+	// ИСПРАВЛЕНО: Обработчик статичных PDF
+	this.bot.action(/^download_pdf_(.+)$/, ctx => {
+	const pdfType = ctx.match[1]; // adult_antistress или child_games
+	console.log(`📄 Запрос статичного PDF: ${pdfType}`);
+	return this.handleStaticPDFDownload(ctx);
+});
+
+// Обработчик персональных гидов
+this.bot.action(/^download_(.+)$/, ctx => {
+  const bonusId = ctx.match[1];
+  // Проверяем, что это НЕ статичный PDF
+  if (bonusId.startsWith('pdf_')) {
+    console.log(`⚠️ Статичный PDF должен обрабатываться выше: ${bonusId}`);
+    return; // Игнорируем
+  }
+  return this.handlePDFDownload(ctx);
+});
+    
     this.bot.action('more_materials', ctx => this.handleMoreMaterials(ctx));
     this.bot.action('pdf_error_retry', ctx => this.handlePDFRetry(ctx));
     this.bot.command('pdf_stats', ctx => this.handleAdminPDFStats(ctx));
@@ -171,8 +188,33 @@ class BreathingLeadBot {
     await this.handleContactRequest(ctx);
   }
 
+  async handleContactRequest(ctx) {
+    try {
+      const contactMessage = config.MESSAGES.CONTACT_TRAINER;
+      
+      await ctx.editMessageText(contactMessage, {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+          [Markup.button.url('👩‍⚕️ Написать Анастасии', `https://t.me/${config.TRAINER_CONTACT.replace('@', '')}`)],
+          [Markup.button.callback('🔙 К результатам', 'back_to_results')],
+          [Markup.button.callback('🎁 Материалы', 'more_materials')]
+        ])
+      });
+    } catch (error) {
+      console.error('❌ Ошибка handleContactRequest:', error);
+      await ctx.reply(config.MESSAGES.CONTACT_TRAINER, { parse_mode: 'Markdown' });
+    }
+  }
+
   async handleCallback(ctx) {
     const data = ctx.callbackQuery.data;
+    
+    // ДОБАВЛЕНО: Диагностические логи
+    console.log(`🔍 DEBUG: Получен callback: ${data}`);
+    if (data.startsWith('download_pdf_')) {
+      console.log(`🎯 Это статичный PDF запрос: ${data}`);
+    }
+    
     try {
       if (!ctx.session.answers) {
         console.warn('⚠️ Answers отсутствует, перезапускаем');
@@ -202,6 +244,92 @@ class BreathingLeadBot {
     }
   }
 
+  async handleStaticPDFDownload(ctx) {
+    try {
+      const pdfType = ctx.match[1];
+      console.log(`📄 Запрос статичного PDF: ${pdfType}`);
+      
+      await ctx.answerCbQuery('📥 Отправляю статичный PDF...');
+      await this.pdfManager.sendAdditionalPDF(ctx, pdfType);
+      
+      this.pdfManager.logBonusDelivery(
+        ctx.from.id,
+        `static_${pdfType}`,
+        'static_pdf',
+        ctx.session?.analysisResult?.segment || 'UNKNOWN',
+        'static_material'
+      );
+      
+    } catch (error) {
+      console.error('❌ Ошибка handleStaticPDFDownload:', error);
+      await ctx.answerCbQuery('❌ Ошибка загрузки PDF');
+    }
+  }
+
+  async handlePDFDownload(ctx) {
+    try {
+      const bonusId = ctx.match[1];
+      
+           
+      console.log(`📥 Запрос персонального гида: ${bonusId}`);
+      
+      if (!ctx.session?.analysisResult) {
+        await ctx.answerCbQuery('⚠️ Пройдите анкету заново', { show_alert: true });
+        return;
+      }
+
+      const bonus = this.pdfManager.getBonusForUser(
+        ctx.session.analysisResult,
+        ctx.session.answers
+      );
+
+      await ctx.answerCbQuery('📥 Готовлю ваш персональный гид...');
+      await this.pdfManager.sendPDFFile(ctx, bonus);
+      
+      this.pdfManager.logBonusDelivery(
+        ctx.from.id,
+        bonus.id,
+        'file',
+        ctx.session.analysisResult.segment,
+        ctx.session.analysisResult.primaryIssue
+      );
+      
+    } catch (error) {
+      console.error('❌ Ошибка handlePDFDownload:', error);
+      await ctx.answerCbQuery('❌ Ошибка загрузки. Попробуйте позже.', { show_alert: true });
+    }
+  }
+
+  async handleMoreMaterials(ctx) {
+    try {
+      await this.pdfManager.showMoreMaterials(ctx);
+    } catch (error) {
+      console.error('❌ Ошибка handleMoreMaterials:', error);
+      await ctx.answerCbQuery('Ошибка загрузки материалов');
+    }
+  }
+
+  async handlePDFRetry(ctx) {
+    try {
+      if (!ctx.session?.analysisResult) {
+        await ctx.answerCbQuery('Пройдите анкету заново');
+        return;
+      }
+
+      const bonus = this.pdfManager.getBonusForUser(
+        ctx.session.analysisResult, 
+        ctx.session.answers
+      );
+      
+      await ctx.answerCbQuery('📥 Повторно отправляю файл...');
+      await this.pdfManager.sendPDFFile(ctx, bonus);
+      
+    } catch (error) {
+      console.error('❌ Ошибка handlePDFRetry:', error);
+      await ctx.answerCbQuery('Ошибка отправки');
+    }
+  }
+
   async handleAdminAction(ctx) {
     const action = ctx.match[1];
     const targetUserId = ctx.match[2];
@@ -209,21 +337,29 @@ class BreathingLeadBot {
     await ctx.answerCbQuery();
   }
 
-  async handleContactRequest(ctx) {
+  async handleAdminPDFStats(ctx) {
+    if (ctx.from.id.toString() !== config.ADMIN_ID) return;
+    
+    const stats = this.pdfManager.getBonusStats();
+    const message = `📊 *СТАТИСТИКА PDF-БОНУСОВ*\n\n` +
+      `📚 Доступно бонусов: ${stats.available_bonuses}\n` +
+      `🎯 Типы: ${stats.bonus_types.join(', ')}\n` +
+      `📈 Сегменты: ${stats.target_segments.length}\n` +
+      `🕐 Обновлено: ${new Date(stats.last_updated).toLocaleString('ru')}`;
+    
+    await ctx.reply(message, { parse_mode: 'Markdown' });
+  }
+
+  async handleTestPDF(ctx) {
+    if (ctx.from.id.toString() !== config.ADMIN_ID) return;
+    
     try {
-      const contactMessage = config.MESSAGES.CONTACT_TRAINER;
-      
-      await ctx.editMessageText(contactMessage, {
-        parse_mode: 'Markdown',
-        ...Markup.inlineKeyboard([
-          [Markup.button.url('👩‍⚕️ Написать Анастасии', `https://t.me/${config.TRAINER_CONTACT.replace('@', '')}`)],
-          [Markup.button.callback('🔙 К результатам', 'back_to_results')],
-          [Markup.button.callback('🎁 Материалы', 'more_materials')]
-        ])
-      });
+      const bonus = this.pdfManager.bonuses.adult;
+      await this.pdfManager.sendPDFFile(ctx, bonus);
+      await ctx.reply('✅ Тестовый PDF отправлен');
     } catch (error) {
-      console.error('❌ Ошибка handleContactRequest:', error);
-      await ctx.reply(config.MESSAGES.CONTACT_TRAINER, { parse_mode: 'Markdown' });
+      console.error('❌ Ошибка тестовой отправки PDF:', error);
+      await ctx.reply('❌ Ошибка отправки тестового PDF');
     }
   }
 
@@ -614,80 +750,6 @@ class BreathingLeadBot {
     }
   }
 
-  async handlePDFDownload(ctx) {
-    try {
-      const bonusId = ctx.match[1];
-      await this.pdfManager.handleDownloadRequest(ctx, bonusId);
-      
-      this.pdfManager.logBonusDelivery(
-        ctx.from.id,
-        bonusId,
-        'telegram_file',
-        ctx.session?.analysisResult?.segment || 'UNKNOWN'
-      );
-      
-    } catch (error) {
-      console.error('❌ Ошибка handlePDFDownload:', error);
-      await ctx.answerCbQuery('Ошибка загрузки', { show_alert: true });
-    }
-  }
-
-  async handleMoreMaterials(ctx) {
-    try {
-      await this.pdfManager.showMoreMaterials(ctx);
-    } catch (error) {
-      console.error('❌ Ошибка handleMoreMaterials:', error);
-      await ctx.answerCbQuery('Ошибка загрузки материалов');
-    }
-  }
-
-  async handlePDFRetry(ctx) {
-    try {
-      if (!ctx.session?.analysisResult) {
-        await ctx.answerCbQuery('Пройдите анкету заново');
-        return;
-      }
-
-      const bonus = this.pdfManager.getBonusForUser(
-        ctx.session.analysisResult, 
-        ctx.session.answers
-      );
-      
-      await ctx.answerCbQuery('📥 Повторно отправляю файл...');
-      await this.pdfManager.sendPDFFile(ctx, bonus);
-      
-    } catch (error) {
-      console.error('❌ Ошибка handlePDFRetry:', error);
-      await ctx.answerCbQuery('Ошибка отправки');
-    }
-  }
-
-  async handleAdminPDFStats(ctx) {
-    if (ctx.from.id.toString() !== config.ADMIN_ID) return;
-    
-    const stats = this.pdfManager.getBonusStats();
-    const message = `📊 *СТАТИСТИКА PDF-БОНУСОВ*\n\n` +
-      `📚 Доступно бонусов: ${stats.available_bonuses}\n` +
-      `🎯 Типы: ${stats.bonus_types.join(', ')}\n` +
-      `📈 Сегменты: ${stats.target_segments.length}\n` +
-      `🕐 Обновлено: ${new Date(stats.last_updated).toLocaleString('ru')}`;
-    
-    await ctx.reply(message, { parse_mode: 'Markdown' });
-  }
-
-  async handleTestPDF(ctx) {
-    if (ctx.from.id.toString() !== config.ADMIN_ID) return;
-    
-    try {
-      const bonus = this.pdfManager.bonuses.adult;
-      await this.pdfManager.sendPDFFile(ctx, bonus);
-      await ctx.reply('✅ Тестовый PDF отправлен');
-    } catch (error) {
-      console.error('❌ Ошибка тестовой отправки PDF:', error);
-      await ctx.reply('❌ Ошибка отправки тестового PDF');
-    }
-  }
-
   generateProgressBar(percentage) {
     const total = 10;
     const filled = Math.round((percentage / 100) * total);
@@ -706,28 +768,6 @@ class BreathingLeadBot {
       sessionCurrentQuestion: ctx.session.currentQuestion,
       questionType: 'scale'
     });
-  }
-
-async handleStaticPDFDownload(ctx) {
-    try {
-      const pdfType = ctx.match[1];
-      console.log(`📄 Запрос статичного PDF: ${pdfType}`);
-      
-      await ctx.answerCbQuery('📥 Отправляю PDF...');
-      await this.pdfManager.sendAdditionalPDF(ctx, pdfType);
-      
-      this.pdfManager.logBonusDelivery(
-        ctx.from.id,
-        `static_${pdfType}`,
-        'static_pdf',
-        ctx.session?.analysisResult?.segment || 'UNKNOWN',
-        'static_material'
-      );
-      
-    } catch (error) {
-      console.error('❌ Ошибка handleStaticPDFDownload:', error);
-      await ctx.answerCbQuery('❌ Ошибка загрузки PDF');
-    }
   }
 
   launch() {
