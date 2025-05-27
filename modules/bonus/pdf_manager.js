@@ -3,7 +3,7 @@ const Markup = require('telegraf/markup');
 
 class PDFManager {
   constructor() {
-    // ✨ URL аватарки
+    // URL аватарки
     this.avatarUrl = 'https://raw.githubusercontent.com/NastuPopova/breathing-lead-bot/main/assets/images/avatar_anastasia.jpg';
 
     // Общий шаблон для персонализированного гида
@@ -101,23 +101,24 @@ class PDFManager {
         ]
       }
     };
-	
-	// Основной метод получения бонуса для пользователя
+  }
+
+  // Основной метод получения бонуса для пользователя
   getBonusForUser(analysisResult, surveyData) {
     try {
       console.log(`🎁 Подбираем бонус для пользователя`);
-      
+
       // Получаем технику на основе анализа
       const technique = this.getMasterTechnique(analysisResult, surveyData);
-      
+
       // Генерируем персонализированные данные
       const title = this.generatePersonalizedTitle(analysisResult, surveyData);
       const subtitle = this.generatePersonalizedSubtitle(analysisResult, surveyData);
-      
+
       // Определяем тип потока (взрослый/детский)
       const isChildFlow = analysisResult.analysisType === 'child';
       const segment = analysisResult.segment || 'COLD_LEAD';
-      
+
       // Создаем объект бонуса
       const bonus = {
         id: this.bonusesTemplate.id,
@@ -126,24 +127,24 @@ class PDFManager {
         description: this.bonusesTemplate.description,
         technique: technique,
         target_segments: this.bonusesTemplate.target_segments,
-        
+
         // Дополнительные метаданные
         analysisType: analysisResult.analysisType,
         primaryIssue: analysisResult.primaryIssue,
         segment: segment,
         isChildFlow: isChildFlow,
-        
+
         // Для логирования и аналитики
         createdAt: new Date().toISOString(),
         fileName: this.generateBeautifulFileName(analysisResult, surveyData)
       };
-      
+
       console.log(`✅ Бонус подобран: ${technique.name} для сегмента ${segment}`);
       return bonus;
-      
+
     } catch (error) {
       console.error(`❌ Ошибка подбора бонуса для пользователя:`, error);
-      
+
       // Возвращаем дефолтный бонус в случае ошибки
       return {
         id: this.bonusesTemplate.id,
@@ -213,9 +214,9 @@ class PDFManager {
     const isChildFlow = analysisResult.analysisType === 'child';
     const primaryIssue = analysisResult.primaryIssue || 'wellness';
     const segment = analysisResult.segment || 'COLD_LEAD';
-    
+
     const fileNameParts = [];
-    
+
     if (isChildFlow) {
       fileNameParts.push('Детский_гид');
       if (surveyData.child_age_detail) {
@@ -242,7 +243,7 @@ class PDFManager {
         fileNameParts.push(ageMap[surveyData.age_group] || surveyData.age_group);
       }
     }
-    
+
     const problemMap = {
       chronic_stress: 'Антистресс',
       anxiety: 'От_тревоги',
@@ -257,26 +258,26 @@ class PDFManager {
       tantrums: 'От_капризов',
       separation_anxiety: 'От_страхов'
     };
-    
+
     if (problemMap[primaryIssue]) {
       fileNameParts.push(problemMap[primaryIssue]);
     }
-    
+
     const segmentMap = {
       'HOT_LEAD': 'SOS',
       'WARM_LEAD': 'Активный',
       'COLD_LEAD': 'Базовый',
       'NURTURE_LEAD': 'Профилактика'
     };
-    
+
     if (segmentMap[segment]) {
       fileNameParts.push(segmentMap[segment]);
     }
-    
+
     const today = new Date();
     const dateStr = `${today.getDate()}.${today.getMonth() + 1}`;
     fileNameParts.push(dateStr);
-    
+
     return fileNameParts.join('_').replace(/[^a-zA-Zа-яА-Я0-9._-]/g, '_');
   }
 
@@ -291,7 +292,7 @@ class PDFManager {
       segment: segment,
       primary_issue: primaryIssue
     };
-    
+
     console.log('📊 ДОСТАВКА БОНУСА:', JSON.stringify(logEntry, null, 2));
   }
 
@@ -304,7 +305,8 @@ class PDFManager {
       last_updated: new Date().toISOString()
     };
   }
-	// Генерация персонализированного HTML
+
+  // Генерация персонализированного HTML
   async generatePersonalizedHTML(userId, analysisResult, surveyData) {
     try {
       if (!fs.existsSync('./temp')) {
@@ -313,7 +315,7 @@ class PDFManager {
 
       const beautifulFileName = this.generateBeautifulFileName(analysisResult, surveyData);
       const filePath = `./temp/${beautifulFileName}.html`;
-      
+
       console.log(`✨ Создаем красивое название файла: ${beautifulFileName}.html`);
 
       const technique = this.getMasterTechnique(analysisResult, surveyData);
@@ -341,8 +343,8 @@ class PDFManager {
       color: #333;
       background-color: #f9f9f9;
     }
-    
-    /* ✨ КРАСИВАЯ ШАПКА С АВАТАРКОЙ */
+
+    /* КРАСИВАЯ ШАПКА С АВАТАРКОЙ */
     .header-with-avatar {
       display: flex;
       align-items: center;
@@ -354,7 +356,7 @@ class PDFManager {
       color: white;
       box-shadow: 0 4px 15px rgba(0,0,0,0.1);
     }
-    
+
     .avatar {
       width: 80px;
       height: 80px;
@@ -364,31 +366,31 @@ class PDFManager {
       object-fit: cover;
       box-shadow: 0 4px 8px rgba(0,0,0,0.3);
     }
-    
+
     .header-text {
       flex: 1;
     }
-    
+
     .header-text h1 {
       margin: 0;
       color: white;
       font-size: 24px;
       text-shadow: 0 2px 4px rgba(0,0,0,0.3);
     }
-    
+
     .header-text .subtitle {
       margin: 5px 0 0 0;
       color: rgba(255,255,255,0.9);
       font-size: 16px;
     }
-    
+
     .header-text .author {
       margin: 8px 0 0 0;
       color: rgba(255,255,255,0.8);
       font-size: 14px;
       font-style: italic;
     }
-    
+
     /* Остальные стили */
     .section {
       background: #fff;
@@ -397,7 +399,7 @@ class PDFManager {
       border-radius: 8px;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
-    
+
     @media (max-width: 600px) {
       .header-with-avatar {
         flex-direction: column;
@@ -409,36 +411,36 @@ class PDFManager {
         margin-bottom: 15px;
       }
     }
-    
+
     a {
       color: #1e90ff;
       text-decoration: none;
       font-weight: bold;
     }
-    
+
     a:hover {
       text-decoration: underline;
       color: #ff4500;
     }
-    
+
     ul {
       list-style-type: none;
       padding: 0;
     }
-    
+
     ul li {
       padding: 10px 0;
     }
-    
+
     ul li:before {
       content: "✔ ";
       color: #1e90ff;
     }
-    
+
     .technique h3 {
       color: #1e90ff;
     }
-    
+
     .plan {
       background: #f0f8ff;
       padding: 15px;
@@ -461,7 +463,7 @@ class PDFManager {
   <div class="section">
     <h3>🎯 Ваша персональная техника дыхания готова!</h3>
     <p>Эта техника была подобрана специально под ваш профиль и основные проблемы.</p>
-    
+
     <div class="technique">
       <h3>✨ Техника: ${cleanText(technique.name)}</h3>
       <p><strong>Проблема:</strong> ${cleanText(technique.problem)}</p>
@@ -472,7 +474,7 @@ class PDFManager {
         ${technique.steps.map(step => `<li>${cleanText(step)}</li>`).join('')}
       </ul>
     </div>
-    
+
     <div class="plan">
       <h3>📅 План на 3 дня</h3>
       <ul>
@@ -516,12 +518,12 @@ class PDFManager {
   // Отправка статичных PDF
   async sendAdditionalPDF(ctx, pdfType) {
     console.log(`📥 Отправка статичного PDF: ${pdfType}`);
-    
+
     const pdf = this.additionalMaterials[pdfType];
     if (!pdf) {
       console.error(`❌ PDF с типом ${pdfType} не найден в additionalMaterials`);
       console.log('Доступные PDF:', Object.keys(this.additionalMaterials));
-      
+
       await ctx.reply('⚠️ Запрошенный PDF временно недоступен. Свяжитесь с [Анастасией Поповой](https://t.me/breathing_opros_bot) для получения бонуса!', {
         parse_mode: 'Markdown',
         ...Markup.inlineKeyboard([
@@ -530,16 +532,16 @@ class PDFManager {
       });
       return;
     }
-    
+
     const message = `🎁 *ДОПОЛНИТЕЛЬНЫЙ БОНУС*\n\n` +
       `${pdf.title}\n\n` +
       `📝 *Что внутри:* ${pdf.description}\n\n` +
       `💡 *Дополняет ваш персональный гид* - используйте оба материала для максимального эффекта!\n\n` +
       `📞 *Хотите еще больше техник?* Запишитесь к [Анастасии Поповой](https://t.me/breathing_opros_bot)`;
-    
+
     try {
       console.log(`📤 Отправляем PDF по URL: ${pdf.url}`);
-      
+
       await ctx.replyWithDocument({ url: pdf.url }, {
         caption: message,
         parse_mode: 'Markdown',
@@ -550,10 +552,10 @@ class PDFManager {
       });
 
       console.log(`✅ Отправлен статичный PDF: ${pdf.title} для пользователя ${ctx.from.id}`);
-      
+
     } catch (error) {
       console.error(`❌ Ошибка отправки PDF по URL: ${error.message}`);
-      
+
       await ctx.reply(message + `\n\n📥 [Скачать ${pdf.fileName}](${pdf.url})`, {
         parse_mode: 'Markdown',
         ...Markup.inlineKeyboard([
@@ -561,7 +563,7 @@ class PDFManager {
           [Markup.button.url('📞 Написать Анастасии', 'https://t.me/breathing_opros_bot')]
         ])
       });
-      
+
       console.log(`✅ Отправлена ссылка на PDF: ${pdf.title}`);
     }
   }
@@ -570,7 +572,7 @@ class PDFManager {
   async sendPDFFile(ctx, bonus) {
     try {
       console.log(`📝 Генерация персонального гида для пользователя ${ctx.from.id}`);
-      
+
       const filePath = await this.generatePersonalizedHTML(
         ctx.from.id,
         ctx.session.analysisResult,
@@ -584,23 +586,23 @@ class PDFManager {
       const technique = bonus.technique;
 
       let caption = `🎁 *${bonus.title}*\n\n`;
-      
+
       if (isChildFlow) {
         caption += `🧸 Персональная игровая техника для вашего ребенка!\n\n`;
       } else {
         caption += `🌬️ Ваша персональная дыхательная техника!\n\n`;
       }
-      
+
       caption += `✨ *В файле:*\n`;
       caption += `• ${technique.name}\n`;
       caption += `• Пошаговая инструкция\n`;
       caption += `• План освоения на 3 дня\n`;
       caption += `• Ожидаемые результаты\n\n`;
-      
+
       if (isHotLead) {
         caption += `⚡ *ВАЖНО:* Начните с техники прямо сейчас!\n\n`;
       }
-      
+
       caption += `📱 Откройте файл в браузере для лучшего отображения.\n\n`;
       caption += `📞 *Больше техник у* [Анастасии Поповой](https://t.me/breathing_opros_bot)`;
 
@@ -616,9 +618,9 @@ class PDFManager {
           ])
         }
       );
-      
+
       console.log(`✅ Персональный гид отправлен: ${bonus.title}`);
-      
+
       setTimeout(() => {
         try {
           if (fs.existsSync(filePath)) {
@@ -629,10 +631,10 @@ class PDFManager {
           console.error('⚠️ Ошибка удаления временного файла:', cleanupError);
         }
       }, 1000);
-      
+
     } catch (error) {
       console.error('❌ Ошибка отправки персонального гида:', error.message);
-      
+
       const technique = bonus.technique;
       let fallbackMessage = `⚠️ Файл временно недоступен, но вот ваша техника:\n\n`;
       fallbackMessage += `🎯 *${technique.name}*\n\n`;
@@ -643,7 +645,7 @@ class PDFManager {
       fallbackMessage += `\n⏱️ *Время:* ${technique.duration}\n`;
       fallbackMessage += `✨ *Результат:* ${technique.result}\n\n`;
       fallbackMessage += `💬 Напишите [Анастасии Поповой](https://t.me/breathing_opros_bot) за полным гидом и планом на 3 дня!`;
-      
+
       await ctx.reply(fallbackMessage, {
         parse_mode: 'Markdown',
         ...Markup.inlineKeyboard([
@@ -657,14 +659,14 @@ class PDFManager {
   // Показ дополнительных материалов
   async showMoreMaterials(ctx) {
     const isChildFlow = ctx.session?.analysisResult?.analysisType === 'child';
-    
+
     let message = `🎁 *ДОПОЛНИТЕЛЬНЫЕ МАТЕРИАЛЫ*\n\n`;
-    
+
     message += `💡 *Вы получили персональный дыхательный гид!*\n`;
     message += `Это базовая техника. Полная система включает комплексные программы для глубокой трансформации.\n\n`;
-    
+
     message += `🎁 *БЕСПЛАТНЫЕ БОНУСЫ:*\n`;
-    
+
     if (isChildFlow) {
       message += `• 📱 Ваш персональный HTML-гид (уже получили)\n`;
       message += `• 📄 PDF "Дыхательные игры для детей"\n`;
@@ -676,12 +678,12 @@ class PDFManager {
       message += `• 🎥 Видео "3 техники на каждый день" (5 мин)\n`;
       message += `• 📝 Чек-лист "Самодиагностика дыхания"\n\n`;
     }
-    
+
     message += `👩‍⚕️ *Записаться к* [Анастасии Поповой](https://t.me/breathing_opros_bot)`;
 
     const keyboard = [
       [Markup.button.callback('📞 Записаться на консультацию', 'contact_request')],
-      [isChildFlow 
+      [isChildFlow
         ? Markup.button.callback('📄 PDF: Игры для детей', 'download_pdf_child_games')
         : Markup.button.callback('📄 PDF: Антистресс дыхание', 'download_pdf_adult_antistress')
       ],
@@ -701,17 +703,17 @@ class PDFManager {
     const isHotLead = analysisResult.segment === 'HOT_LEAD';
     const isChildFlow = analysisResult.analysisType === 'child';
     const technique = bonus.technique;
-    
+
     let message = `🎁 *ВАША ПЕРСОНАЛЬНАЯ ТЕХНИКА ГОТОВА!*\n\n`;
-    
+
     message += `${bonus.title}\n`;
     message += `${bonus.subtitle}\n\n`;
-    
+
     message += `🎯 *Ваша проблема:* ${technique.problem}\n`;
     message += `✨ *Решение:* ${technique.name}\n`;
     message += `⏳ *Время:* ${technique.duration}\n`;
     message += `🎉 *Результат:* ${technique.result}\n\n`;
-    
+
     message += `📖 *В вашем персональном гиде:*\n`;
     if (isChildFlow) {
       message += `• 🎮 Игровая техника специально для вашего ребенка\n`;
@@ -724,7 +726,7 @@ class PDFManager {
       message += `• 📅 План освоения на 3 дня\n`;
       message += `• 🎯 Четкие ожидаемые результаты\n\n`;
     }
-    
+
     if (isHotLead) {
       message += `⚡ *СРОЧНАЯ РЕКОМЕНДАЦИЯ:*\n`;
       message += `Ваши ответы показывают критический уровень проблемы. `;
@@ -735,7 +737,7 @@ class PDFManager {
       message += `Подобрана специально под ваш профиль и основную проблему. `;
       message += `Простая, но очень эффективная!\n\n`;
     }
-    
+
     message += `📞 *ХОТИТЕ БОЛЬШЕ ТЕХНИК?*\n`;
     message += `Дополнительные бонусы для взрослых и детей доступны в разделе материалов ниже.\n\n`;
     message += `На персональной консультации получите:\n`;
@@ -744,7 +746,7 @@ class PDFManager {
     message += `• Контроль прогресса\n`;
     message += `• Ответы на все вопросы\n\n`;
     message += `👩‍⚕️ *[Записаться к Анастасии](https://t.me/breathing_opros_bot)*`;
-    
+
     return message;
   }
 
@@ -760,4 +762,3 @@ class PDFManager {
 }
 
 module.exports = PDFManager;
-  
