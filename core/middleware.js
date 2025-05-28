@@ -1,3 +1,4 @@
+// Файл: core/middleware.js - ИСПРАВЛЕННАЯ ВЕРСИЯ с фиксом rate limiting
 const { session } = require('telegraf');
 const config = require('../config');
 
@@ -15,7 +16,7 @@ class Middleware {
       startTime: Date.now()
     };
 
-    // Rate limiting для предотвращения спама
+    // ИСПРАВЛЕНО: Более мягкий rate limiting для предотвращения блокировки переходов
     this.rateLimits = new Map();
     this.cleanupInterval = null;
   }
@@ -30,8 +31,8 @@ class Middleware {
     // Логирование и статистика
     this.setupLogging();
     
-    // Rate limiting
-    this.setupRateLimiting();
+    // ИСПРАВЛЕНО: Более умный rate limiting
+    this.setupImprovedRateLimiting();
     
     // Обработка ошибок middleware
     this.setupErrorHandling();
@@ -92,79 +93,132 @@ class Middleware {
     console.log('✅ Логирование настроено');
   }
 
-  // Настройка rate limiting
-  setupRateLimiting() {
+  // ИСПРАВЛЕНО: Улучшенный rate limiting с учетом типов действий
+  setupImprovedRateLimiting() {
     this.telegramBot.use(async (ctx, next) => {
       const userId = ctx.from?.id;
       if (!userId) return next();
 
       const now = Date.now();
-      const userLimits = this.rateLimits.get(userId) || { requests: [], lastRequest: 0 };
+      const userLimits = this.rateLimits.get(userId) || { 
+        requests: [], 
+        lastRequest: 0,
+        actionCounts: {}
+      };
 
       // Очищаем старые запросы (старше 1 минуты)
       userLimits.requests = userLimits.requests.filter(time => now - time < 60000);
 
-      // Проверяем лимиты
-      if (this.checkRateLimit(ctx, userLimits, now)) {
+      // ИСПРАВЛЕНО: Определяем тип действия
+      const actionType = this.getActionType(ctx);
+      
+      // ИСПРАВЛЕНО: Проверяем лимиты с учетом типа действия
+      if (this.checkImprovedRateLimit(ctx, userLimits, now, actionType)) {
         userLimits.requests.push(now);
         userLimits.lastRequest = now;
+        
+        // Обновляем счетчик для этого типа действия
+        if (!userLimits.actionCounts[actionType]) {
+          userLimits.actionCounts[actionType] = [];
+        }
+        userLimits.actionCounts[actionType].push(now);
+        
+        // Очищаем старые действия этого типа
+        userLimits.actionCounts[actionType] = userLimits.actionCounts[actionType]
+          .filter(time => now - time < 60000);
+        
         this.rateLimits.set(userId, userLimits);
         return next();
       } else {
-        console.warn(`🚫 Rate limit для пользователя ${userId}`);
-        await this.handleRateLimitExceeded(ctx);
+        console.warn(`🚫 Rate limit для пользователя ${userId}, действие: ${actionType}`);
+        await this.handleRateLimitExceeded(ctx, actionType);
       }
     });
 
-    console.log('✅ Rate limiting настроен');
+    console.log('✅ Улучшенный Rate limiting настроен');
   }
 
-  // Проверка лимитов запросов
-  checkRateLimit(ctx, userLimits, now) {
-    const messageType = this.getMessageType(ctx);
-    const limits = config.RATE_LIMITS || {};
-
-    switch (messageType) {
-      case 'start':
-        const startLimit = limits.survey_start || { max: 3, window: 60000 };
-        return userLimits.requests.length < startLimit.max;
-        
-      case 'contact':
-        const contactLimit = limits.contact_submission || { max: 1, window: 300000 };
-        const recentContacts = userLimits.requests.filter(time => now - time < contactLimit.window);
-        return recentContacts.length < contactLimit.max;
-        
-      default:
-        // Общий лимит: 30 запросов в минуту
-        return userLimits.requests.length < 30;
-    }
-  }
-
-  // Определение типа сообщения
-  getMessageType(ctx) {
-    if (ctx.message?.text === '/start' || ctx.callbackQuery?.data === 'start_survey') {
-      return 'start';
-    }
-    if (ctx.callbackQuery?.data === 'contact_request') {
-      return 'contact';
-    }
-    return 'general';
-  }
-
-  // Обработка превышения лимитов
-  async handleRateLimitExceeded(ctx) {
-    const messageType = this.getMessageType(ctx);
+  // ИСПРАВЛЕНО: Более точное определение типа действия
+  getActionType(ctx) {
+    // Команды
+    if (ctx.message?.text?.startsWith('/start')) return 'start_command';
+    if (ctx.message?.text?.startsWith('/')) return 'command';
     
-    let message = '⏳ Пожалуйста, подождите немного перед следующим действием.';
-    
-    if (messageType === 'start') {
-      message = '⏳ Слишком много попыток начать анкету. Подождите минуту.';
-    } else if (messageType === 'contact') {
-      message = '⏳ Запрос на контакт уже отправлен. Подождите 5 минут.';
+    // Callback действия
+    if (ctx.callbackQuery?.data) {
+      const data = ctx.callbackQuery.data;
+      
+      // ИСПРАВЛЕНО: Специальные исключения для безопасных переходов
+      if (data === 'start_survey' || data === 'start_survey_from_about') return 'start_survey';
+      if (data === 'about_survey' || data === 'back_to_main') return 'navigation';
+      if (data.startsWith('download_')) return 'download';
+      if (data === 'contact_request') return 'contact';
+      if (data.includes('_done') || data === 'nav_back') return 'survey_navigation';
+      if (data.startsWith('age_') || data.startsWith('prob_') || data.startsWith('stress_')) return 'survey_answer';
+      if (data.startsWith('more_materials') || data.startsWith('show_all')) return 'materials';
+      if (data === 'close_menu' || data === 'delete_menu') return 'menu_action';
+      
+      return 'callback';
     }
+    
+    // Текстовые сообщения
+    if (ctx.message?.text) return 'text_message';
+    
+    return 'unknown';
+  }
+
+  // ИСПРАВЛЕНО: Улучшенная проверка лимитов с разными правилами для разных действий
+  checkImprovedRateLimit(ctx, userLimits, now, actionType) {
+    // ИСПРАВЛЕНО: Более мягкие лимиты для разных типов действий
+    const rateLimitRules = {
+      start_command: { max: 3, window: 60000 }, // 3 команды /start в минуту
+      start_survey: { max: 5, window: 60000 },  // 5 попыток начать анкету в минуту
+      navigation: { max: 20, window: 60000 },   // 20 переходов по меню в минуту (УВЕЛИЧЕНО)
+      survey_answer: { max: 30, window: 60000 }, // 30 ответов на вопросы в минуту
+      survey_navigation: { max: 15, window: 60000 }, // 15 переходов по анкете в минуту
+      download: { max: 3, window: 300000 },     // 3 скачивания в 5 минут
+      contact: { max: 2, window: 300000 },      // 2 запроса контакта в 5 минут
+      materials: { max: 10, window: 60000 },    // 10 переходов по материалам в минуту
+      menu_action: { max: 15, window: 60000 },  // 15 действий с меню в минуту
+      callback: { max: 25, window: 60000 },     // 25 общих callback в минуту (УВЕЛИЧЕНО)
+      text_message: { max: 10, window: 60000 }, // 10 текстовых сообщений в минуту
+      command: { max: 5, window: 60000 },       // 5 команд в минуту
+      unknown: { max: 15, window: 60000 }       // 15 неизвестных действий в минуту
+    };
+
+    const rule = rateLimitRules[actionType] || rateLimitRules.unknown;
+    const actionRequests = userLimits.actionCounts[actionType] || [];
+    const recentActions = actionRequests.filter(time => now - time < rule.window);
+
+    // ИСПРАВЛЕНО: Проверяем как специфичный лимит для действия, так и общий лимит
+    const withinActionLimit = recentActions.length < rule.max;
+    const withinGeneralLimit = userLimits.requests.length < 40; // Общий лимит 40 запросов в минуту
+
+    return withinActionLimit && withinGeneralLimit;
+  }
+
+  // ИСПРАВЛЕНО: Более информативная обработка превышения лимитов
+  async handleRateLimitExceeded(ctx, actionType) {
+    const messages = {
+      start_command: '⏳ Слишком много команд /start. Подождите минуту.',
+      start_survey: '⏳ Подождите немного перед началом новой анкеты.',
+      navigation: '⏳ Слишком быстрые переходы по меню. Замедлите темп.',
+      survey_answer: '⏳ Отвечайте на вопросы чуть медленнее.',
+      download: '⏳ Слишком много запросов на скачивание. Подождите 5 минут.',
+      contact: '⏳ Запрос на контакт уже отправлен. Подождите 5 минут.',
+      materials: '⏳ Слишком быстро переключаетесь между материалами.',
+      default: '⏳ Пожалуйста, подождите немного перед следующим действием.'
+    };
+
+    const message = messages[actionType] || messages.default;
 
     try {
-      await ctx.reply(message);
+      // ИСПРАВЛЕНО: Используем answerCbQuery для callback запросов, reply для команд
+      if (ctx.callbackQuery) {
+        await ctx.answerCbQuery(message, { show_alert: false });
+      } else {
+        await ctx.reply(message);
+      }
     } catch (error) {
       console.error('❌ Ошибка отправки сообщения о rate limit:', error);
     }
@@ -219,6 +273,13 @@ class Middleware {
       if (now - userLimits.lastRequest > 3600000) {
         this.rateLimits.delete(userId);
         cleaned++;
+      } else {
+        // Очищаем старые записи у активных пользователей
+        userLimits.requests = userLimits.requests.filter(time => now - time < 3600000);
+        Object.keys(userLimits.actionCounts).forEach(actionType => {
+          userLimits.actionCounts[actionType] = userLimits.actionCounts[actionType]
+            .filter(time => now - time < 3600000);
+        });
       }
     }
 
@@ -423,11 +484,12 @@ class Middleware {
   exportConfig() {
     return {
       name: 'Middleware',
-      version: '2.5.0',
+      version: '2.6.0',
       features: {
         sessions: true,
         logging: true,
-        rate_limiting: true,
+        improved_rate_limiting: true,
+        action_type_detection: true,
         error_handling: true,
         auto_cleanup: true,
         progress_tracking: true,
@@ -438,7 +500,8 @@ class Middleware {
         cleanup_interval: 5 * 60 * 1000, // 5 минут
         rate_limit_window: 60000, // 1 минута
         session_timeout: 3600000, // 1 час
-        max_unique_users: 1000
+        max_unique_users: 1000,
+        improved_limits: true
       },
       last_updated: new Date().toISOString()
     };
