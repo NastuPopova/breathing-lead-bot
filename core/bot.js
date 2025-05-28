@@ -1,4 +1,4 @@
-// Файл: core/bot.js
+// Файл: core/bot.js - ИСПРАВЛЕННАЯ ВЕРСИЯ
 const { Telegraf } = require('telegraf');
 const config = require('../config');
 
@@ -16,7 +16,7 @@ const AdminNotificationSystem = require('../modules/admin/notifications');
 
 class BreathingLeadBot {
   constructor() {
-    console.log('🤖 Инициализация BreathingLeadBot v2.5...');
+    console.log('🤖 Инициализация BreathingLeadBot v2.6...');
     
     // Создаем экземпляр Telegraf
     this.bot = new Telegraf(config.LEAD_BOT_TOKEN);
@@ -50,30 +50,14 @@ class BreathingLeadBot {
       this.leadTransfer = new LeadTransferSystem();
       console.log('✅ LeadTransferSystem загружен');
       
-      // Модули PDF-бонусов - ИСПРАВЛЕНО: правильная инициализация
+      // ИСПРАВЛЕНО: Правильная инициализация PDF модулей
       this.contentGenerator = new ContentGenerator();
       this.fileHandler = new FileHandler(this.contentGenerator);
       
-      // Создаем простой адаптер pdfManager для обратной совместимости с handlers
-      this.pdfManager = {
-        getBonusForUser: (analysisResult, surveyData) => {
-          return this.fileHandler.getBonusForUser(analysisResult, surveyData);
-        },
-        sendPDFFile: async (ctx) => {
-          return await this.fileHandler.sendPDFFile(ctx);
-        },
-        showMoreMaterials: async (ctx) => {
-          return await this.fileHandler.showMoreMaterials(ctx);
-        },
-        sendAdditionalPDF: async (ctx, pdfType) => {
-          return await this.fileHandler.sendAdditionalPDF(ctx, pdfType);
-        },
-        logBonusDelivery: (userId, bonusId, deliveryMethod, segment, primaryIssue) => {
-          return this.fileHandler.logBonusDelivery(userId, bonusId, deliveryMethod, segment, primaryIssue);
-        }
-      };
+      // Создаем простой адаптер pdfManager для обратной совместимости
+      this.pdfManager = this.fileHandler;
       
-      console.log('✅ ContentGenerator, FileHandler и PDF Manager загружены');
+      console.log('✅ ContentGenerator, FileHandler загружены');
       
       // Модуль админ-уведомлений
       this.adminNotifications = new AdminNotificationSystem(this.bot);
@@ -205,7 +189,7 @@ class BreathingLeadBot {
   getBotInfo() {
     return {
       name: 'BreathingLeadBot',
-      version: '2.5.0',
+      version: '2.6.0',
       status: 'running',
       uptime: process.uptime(),
       configuration: {
@@ -213,6 +197,13 @@ class BreathingLeadBot {
         crm_connected: !!config.CRM_WEBHOOK_URL,
         admin_configured: !!config.ADMIN_ID,
         environment: config.NODE_ENV || 'development'
+      },
+      modules: {
+        survey_questions: !!this.surveyQuestions,
+        verse_analysis: !!this.verseAnalysis,
+        lead_transfer: !!this.leadTransfer,
+        pdf_manager: !!this.pdfManager,
+        admin_notifications: !!this.adminNotifications
       },
       last_updated: new Date().toISOString()
     };
