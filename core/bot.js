@@ -50,10 +50,30 @@ class BreathingLeadBot {
       this.leadTransfer = new LeadTransferSystem();
       console.log('✅ LeadTransferSystem загружен');
       
-      // Модули PDF-бонусов
-      const contentGenerator = new ContentGenerator();
-      this.pdfManager = new FileHandler(contentGenerator);
-      console.log('✅ ContentGenerator и FileHandler загружены');
+      // Модули PDF-бонусов - ИСПРАВЛЕНО: правильная инициализация
+      this.contentGenerator = new ContentGenerator();
+      this.fileHandler = new FileHandler(this.contentGenerator);
+      
+      // Создаем простой адаптер pdfManager для обратной совместимости с handlers
+      this.pdfManager = {
+        getBonusForUser: (analysisResult, surveyData) => {
+          return this.fileHandler.getBonusForUser(analysisResult, surveyData);
+        },
+        sendPDFFile: async (ctx) => {
+          return await this.fileHandler.sendPDFFile(ctx);
+        },
+        showMoreMaterials: async (ctx) => {
+          return await this.fileHandler.showMoreMaterials(ctx);
+        },
+        sendAdditionalPDF: async (ctx, pdfType) => {
+          return await this.fileHandler.sendAdditionalPDF(ctx, pdfType);
+        },
+        logBonusDelivery: (userId, bonusId, deliveryMethod, segment, primaryIssue) => {
+          return this.fileHandler.logBonusDelivery(userId, bonusId, deliveryMethod, segment, primaryIssue);
+        }
+      };
+      
+      console.log('✅ ContentGenerator, FileHandler и PDF Manager загружены');
       
       // Модуль админ-уведомлений
       this.adminNotifications = new AdminNotificationSystem(this.bot);
