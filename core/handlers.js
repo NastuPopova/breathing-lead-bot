@@ -1,6 +1,6 @@
 // Файл: core/handlers.js
 const { Markup } = require('telegraf');
-const config = require('./config');
+const config = require('../config');
 
 class Handler {
   constructor(bot) {
