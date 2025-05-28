@@ -1,3 +1,4 @@
+// Файл: core/bot.js
 const { Telegraf } = require('telegraf');
 const config = require('../config');
 
@@ -9,7 +10,8 @@ const Middleware = require('./middleware');
 const ExtendedSurveyQuestions = require('../modules/survey/extended_questions');
 const BreathingVERSEAnalysis = require('../modules/analysis/verse_analysis');
 const LeadTransferSystem = require('../modules/integration/lead_transfer');
-const PDFManager = require('../modules/bonus/pdf-manager');
+const ContentGenerator = require('../modules/bonus/content-generator');
+const FileHandler = require('../modules/bonus/file-handler');
 const AdminNotificationSystem = require('../modules/admin/notifications');
 
 class BreathingLeadBot {
@@ -48,9 +50,10 @@ class BreathingLeadBot {
       this.leadTransfer = new LeadTransferSystem();
       console.log('✅ LeadTransferSystem загружен');
       
-      // Модуль PDF-бонусов
-      this.pdfManager = new PDFManager();
-      console.log('✅ PDFManager загружен');
+      // Модули PDF-бонусов
+      const contentGenerator = new ContentGenerator();
+      this.pdfManager = new FileHandler(contentGenerator);
+      console.log('✅ ContentGenerator и FileHandler загружены');
       
       // Модуль админ-уведомлений
       this.adminNotifications = new AdminNotificationSystem(this.bot);
@@ -147,14 +150,14 @@ class BreathingLeadBot {
       console.log(`👨‍💼 Админ: ${config.ADMIN_ID ? 'настроен' : 'не настроен'}`);
       
     } catch (error) {
-      console.error('💥 Ошибка запуска бота:', error.message);
+      console.error('💥 Ошибка запуска бота:', error);
       throw error;
     }
   }
 
   // Остановка бота
   stop(reason = 'manual') {
-    console.log(`🛑 Остановка бота (причина: ${reason})...`);
+    console.log(`🛑 Остановка бота...`);
     this.bot.stop(reason);
     console.log('✅ Бот остановлен');
   }
