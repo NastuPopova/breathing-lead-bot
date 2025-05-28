@@ -1,19 +1,10 @@
+// Файл: modules/bonus/content-generator.js
 const fs = require('fs');
-const config = require('../../config');
 
 class ContentGenerator {
   constructor() {
     // URL аватарки
     this.avatarUrl = 'https://raw.githubusercontent.com/NastuPopova/breathing-lead-bot/main/assets/images/avatar_anastasia.jpg';
-
-    // Общий шаблон для персонализированного гида
-    this.bonusesTemplate = {
-      id: 'personalized_guide',
-      title: '🌬️ ПЕРСОНАЛЬНЫЙ ДЫХАТЕЛЬНЫЙ ГИД',
-      subtitle: 'Техника под вашу ситуацию',
-      description: 'Персонализированная техника с планом на 3 дня',
-      target_segments: ['HOT_LEAD', 'WARM_LEAD', 'COLD_LEAD', 'NURTURE_LEAD']
-    };
 
     // Техники для взрослых
     this.masterTechniques = {
@@ -55,6 +46,56 @@ class ContentGenerator {
           'Медленно выдохните через рот на 8 секунд.',
           'Повторите 4-6 раз.'
         ]
+      },
+      breathing_issues: {
+        name: 'Дыхание для легких',
+        problem: 'Проблемы с дыханием',
+        duration: '6-8 минут',
+        result: 'Улучшение дыхательной функции',
+        steps: [
+          'Сядьте прямо, плечи расслаблены.',
+          'Вдохните через нос на 4 секунды.',
+          'Задержите дыхание на 4 секунды.',
+          'Выдохните через рот на 6 секунд.',
+          'Повторите 5-7 раз.'
+        ]
+      },
+      high_pressure: {
+        name: 'Дыхание для давления',
+        problem: 'Высокое давление',
+        duration: '5-7 минут',
+        result: 'Снижение давления и расслабление',
+        steps: [
+          'Сядьте удобно, закройте глаза.',
+          'Вдохните через нос на 5 секунд.',
+          'Медленно выдохните через рот на 7 секунд.',
+          'Повторите 6-8 раз.'
+        ]
+      },
+      fatigue: {
+        name: 'Энергетическое дыхание',
+        problem: 'Усталость',
+        duration: '4-6 минут',
+        result: 'Повышение энергии и бодрости',
+        steps: [
+          'Станьте прямо, руки на поясе.',
+          'Быстро вдохните через нос 3 раза.',
+          'Медленно выдохните через рот.',
+          'Повторите 5-7 циклов.'
+        ]
+      },
+      weak_immunity: {
+        name: 'Дыхание для иммунитета',
+        problem: 'Слабый иммунитет',
+        duration: '6-8 минут',
+        result: 'Укрепление иммунной системы',
+        steps: [
+          'Сядьте, расслабьтесь.',
+          'Вдохните через нос на 4 секунды.',
+          'Задержите дыхание на 6 секунд.',
+          'Выдохните через рот на 8 секунд.',
+          'Повторите 5-7 раз.'
+        ]
       }
     };
 
@@ -83,6 +124,30 @@ class ContentGenerator {
           'Медленно выдохните, чтобы игрушка опустилась.',
           'Повторите 6-8 раз, представляя спящего мишку.'
         ]
+      },
+      concentration_issues: {
+        name: 'Дыхание "Звездочка"',
+        problem: 'Проблемы с концентрацией',
+        duration: '3-4 минуты',
+        result: 'Улучшение внимания',
+        steps: [
+          'Сядьте, представьте звезду.',
+          'Вдохните через нос на 3 секунды.',
+          'Выдохните через рот, как будто задуваете звезду.',
+          'Повторите 6-8 раз.'
+        ]
+      },
+      tantrums: {
+        name: 'Дыхание "Волшебный ветер"',
+        problem: 'Истерики',
+        duration: '2-3 минуты',
+        result: 'Успокоение эмоций',
+        steps: [
+          'Представьте, что вы ветер.',
+          'Вдохните через нос на 2 секунды.',
+          'Выдохните через рот, как будто дуете на облака.',
+          'Повторите 5-7 раз.'
+        ]
       }
     };
   }
@@ -90,21 +155,27 @@ class ContentGenerator {
   // Метод выбора техники
   getMasterTechnique(analysisResult, surveyData) {
     const isChildFlow = analysisResult.analysisType === 'child';
-    const primaryIssue = analysisResult.primaryIssue || 'wellness';
+    const primaryIssue = analysisResult.primaryIssue || 'chronic_stress';
     const techniques = isChildFlow ? this.childMasterTechniques : this.masterTechniques;
-    return techniques[primaryIssue] || techniques['chronic_stress'];
+    return techniques[primaryIssue] || (isChildFlow ? this.childMasterTechniques.hyperactivity : this.masterTechniques.chronic_stress);
   }
 
   // Генерация заголовка
   generatePersonalizedTitle(analysisResult, surveyData) {
     const isChildFlow = analysisResult.analysisType === 'child';
-    const primaryIssue = analysisResult.primaryIssue || 'wellness';
+    const primaryIssue = analysisResult.primaryIssue || 'chronic_stress';
     const problemMap = {
       chronic_stress: 'Антистресс',
       anxiety: 'От тревоги',
       insomnia: 'Для сна',
+      breathing_issues: 'Для легких',
+      high_pressure: 'Для давления',
+      fatigue: 'Для энергии',
+      weak_immunity: 'Для иммунитета',
       hyperactivity: 'Гиперактивность',
-      sleep_problems: 'Детский сон'
+      sleep_problems: 'Детский сон',
+      concentration_issues: 'Концентрация',
+      tantrums: 'От истерик'
     };
     const problem = problemMap[primaryIssue] || 'Здоровье';
     return isChildFlow
@@ -136,7 +207,7 @@ class ContentGenerator {
   // Генерация красивых названий файлов
   generateBeautifulFileName(analysisResult, surveyData) {
     const isChildFlow = analysisResult.analysisType === 'child';
-    const primaryIssue = analysisResult.primaryIssue || 'wellness';
+    const primaryIssue = analysisResult.primaryIssue || 'chronic_stress';
     const segment = analysisResult.segment || 'COLD_LEAD';
 
     const fileNameParts = [];
@@ -179,8 +250,7 @@ class ContentGenerator {
       sleep_problems: 'Детский_сон',
       weak_immunity: 'Иммунитет',
       concentration_issues: 'Концентрация',
-      tantrums: 'От_капризов',
-      separation_anxiety: 'От_страхов'
+      tantrums: 'От_капризов'
     };
 
     if (problemMap[primaryIssue]) {
@@ -188,10 +258,10 @@ class ContentGenerator {
     }
 
     const segmentMap = {
-      'HOT_LEAD': 'SOS',
-      'WARM_LEAD': 'Активный',
-      'COLD_LEAD': 'Базовый',
-      'NURTURE_LEAD': 'Профилактика'
+      HOT_LEAD: 'SOS',
+      WARM_LEAD: 'Активный',
+      COLD_LEAD: 'Базовый',
+      NURTURE_LEAD: 'Профилактика'
     };
 
     if (segmentMap[segment]) {
@@ -242,8 +312,6 @@ class ContentGenerator {
       color: #333;
       background-color: #f9f9f9;
     }
-
-    /* КРАСИВАЯ ШАПКА С АВАТАРКОЙ */
     .header-with-avatar {
       display: flex;
       align-items: center;
@@ -255,7 +323,6 @@ class ContentGenerator {
       color: white;
       box-shadow: 0 4px 15px rgba(0,0,0,0.1);
     }
-
     .avatar {
       width: 80px;
       height: 80px;
@@ -265,32 +332,26 @@ class ContentGenerator {
       object-fit: cover;
       box-shadow: 0 4px 8px rgba(0,0,0,0.3);
     }
-
     .header-text {
       flex: 1;
     }
-
     .header-text h1 {
       margin: 0;
       color: white;
       font-size: 24px;
       text-shadow: 0 2px 4px rgba(0,0,0,0.3);
     }
-
     .header-text .subtitle {
       margin: 5px 0 0 0;
       color: rgba(255,255,255,0.9);
       font-size: 16px;
     }
-
     .header-text .author {
       margin: 8px 0 0 0;
       color: rgba(255,255,255,0.8);
       font-size: 14px;
       font-style: italic;
     }
-
-    /* Остальные стили */
     .section {
       background: #fff;
       padding: 20px;
@@ -298,7 +359,6 @@ class ContentGenerator {
       border-radius: 8px;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
-
     @media (max-width: 600px) {
       .header-with-avatar {
         flex-direction: column;
@@ -310,36 +370,29 @@ class ContentGenerator {
         margin-bottom: 15px;
       }
     }
-
     a {
       color: #1e90ff;
       text-decoration: none;
       font-weight: bold;
     }
-
     a:hover {
       text-decoration: underline;
       color: #ff4500;
     }
-
     ul {
       list-style-type: none;
       padding: 0;
     }
-
     ul li {
       padding: 10px 0;
     }
-
     ul li:before {
       content: "✔ ";
       color: #1e90ff;
     }
-
     .technique h3 {
       color: #1e90ff;
     }
-
     .plan {
       background: #f0f8ff;
       padding: 15px;
@@ -362,7 +415,6 @@ class ContentGenerator {
   <div class="section">
     <h3>🎯 Ваша персональная техника дыхания готова!</h3>
     <p>Эта техника была подобрана специально под ваш профиль и основные проблемы.</p>
-
     <div class="technique">
       <h3>✨ Техника: ${cleanText(technique.name)}</h3>
       <p><strong>Проблема:</strong> ${cleanText(technique.problem)}</p>
@@ -373,7 +425,6 @@ class ContentGenerator {
         ${technique.steps.map(step => `<li>${cleanText(step)}</li>`).join('')}
       </ul>
     </div>
-
     <div class="plan">
       <h3>📅 План на 3 дня</h3>
       <ul>
