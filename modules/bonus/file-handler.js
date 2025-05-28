@@ -1,4 +1,4 @@
-// Файл: modules/bonus/file-handler.js - ПОЛНАЯ ИСПРАВЛЕННАЯ ВЕРСИЯ
+// Файл: modules/bonus/file-handler.js - ПОЛНАЯ ПЕРЕЗАПИСЬ
 
 const fs = require('fs');
 const { Markup } = require('telegraf');
@@ -26,6 +26,7 @@ class FileHandler {
       }
     };
 
+    // Статистика
     this.bonusStats = {
       totalDelivered: 0,
       bySegment: { HOT_LEAD: 0, WARM_LEAD: 0, COLD_LEAD: 0, NURTURE_LEAD: 0 },
@@ -34,11 +35,14 @@ class FileHandler {
     };
   }
 
+  // ===== ОСНОВНЫЕ МЕТОДЫ =====
+
   // Получение бонуса для пользователя
   getBonusForUser(analysisResult, surveyData) {
     try {
       const technique = this.contentGenerator.getMasterTechnique(analysisResult, surveyData);
       const isChildFlow = analysisResult.analysisType === 'child';
+      
       return {
         id: `personalized_${isChildFlow ? 'child' : 'adult'}_${analysisResult.primaryIssue || 'wellness'}`,
         title: this.contentGenerator.generatePersonalizedTitle(analysisResult, surveyData),
@@ -53,7 +57,51 @@ class FileHandler {
     }
   }
 
-  // ИСПРАВЛЕННОЕ меню дополнительных материалов
+  // Отправка персонального PDF файла
+  async sendPDFFile(ctx) {
+    try {
+      console.log(`📝 Генерация персонального гида для пользователя ${ctx.from.id}`);
+
+      const bonus = this.getBonusForUser(ctx.session.analysisResult, ctx.session.answers);
+      const filePath = await this.contentGenerator.generatePersonalizedHTML(
+        ctx.from.id,
+        ctx.session.analysisResult,
+        ctx.session.answers
+      );
+
+      const isChildFlow = ctx.session.analysisResult.analysisType === 'child';
+      const technique = bonus.technique;
+
+      let caption = `🎁 *${bonus.title}*\n\n`;
+      caption += isChildFlow
+        ? `🧸 Персональная игровая техника для вашего ребенка!\n\n`
+        : `🌬️ Ваша персональная дыхательная техника!\n\n`;
+      caption += `✨ *В файле:*\n`;
+      caption += `• ${technique.name}\n`;
+      caption += `• Пошаговая инструкция\n`;
+      caption += `• План освоения на 3 дня\n`;
+      caption += `• Ожидаемые результаты\n\n`;
+      caption += `📱 Откройте файл в браузере для лучшего отображения.\n\n`;
+      caption += `📞 *Больше техник у* [Анастасии Поповой](https://t.me/NastuPopova)`;
+
+      await ctx.replyWithDocument(
+        { source: filePath },
+        { caption, parse_mode: 'Markdown' }
+      );
+
+      await this.showPostPDFMenu(ctx);
+      this.cleanupTempFile(filePath);
+      this.bonusStats.byDeliveryMethod.file++;
+      
+    } catch (error) {
+      console.error('❌ Ошибка отправки персонального гида:', error.message);
+      await this.sendFallbackTechnique(ctx, this.getBonusForUser(ctx.session.analysisResult, ctx.session.answers));
+    }
+  }
+
+  // ===== МЕНЮ И ИНТЕРФЕЙСЫ =====
+
+  // Главное меню дополнительных материалов
   async showMoreMaterials(ctx) {
     console.log(`🎁 Показываем меню материалов для пользователя ${ctx.from.id}`);
     
@@ -83,9 +131,11 @@ class FileHandler {
     message += `• План на 30 дней\n`;
     message += `• Поддержка в Telegram\n\n`;
     
+    message += `📖 *Подробнее о всех программах* - в основном боте\n`;
     message += `📞 *Записаться:* [Анастасия Попова](https://t.me/NastuPopova)`;
 
     const keyboard = [
+      [Markup.button.url('📖 Все программы и отзывы', 'https://t.me/breathing_opros_bot')],
       [Markup.button.callback('🔥 Стартовый комплект за 990₽!', 'order_starter')],
       [Markup.button.callback('👨‍⚕️ Консультация за 2000₽', 'order_individual')],
       [isChildFlow
@@ -96,22 +146,10 @@ class FileHandler {
       [Markup.button.callback('🗑️ Удалить это меню', 'delete_menu')]
     ];
 
-    try {
-      await ctx.editMessageText(message, {
-        parse_mode: 'Markdown',
-        ...Markup.inlineKeyboard(keyboard)
-      });
-      console.log('✅ Меню материалов показано');
-    } catch (error) {
-      console.log('⚠️ Не удалось отредактировать сообщение, отправляем новое');
-      await ctx.reply(message, {
-        parse_mode: 'Markdown',
-        ...Markup.inlineKeyboard(keyboard)
-      });
-    }
+    await this.safeEditOrReply(ctx, message, keyboard);
   }
 
-  // ИСПРАВЛЕННОЕ меню всех программ
+  // Меню всех программ
   async showAllPrograms(ctx) {
     console.log(`📋 Показываем все программы для пользователя ${ctx.from.id}`);
     
@@ -130,9 +168,11 @@ class FileHandler {
     message += `• 💬 Поддержка в Telegram 2 недели\n`;
     message += `• 🎁 Бонусные материалы\n\n`;
     
+    message += `📖 *Детальные описания, отзывы и примеры* - в основном боте\n`;
     message += `📞 *Записаться:* [Анастасия Попова](https://t.me/NastuPopova)`;
 
     const keyboard = [
+      [Markup.button.url('📖 Подробнее о программах', 'https://t.me/breathing_opros_bot')],
       [Markup.button.callback('🔥 Стартовый комплект', 'order_starter')],
       [Markup.button.callback('👨‍⚕️ Консультация', 'order_individual')],
       [Markup.button.callback('🤔 Помочь выбрать', 'help_choose_program')],
@@ -140,22 +180,34 @@ class FileHandler {
       [Markup.button.callback('🗑️ Удалить меню', 'delete_menu')]
     ];
 
-    try {
-      await ctx.editMessageText(message, {
-        parse_mode: 'Markdown',
-        ...Markup.inlineKeyboard(keyboard)
-      });
-      console.log('✅ Меню всех программ показано');
-    } catch (error) {
-      console.log('⚠️ Не удалось отредактировать сообщение, отправляем новое');
-      await ctx.reply(message, {
-        parse_mode: 'Markdown',
-        ...Markup.inlineKeyboard(keyboard)
-      });
-    }
+    await this.safeEditOrReply(ctx, message, keyboard);
   }
 
-  // Обработка загрузки статичных PDF
+  // Меню после отправки персонального PDF
+  async showPostPDFMenu(ctx) {
+    const message = `✅ *Ваш персональный гид отправлен!*\n\n` +
+      `🎯 *Что дальше?*\n` +
+      `• Изучите технику из файла\n` +
+      `• Начните практиковать уже сегодня\n` +
+      `• При вопросах обращайтесь к Анастасии\n\n` +
+      `💡 *Хотите расширить программу?*`;
+
+    const keyboard = [
+      [Markup.button.callback('👨‍⚕️ Записаться на консультацию', 'order_individual')],
+      [Markup.button.callback('🎁 Посмотреть другие материалы', 'more_materials')],
+      [Markup.button.url('💬 Написать Анастасии', 'https://t.me/NastuPopova')],
+      [Markup.button.callback('🗑️ Удалить меню', 'delete_menu')]
+    ];
+
+    await ctx.reply(message, {
+      parse_mode: 'Markdown',
+      ...Markup.inlineKeyboard(keyboard)
+    });
+  }
+
+  // ===== ОБРАБОТКА ЗАГРУЗОК =====
+
+  // Обработка запросов на загрузку
   async handleDownloadRequest(ctx, callbackData) {
     console.log(`📥 Обработка запроса скачивания: ${callbackData}`);
     
@@ -181,8 +233,6 @@ class FileHandler {
     }
 
     console.log(`📤 Попытка отправки PDF: ${material.fileName}`);
-
-    // Показываем индикатор загрузки
     await ctx.answerCbQuery('📤 Отправляю файл...');
 
     // Попытка 1: Прямая загрузка с Google Drive
@@ -205,114 +255,70 @@ class FileHandler {
       this.bonusStats.byDeliveryMethod.static_pdf++;
       return;
 
-    } catch (error1) {
-      console.log(`⚠️ Попытка 1 неудачна: ${error1.message}`);
-      
-      // Попытка 2: Отправка ссылки на просмотр
-      try {
-        const message = `📄 *${material.title}*\n\n` +
-          `${material.description}\n\n` +
-          `📥 К сожалению, автоматическая отправка файла временно недоступна.\n\n` +
-          `📱 *Как получить PDF:*\n` +
-          `1️⃣ Нажмите кнопку "Открыть PDF" ниже\n` +
-          `2️⃣ В открывшемся окне нажмите кнопку скачивания (⬇️)\n` +
-          `3️⃣ Файл сохранится в ваши загрузки\n\n` +
-          `💡 Если возникнут проблемы, напишите [Анастасии](https://t.me/NastuPopova) - она отправит файл лично`;
+    } catch (error) {
+      console.log(`⚠️ Ошибка отправки файла: ${error.message}`);
+      await this.sendPDFFallback(ctx, material);
+    }
+  }
 
-        await ctx.reply(message, {
+  // Fallback для PDF - отправка ссылки
+  async sendPDFFallback(ctx, material) {
+    try {
+      const message = `📄 *${material.title}*\n\n` +
+        `${material.description}\n\n` +
+        `📥 К сожалению, автоматическая отправка файла временно недоступна.\n\n` +
+        `📱 *Как получить PDF:*\n` +
+        `1️⃣ Нажмите кнопку "Открыть PDF" ниже\n` +
+        `2️⃣ В открывшемся окне нажмите кнопку скачивания (⬇️)\n` +
+        `3️⃣ Файл сохранится в ваши загрузки\n\n` +
+        `💡 Если возникнут проблемы, напишите [Анастасии](https://t.me/NastuPopova) - она отправит файл лично`;
+
+      const keyboard = [
+        [Markup.button.url('📥 Открыть PDF', material.directUrl)],
+        [Markup.button.callback('📞 Записаться на консультацию', 'order_individual')],
+        [Markup.button.callback('🎁 Другие материалы', 'more_materials')],
+        [Markup.button.url('💬 Написать Анастасии', 'https://t.me/NastuPopova')],
+        [Markup.button.callback('🗑️ Удалить это меню', 'delete_menu')]
+      ];
+
+      await ctx.reply(message, {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard(keyboard)
+      });
+
+      this.bonusStats.byDeliveryMethod.fallback_link++;
+
+    } catch (error) {
+      console.error('❌ Ошибка отправки fallback PDF:', error);
+      await ctx.reply(
+        `😔 Временные технические проблемы с отправкой материалов.\n\n📞 Напишите [Анастасии Поповой](https://t.me/NastuPopova) - она отправит все файлы лично!`,
+        {
           parse_mode: 'Markdown',
           ...Markup.inlineKeyboard([
-            [Markup.button.url('📥 Открыть PDF', material.directUrl)],
-            [Markup.button.callback('📞 Записаться на консультацию', 'order_individual')],
-            [Markup.button.callback('🎁 Другие материалы', 'more_materials')],
-            [Markup.button.url('💬 Написать Анастасии', 'https://t.me/NastuPopova')],
-            [Markup.button.callback('🗑️ Удалить это меню', 'delete_menu')]
+            [Markup.button.url('💬 Написать Анастасии', 'https://t.me/NastuPopova')]
           ])
-        });
-
-        this.bonusStats.byDeliveryMethod.fallback_link++;
-        return;
-
-      } catch (error2) {
-        console.error('❌ Ошибка отправки ссылки на PDF:', error2);
-        
-        // Последний fallback
-        await ctx.reply(
-          `😔 Временные технические проблемы с отправкой материалов.\n\n📞 Напишите [Анастасии Поповой](https://t.me/NastuPopova) - она отправит все файлы лично!`,
-          {
-            parse_mode: 'Markdown',
-            ...Markup.inlineKeyboard([
-              [Markup.button.url('💬 Написать Анастасии', 'https://t.me/NastuPopova')]
-            ])
-          }
-        );
-      }
-    }
-  }
-
-  // Отправка персонального PDF
-  async sendPDFFile(ctx) {
-    try {
-      console.log(`📝 Генерация персонального гида для пользователя ${ctx.from.id}`);
-
-      const bonus = this.getBonusForUser(ctx.session.analysisResult, ctx.session.answers);
-      const filePath = await this.contentGenerator.generatePersonalizedHTML(
-        ctx.from.id,
-        ctx.session.analysisResult,
-        ctx.session.answers
-      );
-
-      const isChildFlow = ctx.session.analysisResult.analysisType === 'child';
-      const technique = bonus.technique;
-
-      let caption = `🎁 *${bonus.title}*\n\n`;
-      caption += isChildFlow
-        ? `🧸 Персональная игровая техника для вашего ребенка!\n\n`
-        : `🌬️ Ваша персональная дыхательная техника!\n\n`;
-      caption += `✨ *В файле:*\n`;
-      caption += `• ${technique.name}\n`;
-      caption += `• Пошаговая инструкция\n`;
-      caption += `• План освоения на 3 дня\n`;
-      caption += `• Ожидаемые результаты\n\n`;
-      caption += `📱 Откройте файл в браузере для лучшего отображения.\n\n`;
-      caption += `📞 *Больше техник у* [Анастасии Поповой](https://t.me/NastuPopova)`;
-
-      await ctx.replyWithDocument(
-        { source: filePath },
-        {
-          caption,
-          parse_mode: 'Markdown'
         }
       );
-
-      await this.showPostPDFMenu(ctx);
-      this.cleanupTempFile(filePath);
-      this.bonusStats.byDeliveryMethod.file++;
-      
-    } catch (error) {
-      console.error('❌ Ошибка отправки персонального гида:', error.message);
-      await this.sendFallbackTechnique(ctx, this.getBonusForUser(ctx.session.analysisResult, ctx.session.answers));
     }
   }
 
-  // Показ меню после отправки PDF
-  async showPostPDFMenu(ctx) {
-    const message = `✅ *Ваш персональный гид отправлен!*\n\n` +
-      `🎯 *Что дальше?*\n` +
-      `• Изучите технику из файла\n` +
-      `• Начните практиковать уже сегодня\n` +
-      `• При вопросах обращайтесь к Анастасии\n\n` +
-      `💡 *Хотите расширить программу?*`;
+  // ===== УТИЛИТЫ И ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ =====
 
-    await ctx.reply(message, {
-      parse_mode: 'Markdown',
-      ...Markup.inlineKeyboard([
-        [Markup.button.callback('👨‍⚕️ Записаться на консультацию', 'order_individual')],
-        [Markup.button.callback('🎁 Посмотреть другие материалы', 'more_materials')],
-        [Markup.button.url('💬 Написать Анастасии', 'https://t.me/NastuPopova')],
-        [Markup.button.callback('🗑️ Удалить меню', 'delete_menu')]
-      ])
-    });
+  // Безопасная отправка/редактирование сообщения
+  async safeEditOrReply(ctx, message, keyboard) {
+    try {
+      await ctx.editMessageText(message, {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard(keyboard)
+      });
+      console.log('✅ Сообщение отредактировано');
+    } catch (error) {
+      console.log('⚠️ Не удалось отредактировать сообщение, отправляем новое');
+      await ctx.reply(message, {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard(keyboard)
+      });
+    }
   }
 
   // Удаление/закрытие меню
@@ -322,7 +328,6 @@ class FileHandler {
     try {
       await ctx.deleteMessage();
       console.log('✅ Сообщение удалено');
-      
     } catch (deleteError) {
       try {
         await ctx.editMessageText(
@@ -345,7 +350,7 @@ class FileHandler {
     return await this.closeMenu(ctx);
   }
 
-  // Fallback техника при ошибках
+  // Fallback техника при ошибках генерации PDF
   async sendFallbackTechnique(ctx, bonus) {
     const technique = bonus.technique;
     let message = `⚠️ Файл временно недоступен, но вот ваша техника:\n\n`;
@@ -367,6 +372,7 @@ class FileHandler {
     });
   }
 
+  // Fallback бонус при ошибках
   getFallbackBonus() {
     return {
       id: 'fallback_adult_chronic_stress',
@@ -378,6 +384,7 @@ class FileHandler {
     };
   }
 
+  // Очистка временных файлов
   cleanupTempFile(filePath) {
     setTimeout(() => {
       try {
@@ -390,6 +397,8 @@ class FileHandler {
       }
     }, 1000);
   }
+
+  // ===== ГЕТТЕРЫ И СТАТИСТИКА =====
 
   getBonusStats() {
     return this.bonusStats;
