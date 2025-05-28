@@ -1,4 +1,4 @@
-// Файл: core/handlers.js - ИСПРАВЛЕННАЯ ВЕРСИЯ
+// Файл: core/handlers.js - ИСПРАВЛЕННАЯ ВЕРСИЯ с фиксом rate limiting
 const { Markup } = require('telegraf');
 const config = require('../config');
 
@@ -164,7 +164,7 @@ class Handlers {
     await this.handleStart(ctx);
   }
 
-  // ИСПРАВЛЕННЫЙ: Основной обработчик callback запросов
+  // ИСПРАВЛЕННЫЙ: Основной обработчик callback запросов с фиксом rate limiting
   async handleCallback(ctx) {
     const callbackData = ctx.callbackQuery.data;
     console.log(`📞 Callback: ${callbackData} от пользователя ${ctx.from.id}`);
@@ -172,13 +172,17 @@ class Handlers {
     // Отвечаем на callback чтобы убрать "часики"
     await ctx.answerCbQuery().catch(() => {});
 
-    // ИСПРАВЛЕННАЯ маршрутизация callback
+    // ИСПРАВЛЕННАЯ маршрутизация callback с новыми обработчиками
     try {
       // Основные действия
       if (callbackData === 'start_survey') {
         await this.startSurvey(ctx);
+      } else if (callbackData === 'start_survey_from_about') {
+        await this.startSurveyFromAbout(ctx);
       } else if (callbackData === 'about_survey') {
         await this.showAboutSurvey(ctx);
+      } else if (callbackData === 'back_to_main') {
+        await this.backToMain(ctx);
       } else if (callbackData === 'nav_back') {
         await this.handleNavBack(ctx);
       } else if (callbackData.endsWith('_done')) {
@@ -192,13 +196,15 @@ class Handlers {
         await this.pdfManager.handleDownloadRequest(ctx, callbackData);
       }
       
-      // Меню материалов - ИСПРАВЛЕНО
+      // Меню материалов - ИСПРАВЛЕНО с новыми кнопками
       else if (callbackData === 'more_materials') {
         await this.pdfManager.showMoreMaterials(ctx);
       } else if (callbackData === 'show_all_programs') {
         await this.pdfManager.showAllPrograms(ctx);
       } else if (callbackData === 'close_menu') {
         await this.pdfManager.closeMenu(ctx);
+      } else if (callbackData === 'delete_menu') {
+        await this.pdfManager.deleteMenu(ctx);
       }
       
       // Заказы программ - НОВОЕ
@@ -245,7 +251,7 @@ class Handlers {
     await this.askQuestion(ctx, firstQuestion);
   }
 
-  // Показ информации о диагностике
+  // ИСПРАВЛЕНО: Показ информации о диагностике с отдельной кнопкой для начала
   async showAboutSurvey(ctx) {
     const aboutMessage = `📋 *О диагностике дыхания*\n\n` +
       `🎯 *Что вы получите:*\n` +
@@ -258,13 +264,107 @@ class Handlers {
       `🔒 *Конфиденциально:* данные не передаются третьим лицам\n\n` +
       `Готовы начать?`;
 
+    // ИСПРАВЛЕНО: Используем отдельную кнопку для начала диагностики
     await ctx.editMessageText(aboutMessage, {
       parse_mode: 'Markdown',
       ...Markup.inlineKeyboard([
-        [Markup.button.callback('🔬 Начать диагностику', 'start_survey')],
-        [Markup.button.callback('🔙 Назад к главному меню', 'start_survey')]
+        [Markup.button.callback('🔬 Да, начать диагностику!', 'start_survey_from_about')],
+        [Markup.button.callback('🔙 Назад к главному меню', 'back_to_main')]
       ])
     });
+  }
+
+  // НОВЫЙ ОБРАБОТЧИК: Отдельная обработка старта диагностики из "Подробнее"
+  async startSurveyFromAbout(ctx) {
+    console.log(`📋 Начинаем анкету из "Подробнее" для пользователя ${ctx.from.id}`);
+
+    if (!ctx.session) {
+      ctx.session = this.bot.middleware.getDefaultSession();
+    }
+
+    // Сбрасываем состояние
+    ctx.session.currentQuestion = null;
+    ctx.session.answers = {};
+    ctx.session.completedQuestions = [];
+    ctx.session.startTime = Date.now();
+
+    // Начинаем с первого вопроса
+    const firstQuestion = 'age_group';
+    ctx.session.currentQuestion = firstQuestion;
+
+    await this.askQuestion(ctx, firstQuestion);
+  }
+
+  // НОВЫЙ ОБРАБОТЧИК: Возврат к главному меню
+  async backToMain(ctx) {
+    const message = config.MESSAGES.WELCOME;
+    
+    await ctx.editMessageText(message, {
+      parse_mode: 'Markdown',
+      ...Markup.inlineKeyboard([
+        [Markup.button.callback('🔬 Начать диагностику', 'start_survey')],
+        [Markup.button.callback('ℹ️ Подробнее о диагностике', 'about_survey')]
+      ])
+    });
+  }
+
+  // ОБНОВЛЕННАЯ маршрутизация callback с новыми обработчиками
+  async handleCallbackRouting(ctx, callbackData) {
+    // Основные действия
+    if (callbackData === 'start_survey') {
+      await this.startSurvey(ctx);
+    } else if (callbackData === 'start_survey_from_about') {
+      await this.startSurveyFromAbout(ctx);
+    } else if (callbackData === 'about_survey') {
+      await this.showAboutSurvey(ctx);
+    } else if (callbackData === 'back_to_main') {
+      await this.backToMain(ctx);
+    } else if (callbackData === 'nav_back') {
+      await this.handleNavBack(ctx);
+    } else if (callbackData.endsWith('_done')) {
+      await this.handleMultipleChoiceDone(ctx, callbackData);
+    }
+    
+    // PDF и материалы
+    else if (callbackData.startsWith('download_pdf_')) {
+      await this.handlePDFDownload(ctx);
+    } else if (callbackData.startsWith('download_static_')) {
+      await this.pdfManager.handleDownloadRequest(ctx, callbackData);
+    }
+    
+    // Меню материалов
+    else if (callbackData === 'more_materials') {
+      await this.pdfManager.showMoreMaterials(ctx);
+    } else if (callbackData === 'show_all_programs') {
+      await this.pdfManager.showAllPrograms(ctx);
+    } else if (callbackData === 'close_menu') {
+      await this.pdfManager.closeMenu(ctx);
+    } else if (callbackData === 'delete_menu') {
+      await this.pdfManager.deleteMenu(ctx);
+    }
+    
+    // Заказы программ
+    else if (callbackData.startsWith('order_')) {
+      const programType = callbackData.replace('order_', '');
+      await this.pdfManager.showOrderDetails(ctx, programType);
+    } else if (callbackData === 'help_choose_program') {
+      await this.pdfManager.showProgramHelper(ctx);
+    }
+    
+    // Контакты
+    else if (callbackData === 'contact_request') {
+      await this.handleContactRequest(ctx);
+    }
+    
+    // Админ callback
+    else if (callbackData.startsWith('admin_')) {
+      await this.handleAdminCallback(ctx, callbackData);
+    } 
+    
+    // Ответы на вопросы анкеты (должно быть в конце)
+    else {
+      await this.handleSurveyAnswer(ctx, callbackData);
+    }
   }
 
   // Задать вопрос
@@ -631,7 +731,7 @@ class Handlers {
         ...Markup.inlineKeyboard([
           [Markup.button.url('💬 Написать Анастасии', 'https://t.me/breathing_opros_bot')],
           [Markup.button.callback('🔙 Назад к материалам', 'more_materials')],
-          [Markup.button.callback('❌ Закрыть', 'close_menu')]
+          [Markup.button.callback('🗑️ Удалить меню', 'delete_menu')]
         ])
       });
     } catch (error) {
@@ -705,8 +805,7 @@ class Handlers {
     }
   }
 
- 
-// Общий обработчик ошибок
+  // Общий обработчик ошибок
   async handleError(ctx, error) {
     console.error('💥 Обработка ошибки:', error);
     
