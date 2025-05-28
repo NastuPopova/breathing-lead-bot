@@ -1,4 +1,5 @@
-// Файл: core/handlers.js - ИСПРАВЛЕННАЯ ВЕРСИЯ с фиксом rate limiting
+// Файл: core/handlers.js - ПОЛНОЕ ИСПРАВЛЕНИЕ с обработкой всех callback'ов
+
 const { Markup } = require('telegraf');
 const config = require('../config');
 
@@ -36,7 +37,6 @@ class Handlers {
 
   // Настройка основных команд
   setupCommands() {
-    // Команда /start
     this.telegramBot.start(async (ctx) => {
       try {
         await this.handleStart(ctx);
@@ -46,7 +46,6 @@ class Handlers {
       }
     });
 
-    // Команда /help
     this.telegramBot.help(async (ctx) => {
       try {
         await this.handleHelp(ctx);
@@ -56,7 +55,6 @@ class Handlers {
       }
     });
 
-    // Команда /restart
     this.telegramBot.command('restart', async (ctx) => {
       try {
         await this.handleRestart(ctx);
@@ -69,7 +67,6 @@ class Handlers {
 
   // Настройка callback обработчиков
   setupCallbacks() {
-    // Обработчик всех callback запросов
     this.telegramBot.on('callback_query', async (ctx) => {
       try {
         await this.handleCallback(ctx);
@@ -82,7 +79,6 @@ class Handlers {
 
   // Настройка текстовых обработчиков
   setupTextHandlers() {
-    // Обработчик текстовых сообщений
     this.telegramBot.on('text', async (ctx) => {
       try {
         await this.handleText(ctx);
@@ -100,7 +96,6 @@ class Handlers {
       return;
     }
 
-    // Админ статистика
     this.telegramBot.command('admin_stats', async (ctx) => {
       if (ctx.from.id.toString() !== config.ADMIN_ID) return;
       try {
@@ -110,7 +105,6 @@ class Handlers {
       }
     });
 
-    // Тест PDF
     this.telegramBot.command('test_pdf', async (ctx) => {
       if (ctx.from.id.toString() !== config.ADMIN_ID) return;
       try {
@@ -125,12 +119,10 @@ class Handlers {
   async handleStart(ctx) {
     console.log(`🚀 Команда /start от пользователя ${ctx.from.id}`);
 
-    // Инициализируем сессию если нужно
     if (!ctx.session) {
       ctx.session = this.bot.middleware.getDefaultSession();
     }
 
-    // Сбрасываем состояние анкеты
     ctx.session.currentQuestion = null;
     ctx.session.answers = {};
     ctx.session.completedQuestions = [];
@@ -164,7 +156,7 @@ class Handlers {
     await this.handleStart(ctx);
   }
 
-  // ИСПРАВЛЕННЫЙ: Основной обработчик callback запросов с фиксом rate limiting
+  // ИСПРАВЛЕННЫЙ: Основной обработчик callback запросов
   async handleCallback(ctx) {
     const callbackData = ctx.callbackQuery.data;
     console.log(`📞 Callback: ${callbackData} от пользователя ${ctx.from.id}`);
@@ -172,9 +164,8 @@ class Handlers {
     // Отвечаем на callback чтобы убрать "часики"
     await ctx.answerCbQuery().catch(() => {});
 
-    // ИСПРАВЛЕННАЯ маршрутизация callback с новыми обработчиками
     try {
-      // Основные действия
+      // Основные действия бота
       if (callbackData === 'start_survey') {
         await this.startSurvey(ctx);
       } else if (callbackData === 'start_survey_from_about') {
@@ -189,14 +180,16 @@ class Handlers {
         await this.handleMultipleChoiceDone(ctx, callbackData);
       }
       
-      // PDF и материалы - ИСПРАВЛЕНО
+      // PDF и персональные файлы
       else if (callbackData.startsWith('download_pdf_')) {
         await this.handlePDFDownload(ctx);
-      } else if (callbackData.startsWith('download_static_')) {
+      } else if (callbackData === 'download_static_adult_antistress') {
+        await this.pdfManager.handleDownloadRequest(ctx, callbackData);
+      } else if (callbackData === 'download_static_child_games') {
         await this.pdfManager.handleDownloadRequest(ctx, callbackData);
       }
       
-      // Меню материалов - ИСПРАВЛЕНО с новыми кнопками
+      // Меню материалов
       else if (callbackData === 'more_materials') {
         await this.pdfManager.showMoreMaterials(ctx);
       } else if (callbackData === 'show_all_programs') {
@@ -207,12 +200,13 @@ class Handlers {
         await this.pdfManager.deleteMenu(ctx);
       }
       
-      // Заказы программ - НОВОЕ
-      else if (callbackData.startsWith('order_')) {
-        const programType = callbackData.replace('order_', '');
-        await this.pdfManager.showOrderDetails(ctx, programType);
+      // ИСПРАВЛЕНО: Заказы программ
+      else if (callbackData === 'order_starter') {
+        await this.handleOrderStarter(ctx);
+      } else if (callbackData === 'order_individual') {
+        await this.handleOrderIndividual(ctx);
       } else if (callbackData === 'help_choose_program') {
-        await this.pdfManager.showProgramHelper(ctx);
+        await this.handleHelpChooseProgram(ctx);
       }
       
       // Контакты
@@ -235,6 +229,138 @@ class Handlers {
     }
   }
 
+  // НОВЫЕ МЕТОДЫ: Обработка заказов программ
+  async handleOrderStarter(ctx) {
+    console.log(`🔥 Заказ стартового комплекта от пользователя ${ctx.from.id}`);
+    
+    let message = `🔥 *СТАРТОВЫЙ КОМПЛЕКТ - 990₽*\n`;
+    message += `*(Обычная цена 2600₽ - экономия 1610₽)*\n\n`;
+    
+    message += `📦 *ЧТО ВХОДИТ:*\n`;
+    message += `• 📹 Видеоурок "Основы дыхания" (40 мин)\n`;
+    message += `• 📋 PDF-руководство с 10 техниками\n`;
+    message += `• 🎧 Аудиопрактики для ежедневного использования\n`;
+    message += `• 📱 Чек-лист прогресса на 30 дней\n`;
+    message += `• 💬 Доступ в закрытый Telegram-канал\n`;
+    message += `• ⚡ Мгновенный доступ после оплаты\n\n`;
+    
+    message += `🎯 *РЕЗУЛЬТАТ:*\n`;
+    message += `Через 7 дней: снижение стресса, улучшение сна\n`;
+    message += `Через 30 дней: стабильная практика, энергия\n\n`;
+    
+    message += `📞 *ЗАПИСАТЬСЯ:*\n`;
+    message += `Напишите [Анастасии Поповой](https://t.me/NastuPopova)\n`;
+    message += `Скажите: "Хочу стартовый комплект за 990₽"\n\n`;
+    message += `⏰ *Ответ в течение 2 часов*`;
+
+    const keyboard = [
+      [Markup.button.url('💬 Написать Анастасии', 'https://t.me/NastuPopova')],
+      [Markup.button.callback('🔙 К материалам', 'more_materials')],
+      [Markup.button.callback('🆚 Сравнить с консультацией', 'help_choose_program')],
+      [Markup.button.callback('🗑️ Удалить меню', 'delete_menu')]
+    ];
+
+    try {
+      await ctx.editMessageText(message, {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard(keyboard)
+      });
+    } catch (error) {
+      await ctx.reply(message, {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard(keyboard)
+      });
+    }
+  }
+
+  async handleOrderIndividual(ctx) {
+    console.log(`👨‍⚕️ Заказ консультации от пользователя ${ctx.from.id}`);
+    
+    let message = `👨‍⚕️ *ПЕРСОНАЛЬНАЯ КОНСУЛЬТАЦИЯ - 2000₽*\n\n`;
+    
+    message += `🎯 *ЧТО ПОЛУЧИТЕ:*\n`;
+    message += `• 📞 Индивидуальная сессия 60 минут\n`;
+    message += `• 🔍 Диагностика вашего дыхания\n`;
+    message += `• 📋 Персональная программа на 30 дней\n`;
+    message += `• 💬 Поддержка в Telegram 2 недели\n`;
+    message += `• 📊 Контроль прогресса и корректировки\n`;
+    message += `• 🎁 Бонусные материалы\n\n`;
+    
+    message += `💡 *ИДЕАЛЬНО ДЛЯ:*\n`;
+    message += `• Серьезных проблем (панические атаки, давление)\n`;
+    message += `• Занятых людей (индивидуальный график)\n`;
+    message += `• Тех, кто хочет максимальный результат\n\n`;
+    
+    message += `📞 *ЗАПИСАТЬСЯ:*\n`;
+    message += `Напишите [Анастасии Поповой](https://t.me/NastuPopova)\n`;
+    message += `Скажите: "Хочу персональную консультацию"\n\n`;
+    message += `⏰ *Ответ в течение 2 часов*`;
+
+    const keyboard = [
+      [Markup.button.url('💬 Написать Анастасии', 'https://t.me/NastuPopova')],
+      [Markup.button.callback('🔙 К материалам', 'more_materials')],
+      [Markup.button.callback('🆚 Сравнить со стартовым', 'help_choose_program')],
+      [Markup.button.callback('🗑️ Удалить меню', 'delete_menu')]
+    ];
+
+    try {
+      await ctx.editMessageText(message, {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard(keyboard)
+      });
+    } catch (error) {
+      await ctx.reply(message, {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard(keyboard)
+      });
+    }
+  }
+
+  async handleHelpChooseProgram(ctx) {
+    console.log(`🤔 Помощь в выборе программы от пользователя ${ctx.from.id}`);
+    
+    let message = `🤔 *КАКУЮ ПРОГРАММУ ВЫБРАТЬ?*\n\n`;
+    
+    message += `🔥 *СТАРТОВЫЙ КОМПЛЕКТ (990₽)* - если:\n`;
+    message += `• Впервые изучаете дыхательные практики\n`;
+    message += `• Хотите заниматься самостоятельно\n`;
+    message += `• Умеренные проблемы (стресс, усталость)\n`;
+    message += `• Ограниченный бюджет\n`;
+    message += `• Нужен быстрый старт\n\n`;
+    
+    message += `👨‍⚕️ *КОНСУЛЬТАЦИЯ (2000₽)* - если:\n`;
+    message += `• Серьезные проблемы (панические атаки, давление)\n`;
+    message += `• Нужен индивидуальный подход\n`;
+    message += `• Хотите максимальный результат\n`;
+    message += `• Важна поддержка и контроль\n`;
+    message += `• Пробовали разные методы без результата\n\n`;
+    
+    message += `💡 *НЕ УВЕРЕНЫ?*\n`;
+    message += `Напишите [Анастасии](https://t.me/NastuPopova) - она поможет выбрать оптимальный вариант бесплатно!`;
+
+    const keyboard = [
+      [
+        Markup.button.callback('🔥 Стартовый комплект', 'order_starter'),
+        Markup.button.callback('👨‍⚕️ Консультация', 'order_individual')
+      ],
+      [Markup.button.url('💬 Спросить у Анастасии', 'https://t.me/NastuPopova')],
+      [Markup.button.callback('🔙 К материалам', 'more_materials')],
+      [Markup.button.callback('🗑️ Удалить меню', 'delete_menu')]
+    ];
+
+    try {
+      await ctx.editMessageText(message, {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard(keyboard)
+      });
+    } catch (error) {
+      await ctx.reply(message, {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard(keyboard)
+      });
+    }
+  }
+
   // Запуск анкеты
   async startSurvey(ctx) {
     console.log(`📋 Начинаем анкету для пользователя ${ctx.from.id}`);
@@ -243,7 +369,6 @@ class Handlers {
       ctx.session = this.bot.middleware.getDefaultSession();
     }
 
-    // Начинаем с первого вопроса
     const firstQuestion = 'age_group';
     ctx.session.currentQuestion = firstQuestion;
     ctx.session.startTime = Date.now();
@@ -251,7 +376,7 @@ class Handlers {
     await this.askQuestion(ctx, firstQuestion);
   }
 
-  // ИСПРАВЛЕНО: Показ информации о диагностике с отдельной кнопкой для начала
+  // Показ информации о диагностике
   async showAboutSurvey(ctx) {
     const aboutMessage = `📋 *О диагностике дыхания*\n\n` +
       `🎯 *Что вы получите:*\n` +
@@ -264,7 +389,6 @@ class Handlers {
       `🔒 *Конфиденциально:* данные не передаются третьим лицам\n\n` +
       `Готовы начать?`;
 
-    // ИСПРАВЛЕНО: Используем отдельную кнопку для начала диагностики
     await ctx.editMessageText(aboutMessage, {
       parse_mode: 'Markdown',
       ...Markup.inlineKeyboard([
@@ -274,7 +398,6 @@ class Handlers {
     });
   }
 
-  // НОВЫЙ ОБРАБОТЧИК: Отдельная обработка старта диагностики из "Подробнее"
   async startSurveyFromAbout(ctx) {
     console.log(`📋 Начинаем анкету из "Подробнее" для пользователя ${ctx.from.id}`);
 
@@ -282,20 +405,17 @@ class Handlers {
       ctx.session = this.bot.middleware.getDefaultSession();
     }
 
-    // Сбрасываем состояние
     ctx.session.currentQuestion = null;
     ctx.session.answers = {};
     ctx.session.completedQuestions = [];
     ctx.session.startTime = Date.now();
 
-    // Начинаем с первого вопроса
     const firstQuestion = 'age_group';
     ctx.session.currentQuestion = firstQuestion;
 
     await this.askQuestion(ctx, firstQuestion);
   }
 
-  // НОВЫЙ ОБРАБОТЧИК: Возврат к главному меню
   async backToMain(ctx) {
     const message = config.MESSAGES.WELCOME;
     
@@ -306,65 +426,6 @@ class Handlers {
         [Markup.button.callback('ℹ️ Подробнее о диагностике', 'about_survey')]
       ])
     });
-  }
-
-  // ОБНОВЛЕННАЯ маршрутизация callback с новыми обработчиками
-  async handleCallbackRouting(ctx, callbackData) {
-    // Основные действия
-    if (callbackData === 'start_survey') {
-      await this.startSurvey(ctx);
-    } else if (callbackData === 'start_survey_from_about') {
-      await this.startSurveyFromAbout(ctx);
-    } else if (callbackData === 'about_survey') {
-      await this.showAboutSurvey(ctx);
-    } else if (callbackData === 'back_to_main') {
-      await this.backToMain(ctx);
-    } else if (callbackData === 'nav_back') {
-      await this.handleNavBack(ctx);
-    } else if (callbackData.endsWith('_done')) {
-      await this.handleMultipleChoiceDone(ctx, callbackData);
-    }
-    
-    // PDF и материалы
-    else if (callbackData.startsWith('download_pdf_')) {
-      await this.handlePDFDownload(ctx);
-    } else if (callbackData.startsWith('download_static_')) {
-      await this.pdfManager.handleDownloadRequest(ctx, callbackData);
-    }
-    
-    // Меню материалов
-    else if (callbackData === 'more_materials') {
-      await this.pdfManager.showMoreMaterials(ctx);
-    } else if (callbackData === 'show_all_programs') {
-      await this.pdfManager.showAllPrograms(ctx);
-    } else if (callbackData === 'close_menu') {
-      await this.pdfManager.closeMenu(ctx);
-    } else if (callbackData === 'delete_menu') {
-      await this.pdfManager.deleteMenu(ctx);
-    }
-    
-    // Заказы программ
-    else if (callbackData.startsWith('order_')) {
-      const programType = callbackData.replace('order_', '');
-      await this.pdfManager.showOrderDetails(ctx, programType);
-    } else if (callbackData === 'help_choose_program') {
-      await this.pdfManager.showProgramHelper(ctx);
-    }
-    
-    // Контакты
-    else if (callbackData === 'contact_request') {
-      await this.handleContactRequest(ctx);
-    }
-    
-    // Админ callback
-    else if (callbackData.startsWith('admin_')) {
-      await this.handleAdminCallback(ctx, callbackData);
-    } 
-    
-    // Ответы на вопросы анкеты (должно быть в конце)
-    else {
-      await this.handleSurveyAnswer(ctx, callbackData);
-    }
   }
 
   // Задать вопрос
@@ -378,7 +439,6 @@ class Handlers {
 
     console.log(`❓ Задаем вопрос: ${questionId}`);
 
-    // Обновляем прогресс
     const progress = this.surveyQuestions.getProgress(
       ctx.session.completedQuestions || [], 
       ctx.session.answers || {}
@@ -401,7 +461,6 @@ class Handlers {
       }
     } catch (error) {
       console.error('❌ Ошибка отправки вопроса:', error);
-      // Fallback - отправляем новое сообщение
       await ctx.reply(questionText, {
         parse_mode: 'Markdown',
         ...question.keyboard
@@ -424,7 +483,6 @@ class Handlers {
       return;
     }
 
-    // Обрабатываем ответ в зависимости от типа вопроса
     if (question.type === 'multiple_choice') {
       await this.handleMultipleChoiceAnswer(ctx, callbackData, currentQuestion);
     } else {
@@ -436,17 +494,14 @@ class Handlers {
   async handleSingleChoiceAnswer(ctx, callbackData, questionId) {
     const mappedValue = this.surveyQuestions.mapCallbackToValue(callbackData);
     
-    // Сохраняем ответ
     ctx.session.answers[questionId] = mappedValue;
     
-    // Добавляем в список завершенных
     if (!ctx.session.completedQuestions.includes(questionId)) {
       ctx.session.completedQuestions.push(questionId);
     }
 
     console.log(`✅ Ответ на ${questionId}: ${mappedValue}`);
 
-    // Переходим к следующему вопросу
     await this.moveToNextQuestion(ctx);
   }
 
@@ -463,7 +518,6 @@ class Handlers {
     const selections = ctx.session.multipleChoiceSelections[questionId];
     const mappedValue = this.surveyQuestions.mapCallbackToValue(callbackData);
 
-    // Добавляем или убираем выбор
     if (selections.includes(mappedValue)) {
       const index = selections.indexOf(mappedValue);
       selections.splice(index, 1);
@@ -478,7 +532,6 @@ class Handlers {
 
     console.log(`🔄 Множественный выбор ${questionId}:`, selections);
 
-    // Обновляем интерфейс (показываем текущие выборы)
     await this.updateMultipleChoiceDisplay(ctx, questionId);
   }
 
@@ -517,24 +570,20 @@ class Handlers {
     const questionId = ctx.session.currentQuestion;
     const selections = ctx.session.multipleChoiceSelections[questionId] || [];
 
-    // Валидация
     const question = this.surveyQuestions.getQuestion(questionId);
     if (question.minSelections && selections.length < question.minSelections) {
       await ctx.answerCbQuery(`Выберите минимум ${question.minSelections} вариант(ов)`, { show_alert: true });
       return;
     }
 
-    // Сохраняем ответ
     ctx.session.answers[questionId] = selections;
     
-    // Добавляем в список завершенных
     if (!ctx.session.completedQuestions.includes(questionId)) {
       ctx.session.completedQuestions.push(questionId);
     }
 
     console.log(`✅ Множественный выбор завершен ${questionId}:`, selections);
 
-    // Переходим к следующему вопросу
     await this.moveToNextQuestion(ctx);
   }
 
@@ -556,15 +605,12 @@ class Handlers {
   // Завершение анкеты и анализ
   async completeSurvey(ctx) {
     try {
-      // Показываем сообщение об анализе
       await ctx.editMessageText(config.MESSAGES.ANALYSIS_START, {
         parse_mode: 'Markdown'
       });
 
-      // Имитируем время анализа
       await new Promise(resolve => setTimeout(resolve, config.ANALYSIS_DELAY_SECONDS * 1000));
 
-      // Выполняем VERSE-анализ
       const analysisResult = this.verseAnalysis.analyzeUser(ctx.session.answers);
       ctx.session.analysisResult = analysisResult;
 
@@ -574,10 +620,8 @@ class Handlers {
         primaryIssue: analysisResult.primaryIssue
       });
 
-      // Показываем результаты
       await this.showResults(ctx, analysisResult);
 
-      // Уведомляем админа
       if (this.adminNotifications) {
         const userData = {
           userInfo: {
@@ -593,12 +637,11 @@ class Handlers {
         await this.adminNotifications.notifyNewLead(userData);
       }
 
-      // Передаем лид в систему
       await this.transferLead(ctx, analysisResult);
 
     } catch (error) {
       console.error('❌ Ошибка завершения анкеты:', error);
-      await ctx.reply('😔 Произошла ошибка при анализе. Попробуйте позже или обратитесь к [Анастасии](https://t.me/breathing_opros_bot)', {
+      await ctx.reply('😔 Произошла ошибка при анализе. Попробуйте позже или обратитесь к [Анастасии](https://t.me/NastuPopova)', {
         parse_mode: 'Markdown'
       });
     }
@@ -615,7 +658,6 @@ class Handlers {
       ...keyboard
     });
 
-    // Для горячих лидов автоматически отправляем PDF
     if (analysisResult.segment === 'HOT_LEAD') {
       setTimeout(async () => {
         await this.pdfManager.sendPDFFile(ctx);
@@ -623,7 +665,7 @@ class Handlers {
     }
   }
 
-  // Генерация сообщения о бонусе
+// Генерация сообщения о бонусе
   generateBonusMessage(bonus, analysisResult) {
     let message = `🎁 *ВАША ПЕРСОНАЛЬНАЯ ТЕХНИКА ГОТОВА!*\n\n`;
     message += `${bonus.title}\n\n`;
@@ -638,7 +680,7 @@ class Handlers {
     }
 
     message += `📞 *Хотите больше техник?*\n`;
-    message += `Консультация с [Анастасией Поповой](https://t.me/breathing_opros_bot)`;
+    message += `Консультация с [Анастасией Поповой](https://t.me/NastuPopova)`;
 
     return message;
   }
@@ -649,7 +691,7 @@ class Handlers {
       [Markup.button.callback('📥 Получить мой гид', `download_pdf_${bonus.id}`)],
       [Markup.button.callback('📞 Хочу больше техник!', 'contact_request')],
       [Markup.button.callback('🎁 Дополнительные материалы', 'more_materials')],
-      [Markup.button.url('💬 Написать Анастасии', 'https://t.me/breathing_opros_bot')]
+      [Markup.button.url('💬 Написать Анастасии', 'https://t.me/NastuPopova')]
     ]);
   }
 
@@ -685,13 +727,11 @@ class Handlers {
     const prevQuestion = this.surveyQuestions.getPreviousQuestion(currentQuestion, ctx.session.answers);
 
     if (prevQuestion) {
-      // Удаляем текущий вопрос из завершенных
       const index = ctx.session.completedQuestions.indexOf(currentQuestion);
       if (index > -1) {
         ctx.session.completedQuestions.splice(index, 1);
       }
 
-      // Удаляем ответ на текущий вопрос
       delete ctx.session.answers[currentQuestion];
       delete ctx.session.multipleChoiceSelections?.[currentQuestion];
 
@@ -702,7 +742,7 @@ class Handlers {
     }
   }
 
-  // ИСПРАВЛЕНО: Обработка загрузки PDF
+  // Обработка загрузки PDF
   async handlePDFDownload(ctx) {
     try {
       await this.pdfManager.sendPDFFile(ctx);
@@ -729,7 +769,7 @@ class Handlers {
       await ctx.editMessageText(message, {
         parse_mode: 'Markdown',
         ...Markup.inlineKeyboard([
-          [Markup.button.url('💬 Написать Анастасии', 'https://t.me/breathing_opros_bot')],
+          [Markup.button.url('💬 Написать Анастасии', 'https://t.me/NastuPopova')],
           [Markup.button.callback('🔙 Назад к материалам', 'more_materials')],
           [Markup.button.callback('🗑️ Удалить меню', 'delete_menu')]
         ])
@@ -738,7 +778,7 @@ class Handlers {
       await ctx.reply(message, {
         parse_mode: 'Markdown',
         ...Markup.inlineKeyboard([
-          [Markup.button.url('💬 Написать Анастасии', 'https://t.me/breathing_opros_bot')]
+          [Markup.button.url('💬 Написать Анастасии', 'https://t.me/NastuPopova')]
         ])
       });
     }
@@ -753,8 +793,8 @@ class Handlers {
 
     try {
       const parts = callbackData.split('_');
-      const action = parts.slice(1, -1).join('_'); // все кроме первого и последнего
-      const targetUserId = parts[parts.length - 1]; // последний элемент
+      const action = parts.slice(1, -1).join('_');
+      const targetUserId = parts[parts.length - 1];
 
       await this.adminNotifications.handleAdminCallback(ctx, action, targetUserId);
     } catch (error) {
@@ -811,7 +851,7 @@ class Handlers {
     
     try {
       await ctx.reply(
-        '😔 Произошла техническая ошибка. Попробуйте /start или обратитесь к [Анастасии](https://t.me/breathing_opros_bot)',
+        '😔 Произошла техническая ошибка. Попробуйте /start или обратитесь к [Анастасии](https://t.me/NastuPopova)',
         { parse_mode: 'Markdown' }
       );
     } catch (replyError) {
