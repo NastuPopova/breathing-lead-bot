@@ -1,6 +1,6 @@
 // Файл: modules/bonus/file-handler.js
 const fs = require('fs');
-const Markup = require('telegraf/markup');
+const { Markup } = require('telegraf'); // ИСПРАВЛЕНО: правильный импорт
 const config = require('../../config');
 
 class FileHandler {
@@ -35,16 +35,29 @@ class FileHandler {
 
   // Получение бонуса для пользователя
   getBonusForUser(analysisResult, surveyData) {
-    const technique = this.contentGenerator.getMasterTechnique(analysisResult, surveyData);
-    const isChildFlow = analysisResult.analysisType === 'child';
-    return {
-      id: `personalized_${isChildFlow ? 'child' : 'adult'}_${analysisResult.primaryIssue || 'wellness'}`,
-      title: this.contentGenerator.generatePersonalizedTitle(analysisResult, surveyData),
-      subtitle: this.contentGenerator.generatePersonalizedSubtitle(analysisResult, surveyData),
-      description: `Персонализированная техника "${technique.name}" с планом на 3 дня`,
-      technique,
-      target_segments: ['HOT_LEAD', 'WARM_LEAD', 'COLD_LEAD', 'NURTURE_LEAD']
-    };
+    try {
+      const technique = this.contentGenerator.getMasterTechnique(analysisResult, surveyData);
+      const isChildFlow = analysisResult.analysisType === 'child';
+      return {
+        id: `personalized_${isChildFlow ? 'child' : 'adult'}_${analysisResult.primaryIssue || 'wellness'}`,
+        title: this.contentGenerator.generatePersonalizedTitle(analysisResult, surveyData),
+        subtitle: this.contentGenerator.generatePersonalizedSubtitle(analysisResult, surveyData),
+        description: `Персонализированная техника "${technique.name}" с планом на 3 дня`,
+        technique,
+        target_segments: ['HOT_LEAD', 'WARM_LEAD', 'COLD_LEAD', 'NURTURE_LEAD']
+      };
+    } catch (error) {
+      console.error('❌ Ошибка getBonusForUser:', error);
+      // Возвращаем базовый бонус при ошибке
+      return {
+        id: 'fallback_adult_chronic_stress',
+        title: 'Дыхательный гид: Антистресс',
+        subtitle: 'Персональная техника для вашего здоровья',
+        description: 'Базовая техника дыхания от стресса',
+        technique: this.contentGenerator.masterTechniques.chronic_stress,
+        target_segments: ['HOT_LEAD', 'WARM_LEAD', 'COLD_LEAD', 'NURTURE_LEAD']
+      };
+    }
   }
 
   // Отправка персонального PDF
