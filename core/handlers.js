@@ -1,4 +1,4 @@
-// Файл: core/handlers.js
+// Файл: core/handlers.js - ИСПРАВЛЕННАЯ ВЕРСИЯ
 const { Markup } = require('telegraf');
 const config = require('../config');
 
@@ -164,7 +164,7 @@ class Handlers {
     await this.handleStart(ctx);
   }
 
-  // Основной обработчик callback запросов
+  // ИСПРАВЛЕННЫЙ: Основной обработчик callback запросов
   async handleCallback(ctx) {
     const callbackData = ctx.callbackQuery.data;
     console.log(`📞 Callback: ${callbackData} от пользователя ${ctx.from.id}`);
@@ -172,26 +172,60 @@ class Handlers {
     // Отвечаем на callback чтобы убрать "часики"
     await ctx.answerCbQuery().catch(() => {});
 
-    // Маршрутизация callback
-    if (callbackData === 'start_survey') {
-      await this.startSurvey(ctx);
-    } else if (callbackData === 'about_survey') {
-      await this.showAboutSurvey(ctx);
-    } else if (callbackData === 'nav_back') {
-      await this.handleNavBack(ctx);
-    } else if (callbackData.endsWith('_done')) {
-      await this.handleMultipleChoiceDone(ctx, callbackData);
-    } else if (callbackData.startsWith('download_pdf_')) {
-      await this.handlePDFDownload(ctx);
-    } else if (callbackData === 'contact_request') {
-      await this.handleContactRequest(ctx);
-    } else if (callbackData === 'more_materials') {
-      await this.handleMoreMaterials(ctx);
-    } else if (callbackData.startsWith('admin_')) {
-      await this.handleAdminCallback(ctx, callbackData);
-    } else {
-      // Обработка ответов на вопросы анкеты
-      await this.handleSurveyAnswer(ctx, callbackData);
+    // ИСПРАВЛЕННАЯ маршрутизация callback
+    try {
+      // Основные действия
+      if (callbackData === 'start_survey') {
+        await this.startSurvey(ctx);
+      } else if (callbackData === 'about_survey') {
+        await this.showAboutSurvey(ctx);
+      } else if (callbackData === 'nav_back') {
+        await this.handleNavBack(ctx);
+      } else if (callbackData.endsWith('_done')) {
+        await this.handleMultipleChoiceDone(ctx, callbackData);
+      }
+      
+      // PDF и материалы - ИСПРАВЛЕНО
+      else if (callbackData.startsWith('download_pdf_')) {
+        await this.handlePDFDownload(ctx);
+      } else if (callbackData.startsWith('download_static_')) {
+        await this.pdfManager.handleDownloadRequest(ctx, callbackData);
+      }
+      
+      // Меню материалов - ИСПРАВЛЕНО
+      else if (callbackData === 'more_materials') {
+        await this.pdfManager.showMoreMaterials(ctx);
+      } else if (callbackData === 'show_all_programs') {
+        await this.pdfManager.showAllPrograms(ctx);
+      } else if (callbackData === 'close_menu') {
+        await this.pdfManager.closeMenu(ctx);
+      }
+      
+      // Заказы программ - НОВОЕ
+      else if (callbackData.startsWith('order_')) {
+        const programType = callbackData.replace('order_', '');
+        await this.pdfManager.showOrderDetails(ctx, programType);
+      } else if (callbackData === 'help_choose_program') {
+        await this.pdfManager.showProgramHelper(ctx);
+      }
+      
+      // Контакты
+      else if (callbackData === 'contact_request') {
+        await this.handleContactRequest(ctx);
+      }
+      
+      // Админ callback
+      else if (callbackData.startsWith('admin_')) {
+        await this.handleAdminCallback(ctx, callbackData);
+      } 
+      
+      // Ответы на вопросы анкеты (должно быть в конце)
+      else {
+        await this.handleSurveyAnswer(ctx, callbackData);
+      }
+    } catch (error) {
+      console.error('❌ Ошибка в handleCallback:', error);
+      await ctx.answerCbQuery('Произошла ошибка. Попробуйте еще раз.');
     }
   }
 
@@ -568,7 +602,7 @@ class Handlers {
     }
   }
 
-  // Обработка загрузки PDF
+  // ИСПРАВЛЕНО: Обработка загрузки PDF
   async handlePDFDownload(ctx) {
     try {
       await this.pdfManager.sendPDFFile(ctx);
@@ -591,21 +625,22 @@ class Handlers {
       `• Обучение эффективным техникам\n` +
       `• Поддержка и контроль результатов`;
 
-    await ctx.reply(message, {
-      parse_mode: 'Markdown',
-      ...Markup.inlineKeyboard([
-        [Markup.button.url('💬 Написать Анастасии', 'https://t.me/breathing_opros_bot')]
-      ])
-    });
-  }
-
-  // Обработка дополнительных материалов
-  async handleMoreMaterials(ctx) {
     try {
-      await this.pdfManager.showMoreMaterials(ctx);
+      await ctx.editMessageText(message, {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+          [Markup.button.url('💬 Написать Анастасии', 'https://t.me/breathing_opros_bot')],
+          [Markup.button.callback('🔙 Назад к материалам', 'more_materials')],
+          [Markup.button.callback('❌ Закрыть', 'close_menu')]
+        ])
+      });
     } catch (error) {
-      console.error('❌ Ошибка показа материалов:', error);
-      await ctx.reply('😔 Ошибка отображения материалов');
+      await ctx.reply(message, {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+          [Markup.button.url('💬 Написать Анастасии', 'https://t.me/breathing_opros_bot')]
+        ])
+      });
     }
   }
 
@@ -670,7 +705,8 @@ class Handlers {
     }
   }
 
-  // Общий обработчик ошибок
+ 
+// Общий обработчик ошибок
   async handleError(ctx, error) {
     console.error('💥 Обработка ошибки:', error);
     
