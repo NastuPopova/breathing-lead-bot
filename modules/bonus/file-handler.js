@@ -1,4 +1,4 @@
-// Файл: modules/bonus/file-handler.js
+// Файл: modules/bonus/file-handler.js - ФИНАЛЬНАЯ ИСПРАВЛЕННАЯ ВЕРСИЯ
 const fs = require('fs');
 const { Markup } = require('telegraf');
 const config = require('../../config');
@@ -59,7 +59,7 @@ class FileHandler {
     }
   }
 
-  // ИСПРАВЛЕНО: Отправка персонального PDF с правильными кнопками
+  // Отправка персонального PDF
   async sendPDFFile(ctx) {
     try {
       console.log(`📝 Генерация персонального гида для пользователя ${ctx.from.id}`);
@@ -92,7 +92,7 @@ class FileHandler {
       caption += `📱 Откройте файл в браузере для лучшего отображения.\n\n`;
       caption += `📞 *Больше техник у* [Анастасии Поповой](https://t.me/breathing_opros_bot)`;
 
-      // ИСПРАВЛЕНО: Отправляем PDF и затем показываем меню с кнопкой "Закрыть"
+      // Отправляем PDF без кнопки "Закрыть"
       await ctx.replyWithDocument(
         { source: filePath },
         {
@@ -112,7 +112,7 @@ class FileHandler {
     }
   }
 
-  // НОВЫЙ МЕТОД: Показ меню после отправки PDF
+  // Показ меню после отправки PDF
   async showPostPDFMenu(ctx) {
     const message = `✅ *Ваш персональный гид отправлен!*\n\n` +
       `🎯 *Что дальше?*\n` +
@@ -132,7 +132,7 @@ class FileHandler {
     });
   }
 
-  // ИСПРАВЛЕНО: Показ дополнительных материалов с правильной навигацией
+  // Показ дополнительных материалов
   async showMoreMaterials(ctx) {
     const isChildFlow = ctx.session?.analysisResult?.analysisType === 'child';
 
@@ -179,7 +179,99 @@ class FileHandler {
     }
   }
 
-  // ИСПРАВЛЕНО: Показ всех программ
+  // ИСПРАВЛЕНО: Отправка статичных PDF БЕЗ кнопки "Закрыть"
+  async sendAdditionalPDF(ctx, pdfType) {
+    try {
+      const material = this.additionalMaterials[pdfType];
+      if (!material) {
+        throw new Error(`Материал ${pdfType} не найден`);
+      }
+
+      console.log(`📤 Отправляем статичный PDF: ${material.fileName}`);
+
+      // Отправляем PDF без кнопки "Закрыть"
+      await ctx.replyWithDocument(
+        { url: material.url },
+        {
+          caption: `🎁 *${material.title}*\n\n${material.description}\n\n📞 Больше материалов у [Анастасии Поповой](https://t.me/breathing_opros_bot)`,
+          parse_mode: 'Markdown',
+          ...Markup.inlineKeyboard([
+            [Markup.button.callback('📞 Записаться на консультацию', 'contact_request')],
+            [Markup.button.callback('🎁 Другие материалы', 'more_materials')],
+            [Markup.button.url('💬 Написать Анастасии', 'https://t.me/breathing_opros_bot')]
+          ])
+        }
+      );
+
+      console.log(`✅ Статичный PDF отправлен: ${material.title}`);
+      
+      // Отправляем отдельное сообщение с кнопкой закрытия
+      await ctx.reply(
+        `📄 *PDF отправлен!*\n\nИзучите материал и начните практиковать.`,
+        {
+          parse_mode: 'Markdown',
+          ...Markup.inlineKeyboard([
+            [Markup.button.callback('❌ Закрыть это сообщение', 'close_menu')]
+          ])
+        }
+      );
+      
+    } catch (error) {
+      console.error('❌ Ошибка отправки статичного PDF:', error);
+      await ctx.reply('😔 Не удалось отправить PDF. Попробуйте позже.', {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+          [Markup.button.url('💬 Написать Анастасии', 'https://t.me/breathing_opros_bot')]
+        ])
+      });
+    }
+  }
+
+  // ИСПРАВЛЕННЫЙ: Закрытие меню с правильной обработкой разных типов сообщений
+  async closeMenu(ctx) {
+    console.log(`🗑️ Закрытие меню для пользователя ${ctx.from.id}`);
+    
+    try {
+      // Сначала пытаемся отредактировать сообщение
+      await ctx.editMessageText(
+        `✅ *Меню закрыто*\n\n` +
+        `💬 Если возникнут вопросы, обращайтесь к [Анастасии Поповой](https://t.me/breathing_opros_bot)\n\n` +
+        `🌬️ *Начните практиковать уже сегодня!*`,
+        {
+          parse_mode: 'Markdown',
+          reply_markup: { inline_keyboard: [] } // Убираем все кнопки
+        }
+      );
+      console.log('✅ Меню закрыто через editMessageText');
+      
+    } catch (editError) {
+      console.log('⚠️ Не удалось отредактировать сообщение, пробуем editMessageReplyMarkup:', editError.message);
+      
+      try {
+        // Если не удалось отредактировать текст, убираем только кнопки
+        await ctx.editMessageReplyMarkup({ inline_keyboard: [] });
+        console.log('✅ Кнопки удалены через editMessageReplyMarkup');
+        
+        // И отправляем отдельное сообщение о закрытии
+        await ctx.reply(
+          `✅ *Меню закрыто*\n\n💬 Вопросы? Пишите [Анастасии](https://t.me/breathing_opros_bot)`,
+          { parse_mode: 'Markdown' }
+        );
+        
+      } catch (markupError) {
+        console.log('⚠️ Не удалось убрать кнопки, отправляем новое сообщение:', markupError.message);
+        
+        // Если ничего не работает, отправляем новое сообщение
+        await ctx.reply(
+          `✅ *Меню закрыто*\n\n💬 Вопросы? Пишите [Анастасии Поповой](https://t.me/breathing_opros_bot)`,
+          { parse_mode: 'Markdown' }
+        );
+        console.log('✅ Отправлено новое сообщение о закрытии меню');
+      }
+    }
+  }
+
+  // Показ всех программ
   async showAllPrograms(ctx) {
     let message = `🌬️ *ВСЕ ПРОГРАММЫ ДЫХАТЕЛЬНЫХ ПРАКТИК*\n\n`;
 
@@ -234,67 +326,7 @@ class FileHandler {
     }
   }
 
-  // НОВЫЙ МЕТОД: Закрытие меню
-  async closeMenu(ctx) {
-    try {
-      await ctx.editMessageText(
-        `✅ *Спасибо за использование диагностики!*\n\n` +
-        `💬 Если возникнут вопросы, обращайтесь к [Анастасии Поповой](https://t.me/breathing_opros_bot)\n\n` +
-        `🌬️ *Начните практиковать уже сегодня!*`,
-        {
-          parse_mode: 'Markdown',
-          ...Markup.inlineKeyboard([
-            [Markup.button.url('💬 Написать Анастасии', 'https://t.me/breathing_opros_bot')]
-          ])
-        }
-      );
-    } catch (error) {
-      // Если не удалось отредактировать, отправляем новое сообщение
-      await ctx.reply(
-        `✅ *Меню закрыто*\n\n💬 Вопросы? Пишите [Анастасии](https://t.me/breathing_opros_bot)`,
-        { parse_mode: 'Markdown' }
-      );
-    }
-  }
-
-  // ИСПРАВЛЕНО: Отправка статичных PDF с правильными callback
-  async sendAdditionalPDF(ctx, pdfType) {
-    try {
-      const material = this.additionalMaterials[pdfType];
-      if (!material) {
-        throw new Error(`Материал ${pdfType} не найден`);
-      }
-
-      console.log(`📤 Отправляем статичный PDF: ${material.fileName}`);
-
-      await ctx.replyWithDocument(
-        { url: material.url },
-        {
-          caption: `🎁 *${material.title}*\n\n${material.description}\n\n📞 Больше материалов у [Анастасии Поповой](https://t.me/breathing_opros_bot)`,
-          parse_mode: 'Markdown',
-          ...Markup.inlineKeyboard([
-            [Markup.button.callback('📞 Записаться на консультацию', 'contact_request')],
-            [Markup.button.callback('🎁 Другие материалы', 'more_materials')],
-            [Markup.button.url('💬 Написать Анастасии', 'https://t.me/breathing_opros_bot')],
-            [Markup.button.callback('❌ Закрыть', 'close_menu')]
-          ])
-        }
-      );
-
-      console.log(`✅ Статичный PDF отправлен: ${material.title}`);
-    } catch (error) {
-      console.error('❌ Ошибка отправки статичного PDF:', error);
-      await ctx.reply('😔 Не удалось отправить PDF. Попробуйте позже.', {
-        parse_mode: 'Markdown',
-        ...Markup.inlineKeyboard([
-          [Markup.button.url('💬 Написать Анастасии', 'https://t.me/breathing_opros_bot')],
-          [Markup.button.callback('❌ Закрыть', 'close_menu')]
-        ])
-      });
-    }
-  }
-
-  // НОВЫЕ МЕТОДЫ: Обработка заказов программ
+  // Показ деталей программы
   async showOrderDetails(ctx, programType) {
     const programs = {
       starter: {
@@ -527,3 +559,4 @@ class FileHandler {
 }
 
 module.exports = FileHandler;
+
