@@ -1,4 +1,4 @@
-// Файл: modules/bonus/content-generator.js
+// Файл: modules/bonus/content-generator.js - ИСПРАВЛЕННАЯ ВЕРСИЯ
 const fs = require('fs');
 
 class ContentGenerator {
@@ -99,7 +99,7 @@ class ContentGenerator {
       }
     };
 
-    // Техники для детей
+    // ИСПРАВЛЕНО: Техники для детей с правильными проблемами
     this.childMasterTechniques = {
       hyperactivity: {
         name: 'Игровое дыхание "Воздушный шар"',
@@ -148,35 +148,111 @@ class ContentGenerator {
           'Выдохните через рот, как будто дуете на облака.',
           'Повторите 5-7 раз.'
         ]
+      },
+      // ДОБАВЛЕНО: Новые детские техники для других проблем
+      anxiety: {
+        name: 'Дыхание "Храбрый лев"',
+        problem: 'Тревожность',
+        duration: '4-5 минут',
+        result: 'Уверенность и спокойствие',
+        steps: [
+          'Сядьте как храбрый лев.',
+          'Глубоко вдохните через нос.',
+          'Выдохните с звуком "А-а-а", как лев.',
+          'Почувствуйте свою силу и храбрость.',
+          'Повторите 5-6 раз.'
+        ]
+      },
+      separation_anxiety: {
+        name: 'Дыхание "Мамино сердечко"',
+        problem: 'Страх разлуки',
+        duration: '3-4 минуты',
+        result: 'Чувство безопасности',
+        steps: [
+          'Положите руку на сердце.',
+          'Вдохните и представьте мамину любовь.',
+          'Выдохните и посылайте любовь маме.',
+          'Чувствуйте связь с мамой через дыхание.',
+          'Повторите 6-8 раз.'
+        ]
+      },
+      breathing_issues: {
+        name: 'Дыхание "Рыбка"',
+        problem: 'Проблемы с дыханием',
+        duration: '5-6 минут',
+        result: 'Улучшение дыхания',
+        steps: [
+          'Представьте, что вы рыбка в воде.',
+          'Медленно "плывите" и дышите носом.',
+          'Выдыхайте ртом, как рыбка пускает пузырики.',
+          'Плавайте спокойно и ровно дышите.',
+          'Повторите 7-10 раз.'
+        ]
       }
     };
   }
 
-  // Метод выбора техники
+  // ИСПРАВЛЕНО: Метод выбора техники с правильным маппингом проблем
   getMasterTechnique(analysisResult, surveyData) {
     const isChildFlow = analysisResult.analysisType === 'child';
     const primaryIssue = analysisResult.primaryIssue || 'chronic_stress';
+    
+    console.log(`🎯 Выбираем технику для: ${isChildFlow ? 'ребенка' : 'взрослого'}, проблема: ${primaryIssue}`);
+    
     const techniques = isChildFlow ? this.childMasterTechniques : this.masterTechniques;
-    return techniques[primaryIssue] || (isChildFlow ? this.childMasterTechniques.hyperactivity : this.masterTechniques.chronic_stress);
+    
+    // ИСПРАВЛЕНО: Правильный маппинг детских проблем
+    let selectedTechnique = techniques[primaryIssue];
+    
+    if (!selectedTechnique && isChildFlow) {
+      // Маппинг взрослых проблем на детские техники
+      const childMapping = {
+        'chronic_stress': 'hyperactivity',
+        'insomnia': 'sleep_problems',
+        'concentration_issues': 'concentration_issues',
+        'anxiety': 'anxiety',
+        'breathing_issues': 'breathing_issues'
+      };
+      
+      const mappedIssue = childMapping[primaryIssue];
+      if (mappedIssue && techniques[mappedIssue]) {
+        selectedTechnique = techniques[mappedIssue];
+        console.log(`🔄 Маппинг детской проблемы: ${primaryIssue} -> ${mappedIssue}`);
+      }
+    }
+    
+    // Fallback техники
+    if (!selectedTechnique) {
+      selectedTechnique = isChildFlow ? 
+        this.childMasterTechniques.hyperactivity : 
+        this.masterTechniques.chronic_stress;
+      console.log(`⚠️ Используем fallback технику для ${isChildFlow ? 'ребенка' : 'взрослого'}`);
+    }
+    
+    console.log(`✅ Выбрана техника: ${selectedTechnique.name}`);
+    return selectedTechnique;
   }
 
   // Генерация заголовка
   generatePersonalizedTitle(analysisResult, surveyData) {
     const isChildFlow = analysisResult.analysisType === 'child';
     const primaryIssue = analysisResult.primaryIssue || 'chronic_stress';
+    
     const problemMap = {
       chronic_stress: 'Антистресс',
       anxiety: 'От тревоги',
       insomnia: 'Для сна',
-      breathing_issues: 'Для легких',
+      breathing_issues: 'Для дыхания',
       high_pressure: 'Для давления',
       fatigue: 'Для энергии',
       weak_immunity: 'Для иммунитета',
       hyperactivity: 'Гиперактивность',
       sleep_problems: 'Детский сон',
       concentration_issues: 'Концентрация',
-      tantrums: 'От истерик'
+      tantrums: 'От капризов',
+      separation_anxiety: 'От страхов'
     };
+    
     const problem = problemMap[primaryIssue] || 'Здоровье';
     return isChildFlow
       ? `Дыхательный гид для ребенка: ${problem}`
@@ -193,18 +269,25 @@ class ContentGenerator {
 
   // Генерация плана на 3 дня
   generate3DayPlan(technique, isChildFlow, segment) {
-    const basePlan = [
+    const basePlan = isChildFlow ? [
+      `День 1: Познакомьте ребенка с игрой "${technique.name}". Практикуйте ${technique.duration}.`,
+      `День 2: Повторите игру утром и вечером, добавьте 1-2 цикла.`,
+      `День 3: Делайте технику когда ребенок расстроен или перед сном.`
+    ] : [
       `День 1: Ознакомьтесь с техникой "${technique.name}". Практикуйте ${technique.duration}.`,
       `День 2: Увеличьте количество повторений на 1-2 цикла.`,
       `День 3: Практикуйте утром и вечером для закрепления результата.`
     ];
+    
     if (segment === 'HOT_LEAD') {
-      basePlan.push('Срочно начните практику для быстрого эффекта!');
+      basePlan.push(isChildFlow ? 
+        'Начните играть с ребенком прямо сейчас!' : 
+        'Срочно начните практику для быстрого эффекта!');
     }
     return basePlan;
   }
 
-  // Генерация красивых названий файлов
+  // ИСПРАВЛЕНО: Генерация красивых названий файлов для детей
   generateBeautifulFileName(analysisResult, surveyData) {
     const isChildFlow = analysisResult.analysisType === 'child';
     const primaryIssue = analysisResult.primaryIssue || 'chronic_stress';
@@ -214,7 +297,10 @@ class ContentGenerator {
 
     if (isChildFlow) {
       fileNameParts.push('Детский_гид');
-      if (surveyData.child_age_detail) {
+      
+      // ИСПРАВЛЕНО: Правильное получение возраста ребенка
+      const childAge = surveyData.child_age_detail;
+      if (childAge) {
         const ageMap = {
           '3-4': '3-4_года',
           '5-6': '5-6_лет',
@@ -224,7 +310,7 @@ class ContentGenerator {
           '13-15': '13-15_лет',
           '16-17': '16-17_лет'
         };
-        fileNameParts.push(ageMap[surveyData.child_age_detail] || surveyData.child_age_detail);
+        fileNameParts.push(ageMap[childAge] || childAge.replace('-', '_'));
       }
     } else {
       fileNameParts.push('Дыхательный_гид');
@@ -239,6 +325,7 @@ class ContentGenerator {
       }
     }
 
+    // ИСПРАВЛЕНО: Правильный маппинг проблем для имени файла
     const problemMap = {
       chronic_stress: 'Антистресс',
       anxiety: 'От_тревоги',
@@ -250,7 +337,8 @@ class ContentGenerator {
       sleep_problems: 'Детский_сон',
       weak_immunity: 'Иммунитет',
       concentration_issues: 'Концентрация',
-      tantrums: 'От_капризов'
+      tantrums: 'От_капризов',
+      separation_anxiety: 'От_страхов'
     };
 
     if (problemMap[primaryIssue]) {
@@ -272,10 +360,12 @@ class ContentGenerator {
     const dateStr = `${today.getDate()}.${today.getMonth() + 1}`;
     fileNameParts.push(dateStr);
 
-    return fileNameParts.join('_').replace(/[^a-zA-Zа-яА-Я0-9._-]/g, '_');
+    const fileName = fileNameParts.join('_').replace(/[^a-zA-Zа-яА-Я0-9._-]/g, '_');
+    console.log(`📁 Сгенерировано имя файла: ${fileName}.html`);
+    return fileName;
   }
 
-  // Генерация персонализированного HTML
+  // ИСПРАВЛЕНО: Генерация персонализированного HTML с правильной обработкой детских файлов
   async generatePersonalizedHTML(userId, analysisResult, surveyData) {
     try {
       if (!fs.existsSync('./temp')) {
@@ -285,7 +375,8 @@ class ContentGenerator {
       const beautifulFileName = this.generateBeautifulFileName(analysisResult, surveyData);
       const filePath = `./temp/${beautifulFileName}.html`;
 
-      console.log(`✨ Создаем красивое название файла: ${beautifulFileName}.html`);
+      console.log(`✨ Создаем файл: ${beautifulFileName}.html для пользователя ${userId}`);
+      console.log(`📊 Тип анализа: ${analysisResult.analysisType}, проблема: ${analysisResult.primaryIssue}`);
 
       const technique = this.getMasterTechnique(analysisResult, surveyData);
       const title = this.generatePersonalizedTitle(analysisResult, surveyData);
@@ -296,6 +387,14 @@ class ContentGenerator {
       const cleanText = (text) => {
         return text.replace(/[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '');
       };
+
+      // ИСПРАВЛЕНО: Разные стили для детских и взрослых файлов
+      const backgroundGradient = isChildFlow 
+        ? 'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)'  // Детский теплый градиент
+        : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'; // Взрослый синий градиент
+
+      const headerColor = isChildFlow ? '#ff6b6b' : 'white';
+      const accentColor = isChildFlow ? '#4ecdc4' : '#1e90ff';
 
       let htmlContent = `
 <!DOCTYPE html>
@@ -318,9 +417,9 @@ class ContentGenerator {
       justify-content: center;
       margin-bottom: 30px;
       padding: 25px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: ${backgroundGradient};
       border-radius: 15px;
-      color: white;
+      color: ${headerColor};
       box-shadow: 0 4px 15px rgba(0,0,0,0.1);
     }
     .avatar {
@@ -328,7 +427,7 @@ class ContentGenerator {
       height: 80px;
       border-radius: 50%;
       margin-right: 20px;
-      border: 3px solid white;
+      border: 3px solid ${headerColor};
       object-fit: cover;
       box-shadow: 0 4px 8px rgba(0,0,0,0.3);
     }
@@ -337,18 +436,18 @@ class ContentGenerator {
     }
     .header-text h1 {
       margin: 0;
-      color: white;
+      color: ${headerColor};
       font-size: 24px;
       text-shadow: 0 2px 4px rgba(0,0,0,0.3);
     }
     .header-text .subtitle {
       margin: 5px 0 0 0;
-      color: rgba(255,255,255,0.9);
+      color: ${isChildFlow ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.9)'};
       font-size: 16px;
     }
     .header-text .author {
       margin: 8px 0 0 0;
-      color: rgba(255,255,255,0.8);
+      color: ${isChildFlow ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.8)'};
       font-size: 14px;
       font-style: italic;
     }
@@ -358,7 +457,29 @@ class ContentGenerator {
       margin-bottom: 20px;
       border-radius: 8px;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      ${isChildFlow ? 'border-left: 4px solid #4ecdc4;' : ''}
     }
+    .technique h3 {
+      color: ${accentColor};
+      ${isChildFlow ? 'font-size: 20px;' : ''}
+    }
+    .plan {
+      background: ${isChildFlow ? '#fff5f5' : '#f0f8ff'};
+      padding: 15px;
+      border-radius: 8px;
+      border-left: 4px solid ${accentColor};
+    }
+    ${isChildFlow ? `
+    .child-highlight {
+      background: linear-gradient(90deg, #ffeaa7, #fab1a0);
+      padding: 10px;
+      border-radius: 8px;
+      margin: 10px 0;
+      text-align: center;
+      font-weight: bold;
+      color: #2d3436;
+    }
+    ` : ''}
     @media (max-width: 600px) {
       .header-with-avatar {
         flex-direction: column;
@@ -371,7 +492,7 @@ class ContentGenerator {
       }
     }
     a {
-      color: #1e90ff;
+      color: ${accentColor};
       text-decoration: none;
       font-weight: bold;
     }
@@ -387,16 +508,8 @@ class ContentGenerator {
       padding: 10px 0;
     }
     ul li:before {
-      content: "✔ ";
-      color: #1e90ff;
-    }
-    .technique h3 {
-      color: #1e90ff;
-    }
-    .plan {
-      background: #f0f8ff;
-      padding: 15px;
-      border-radius: 8px;
+      content: "${isChildFlow ? '🎮 ' : '✔ '}";
+      color: ${accentColor};
     }
   </style>
 </head>
@@ -409,18 +522,21 @@ class ContentGenerator {
     <div class="header-text">
       <h1>${cleanText(title)}</h1>
       <div class="subtitle">${cleanText(subtitle)}</div>
-      <div class="author">👩‍⚕️ Персональная программа от Анастасии Поповой</div>
+      <div class="author">${isChildFlow ? '👩‍⚕️ Детский специалист' : '👩‍⚕️ Персональная программа'} от Анастасии Поповой</div>
     </div>
   </div>
+  
+  ${isChildFlow ? '<div class="child-highlight">🎁 Специально для вашего ребенка! 🎁</div>' : ''}
+  
   <div class="section">
-    <h3>🎯 Ваша персональная техника дыхания готова!</h3>
-    <p>Эта техника была подобрана специально под ваш профиль и основные проблемы.</p>
+    <h3>${isChildFlow ? '🎮 Игровая техника готова!' : '🎯 Ваша персональная техника готова!'}</h3>
+    <p>${isChildFlow ? 'Эта игровая техника была подобрана специально для вашего ребенка.' : 'Эта техника была подобрана специально под ваш профиль и основные проблемы.'}</p>
     <div class="technique">
-      <h3>✨ Техника: ${cleanText(technique.name)}</h3>
-      <p><strong>Проблема:</strong> ${cleanText(technique.problem)}</p>
+      <h3>${isChildFlow ? '🎲 Игра:' : '✨ Техника:'} ${cleanText(technique.name)}</h3>
+      <p><strong>${isChildFlow ? 'Помогает при:' : 'Проблема:'}</strong> ${cleanText(technique.problem)}</p>
       <p><strong>Время:</strong> ${cleanText(technique.duration)}</p>
       <p><strong>Результат:</strong> ${cleanText(technique.result)}</p>
-      <h4>Пошаговая инструкция:</h4>
+      <h4>${isChildFlow ? 'Как играть с ребенком:' : 'Пошаговая инструкция:'}</h4>
       <ul>
         ${technique.steps.map(step => `<li>${cleanText(step)}</li>`).join('')}
       </ul>
@@ -432,34 +548,46 @@ class ContentGenerator {
       </ul>
     </div>
   </div>
+  
   <div class="section cta">
-    <h3>📞 ХОТИТЕ БОЛЬШЕ ТЕХНИК?</h3>
-    <p>Это только 1 из 15+ техник в моей авторской системе!</p>
-    <p>На персональной консультации подберем полную программу под вашу ситуацию.</p>
-    <p><strong>👩‍⚕️ <a href="https://t.me/breathing_opros_bot">Анастасия Попова</a></strong><br>Эксперт по дыхательным практикам</p>
+    <h3>${isChildFlow ? '🤝 ПОМОЖЕМ ВАШЕМУ РЕБЕНКУ!' : '📞 ХОТИТЕ БОЛЬШЕ ТЕХНИК?'}</h3>
+    <p>${isChildFlow ? 
+      'Ваш ребенок заслуживает быть здоровым и счастливым!' : 
+      'Это только 1 из техник в моей авторской системе!'}</p>
+    <p>${isChildFlow ? 
+      'На консультации научим ребенка дышать правильно, быть спокойным и уверенным в себе.' : 
+      'На персональной консультации подберем полную программу под вашу ситуацию.'}</p>
+    <p><strong>👩‍⚕️ <a href="https://t.me/breathing_opros_bot">Анастасия Попова</a></strong><br>${isChildFlow ? 'Помогаю детям и родителям' : 'Эксперт по дыхательным практикам'}</p>
     <p><a href="https://t.me/breathing_opros_bot">💬 Записаться на консультацию</a></p>
     <p><a href="https://t.me/breathing_opros_bot">📞 Задать вопрос</a></p>
-    <p>💝 Консультация поможет: подобрать техники под вашу проблему • составить план на 30 дней • отследить прогресс • ответить на все вопросы</p>
+    <p>💝 ${isChildFlow ? 
+      'Вместе мы поможем вашему малышу: 🌟 быть спокойнее 🌟 лучше спать 🌟 увереннее себя чувствовать 🌟 радоваться каждому дню!' : 
+      'Консультация поможет: подобрать техники под вашу проблему • составить план на 30 дней • отследить прогресс • ответить на все вопросы'}</p>
   </div>
+  
   <div class="footer">
-    <p>Создано специально для вас • ${new Date().toLocaleDateString('ru-RU')}</p>
-    <p>Дыхательные практики дополняют, но не заменяют медицинское лечение</p>
-    <p>🌬️ Начните прямо сейчас - ваше дыхание изменит вашу жизнь!</p>
+    <p>Создано специально для ${isChildFlow ? 'вашего ребенка' : 'вас'} • ${new Date().toLocaleDateString('ru-RU')}</p>
+    <p>${isChildFlow ? 
+      'Дыхательные игры помогают детям развиваться гармонично' : 
+      'Дыхательные практики дополняют, но не заменяют медицинское лечение'}</p>
+    <p>🌬️ ${isChildFlow ? 
+      'Начните играть с ребенком уже сегодня - подарите ему здоровое будущее!' : 
+      'Начните прямо сейчас - ваше дыхание изменит вашу жизнь!'}</p>
   </div>
 </body>
 </html>
 `;
 
       fs.writeFileSync(filePath, htmlContent, 'utf8');
-      console.log(`✅ Красивый HTML создан: ${filePath}`);
+      console.log(`✅ ${isChildFlow ? 'Детский' : 'Взрослый'} HTML создан: ${filePath}`);
       return filePath;
     } catch (error) {
       console.error('❌ Ошибка генерации HTML:', {
         error: error.message,
         stack: error.stack,
         userId,
-        analysisResult,
-        surveyData
+        analysisResult: analysisResult.analysisType,
+        primaryIssue: analysisResult.primaryIssue
       });
       throw error;
     }
@@ -467,3 +595,11 @@ class ContentGenerator {
 }
 
 module.exports = ContentGenerator;
+
+
+
+
+
+
+
+                                                                            
