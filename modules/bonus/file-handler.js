@@ -1,4 +1,4 @@
-// Файл: modules/bonus/file-handler.js - ФИНАЛЬНАЯ ИСПРАВЛЕННАЯ ВЕРСИЯ
+// Файл: modules/bonus/file-handler.js - ИСПРАВЛЕННАЯ ВЕРСИЯ
 const fs = require('fs');
 const { Markup } = require('telegraf');
 const config = require('../../config');
@@ -7,16 +7,16 @@ class FileHandler {
   constructor(contentGenerator) {
     this.contentGenerator = contentGenerator;
 
-    // Статичные PDF
+    // ИСПРАВЛЕНО: Обновленные URL для статичных PDF
     this.additionalMaterials = {
       adult_antistress: {
-        url: 'https://raw.githubusercontent.com/NastuPopova/breathing-lead-bot/main/assets/pdf/Базовый_гид_Антистресс_дыхание_взрослые.pdf',
+        url: 'https://github.com/NastuPopova/breathing-lead-bot/raw/main/assets/pdf/Базовый_гид_Антистресс_дыхание_взрослые.pdf',
         title: '📄 Базовый гид "Антистресс дыхание"',
         description: 'Универсальные техники для снятия стресса для взрослых',
         fileName: 'Базовый_гид_Антистресс_дыхание_взрослые.pdf'
       },
       child_games: {
-        url: 'https://raw.githubusercontent.com/NastuPopova/breathing-lead-bot/main/assets/pdf/Базовый_гид_Дыхательные_игры_дети.pdf',
+        url: 'https://github.com/NastuPopova/breathing-lead-bot/raw/main/assets/pdf/Базовый_гид_Дыхательные_игры_дети.pdf',
         title: '📄 Базовый гид "Дыхательные игры"',
         description: 'Игровые техники для детей всех возрастов',
         fileName: 'Базовый_гид_Дыхательные_игры_дети.pdf'
@@ -162,7 +162,7 @@ class FileHandler {
         : Markup.button.callback('📄 PDF: Антистресс дыхание', 'download_static_adult_antistress')
       ],
       [Markup.button.callback('📋 Все программы', 'show_all_programs')],
-      [Markup.button.callback('❌ Закрыть', 'close_menu')]
+      [Markup.button.callback('🗑️ Удалить это меню', 'delete_menu')]
     ];
 
     try {
@@ -179,7 +179,7 @@ class FileHandler {
     }
   }
 
-  // ИСПРАВЛЕНО: Отправка статичных PDF БЕЗ кнопки "Закрыть"
+  // ИСПРАВЛЕНО: Отправка статичных PDF с правильными URL
   async sendAdditionalPDF(ctx, pdfType) {
     try {
       const material = this.additionalMaterials[pdfType];
@@ -188,87 +188,85 @@ class FileHandler {
       }
 
       console.log(`📤 Отправляем статичный PDF: ${material.fileName}`);
+      console.log(`🔗 URL: ${material.url}`);
 
-      // Отправляем PDF без кнопки "Закрыть"
+      // ИСПРАВЛЕНО: Используем InputFile.fromURL для корректной загрузки
       await ctx.replyWithDocument(
-        { url: material.url },
+        { url: material.url, filename: material.fileName },
         {
           caption: `🎁 *${material.title}*\n\n${material.description}\n\n📞 Больше материалов у [Анастасии Поповой](https://t.me/breathing_opros_bot)`,
           parse_mode: 'Markdown',
           ...Markup.inlineKeyboard([
             [Markup.button.callback('📞 Записаться на консультацию', 'contact_request')],
             [Markup.button.callback('🎁 Другие материалы', 'more_materials')],
-            [Markup.button.url('💬 Написать Анастасии', 'https://t.me/breathing_opros_bot')]
+            [Markup.button.url('💬 Написать Анастасии', 'https://t.me/breathing_opros_bot')],
+            [Markup.button.callback('🗑️ Удалить это меню', 'delete_menu')]
           ])
         }
       );
 
       console.log(`✅ Статичный PDF отправлен: ${material.title}`);
       
-      // Отправляем отдельное сообщение с кнопкой закрытия
-      await ctx.reply(
-        `📄 *PDF отправлен!*\n\nИзучите материал и начните практиковать.`,
-        {
-          parse_mode: 'Markdown',
-          ...Markup.inlineKeyboard([
-            [Markup.button.callback('❌ Закрыть это сообщение', 'close_menu')]
-          ])
-        }
-      );
-      
     } catch (error) {
       console.error('❌ Ошибка отправки статичного PDF:', error);
-      await ctx.reply('😔 Не удалось отправить PDF. Попробуйте позже.', {
+      
+      // Fallback - отправляем ссылку на скачивание
+      const material = this.additionalMaterials[pdfType];
+      const fallbackMessage = `📄 *${material ? material.title : 'PDF материал'}*\n\n` +
+        `К сожалению, не удалось отправить файл автоматически.\n\n` +
+        `📥 [Скачайте PDF по этой ссылке](${material ? material.url : '#'})\n\n` +
+        `📞 Вопросы? Пишите [Анастасии Поповой](https://t.me/breathing_opros_bot)`;
+
+      await ctx.reply(fallbackMessage, {
         parse_mode: 'Markdown',
         ...Markup.inlineKeyboard([
-          [Markup.button.url('💬 Написать Анастасии', 'https://t.me/breathing_opros_bot')]
+          [Markup.button.url('📥 Скачать PDF', material ? material.url : 'https://t.me/breathing_opros_bot')],
+          [Markup.button.url('💬 Написать Анастасии', 'https://t.me/breathing_opros_bot')],
+          [Markup.button.callback('🗑️ Удалить это меню', 'delete_menu')]
         ])
       });
     }
   }
 
-  // ИСПРАВЛЕННЫЙ: Закрытие меню с правильной обработкой разных типов сообщений
+  // ИСПРАВЛЕНО: Полное удаление сообщений вместо закрытия
   async closeMenu(ctx) {
-    console.log(`🗑️ Закрытие меню для пользователя ${ctx.from.id}`);
+    console.log(`🗑️ Полное удаление меню для пользователя ${ctx.from.id}`);
     
     try {
-      // Сначала пытаемся отредактировать сообщение
-      await ctx.editMessageText(
-        `✅ *Меню закрыто*\n\n` +
-        `💬 Если возникнут вопросы, обращайтесь к [Анастасии Поповой](https://t.me/breathing_opros_bot)\n\n` +
-        `🌬️ *Начните практиковать уже сегодня!*`,
-        {
-          parse_mode: 'Markdown',
-          reply_markup: { inline_keyboard: [] } // Убираем все кнопки
-        }
-      );
-      console.log('✅ Меню закрыто через editMessageText');
+      // Пытаемся удалить сообщение полностью
+      await ctx.deleteMessage();
+      console.log('✅ Сообщение полностью удалено');
       
-    } catch (editError) {
-      console.log('⚠️ Не удалось отредактировать сообщение, пробуем editMessageReplyMarkup:', editError.message);
+    } catch (deleteError) {
+      console.log('⚠️ Не удалось удалить сообщение:', deleteError.message);
       
       try {
-        // Если не удалось отредактировать текст, убираем только кнопки
-        await ctx.editMessageReplyMarkup({ inline_keyboard: [] });
-        console.log('✅ Кнопки удалены через editMessageReplyMarkup');
-        
-        // И отправляем отдельное сообщение о закрытии
-        await ctx.reply(
-          `✅ *Меню закрыто*\n\n💬 Вопросы? Пишите [Анастасии](https://t.me/breathing_opros_bot)`,
-          { parse_mode: 'Markdown' }
+        // Если не удалось удалить, пытаемся отредактировать
+        await ctx.editMessageText(
+          `✅ *Меню закрыто*\n\n💬 Вопросы? Пишите [Анастасии Поповой](https://t.me/breathing_opros_bot)`,
+          {
+            parse_mode: 'Markdown',
+            reply_markup: { inline_keyboard: [] }
+          }
         );
+        console.log('✅ Сообщение отредактировано (удаление невозможно)');
         
-      } catch (markupError) {
-        console.log('⚠️ Не удалось убрать кнопки, отправляем новое сообщение:', markupError.message);
+      } catch (editError) {
+        console.log('⚠️ Не удалось отредактировать, отправляем новое сообщение:', editError.message);
         
-        // Если ничего не работает, отправляем новое сообщение
+        // Последний fallback
         await ctx.reply(
           `✅ *Меню закрыто*\n\n💬 Вопросы? Пишите [Анастасии Поповой](https://t.me/breathing_opros_bot)`,
           { parse_mode: 'Markdown' }
         );
-        console.log('✅ Отправлено новое сообщение о закрытии меню');
+        console.log('✅ Отправлено новое сообщение о закрытии');
       }
     }
+  }
+
+  // НОВЫЙ МЕТОД: Удаление меню (алиас для closeMenu для совместимости)
+  async deleteMenu(ctx) {
+    return await this.closeMenu(ctx);
   }
 
   // Показ всех программ
@@ -310,7 +308,7 @@ class FileHandler {
       [Markup.button.callback('🎥 Видеокурс', 'order_videocourse')],
       [Markup.button.callback('🤔 Помочь выбрать', 'help_choose_program')],
       [Markup.button.callback('🔙 К материалам', 'more_materials')],
-      [Markup.button.callback('❌ Закрыть', 'close_menu')]
+      [Markup.button.callback('🗑️ Удалить меню', 'delete_menu')]
     ];
 
     try {
@@ -392,7 +390,7 @@ class FileHandler {
       [Markup.button.callback(`✅ Заказать ${program.title.toLowerCase()}`, `contact_request`)],
       [Markup.button.url('💬 Написать Анастасии', 'https://t.me/breathing_opros_bot')],
       [Markup.button.callback('🔙 К программам', 'show_all_programs')],
-      [Markup.button.callback('❌ Закрыть', 'close_menu')]
+      [Markup.button.callback('🗑️ Удалить меню', 'delete_menu')]
     ];
 
     try {
@@ -437,7 +435,7 @@ class FileHandler {
       ],
       [Markup.button.url('💬 Написать Анастасии', 'https://t.me/breathing_opros_bot')],
       [Markup.button.callback('🔙 К программам', 'show_all_programs')],
-      [Markup.button.callback('❌ Закрыть', 'close_menu')]
+      [Markup.button.callback('🗑️ Удалить меню', 'delete_menu')]
     ];
 
     try {
@@ -485,7 +483,7 @@ class FileHandler {
       ...Markup.inlineKeyboard([
         [Markup.button.url('💬 Написать Анастасии', 'https://t.me/breathing_opros_bot')],
         [Markup.button.callback('📞 Записаться на консультацию', 'contact_request')],
-        [Markup.button.callback('❌ Закрыть', 'close_menu')]
+        [Markup.button.callback('🗑️ Удалить меню', 'delete_menu')]
       ])
     });
   }
@@ -559,4 +557,3 @@ class FileHandler {
 }
 
 module.exports = FileHandler;
-
