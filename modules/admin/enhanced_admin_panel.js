@@ -637,7 +637,7 @@ class EnhancedAdminPanel {
   // ===== ФОРМАТИРОВАНИЕ =====
 
   getLastLeadTime() {
-    const leds = Object.values(this.adminNotifications.leadDataStorage || {});
+    const leadsData = Object.values(this.adminNotifications.leadDataStorage || {});
     if (!leads.length) return 'Нет данных';
     
     const latest = leads.reduce((latest, lead) => {
