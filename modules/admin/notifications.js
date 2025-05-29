@@ -1,6 +1,3 @@
-// Файл: modules/admin/notifications.js
-// Система уведомлений администратора о новых лидах
-
 const { Markup } = require('telegraf');
 const config = require('../../config');
 
@@ -56,8 +53,12 @@ class AdminNotificationSystem {
   async notifyNewLead(userData) {
     if (!this.adminId || !this.enableNotifications) {
       console.log('⚠️ Уведомления администратора отключены или ADMIN_ID не настроен');
+      console.log(`   adminId: ${this.adminId}`);
+      console.log(`   enableNotifications: ${this.enableNotifications}`);
       return;
     }
+
+    console.log(`📤 Отправляем уведомление админу ${this.adminId} о лиде ${userData.userInfo?.telegram_id}`);
 
     try {
       // Сбрасываем статистику если новый день
@@ -73,13 +74,19 @@ class AdminNotificationSystem {
       const message = this.generateLeadNotification(userData);
       const keyboard = this.generateAdminKeyboard(userData);
 
+      // Логирование перед отправкой
+      console.log('📨 Отправляем сообщение админу...');
+      console.log(`   Message length: ${message?.length || 0}`);
+      console.log(`   User ID: ${userData.userInfo?.telegram_id}`);
+      console.log(`   Segment: ${userData.analysisResult?.segment || 'UNKNOWN'}`);
+
       // Отправляем уведомление
       await this.bot.telegram.sendMessage(this.adminId, message, {
         parse_mode: 'Markdown',
         ...keyboard
       });
 
-      console.log(`✅ Уведомление о лиде отправлено администратору: ${userData.userInfo?.telegram_id}`);
+      console.log('✅ Сообщение админу отправлено успешно');
       
       // Если это горячий лид, отправляем дополнительное срочное уведомление
       if (userData.analysisResult?.segment === 'HOT_LEAD') {
@@ -88,6 +95,12 @@ class AdminNotificationSystem {
 
     } catch (error) {
       console.error('❌ Ошибка отправки уведомления администратору:', error);
+      console.error('   Admin ID:', this.adminId);
+      console.error('   Message length:', message?.length || 'unknown');
+      console.error('   Error details:', {
+        message: error.message,
+        stack: error.stack
+      });
     }
   }
 
@@ -97,6 +110,8 @@ class AdminNotificationSystem {
   async notifySurveyResults(userData) {
     if (!this.adminId || !this.enableNotifications) {
       console.log('⚠️ Уведомления администратора отключены или ADMIN_ID не настроен');
+      console.log(`   adminId: ${this.adminId}`);
+      console.log(`   enableNotifications: ${this.enableNotifications}`);
       return;
     }
 
@@ -175,6 +190,11 @@ class AdminNotificationSystem {
       // Время
       message += `\n🕐 *Время:* ${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}`;
 
+      // Логирование перед отправкой
+      console.log('📨 Отправляем результаты анкетирования админу...');
+      console.log(`   User ID: ${userInfo?.telegram_id}`);
+      console.log(`   Message length: ${message.length}`);
+
       // Отправляем сообщение только администратору
       await this.bot.telegram.sendMessage(this.adminId, message, {
         parse_mode: 'Markdown',
@@ -188,6 +208,12 @@ class AdminNotificationSystem {
 
     } catch (error) {
       console.error('❌ Ошибка отправки результатов анкетирования администратору:', error);
+      console.error('   Admin ID:', this.adminId);
+      console.error('   Message length:', message?.length || 'unknown');
+      console.error('   Error details:', {
+        message: error.message,
+        stack: error.stack
+      });
     }
   }
 
@@ -355,6 +381,9 @@ class AdminNotificationSystem {
         `🎯 Балл: ${userData.analysisResult?.scores?.total || 0}/100\n\n` +
         `🔔 Уведомление #${this.dailyStats.hotLeads}`;
 
+      console.log('📨 Отправляем срочное уведомление о горячем лиде...');
+      console.log(`   User ID: ${userData.userInfo?.telegram_id}`);
+
       await this.bot.telegram.sendMessage(this.adminId, urgentMessage, {
         parse_mode: 'Markdown',
         ...Markup.inlineKeyboard([
@@ -363,17 +392,24 @@ class AdminNotificationSystem {
         ])
       });
 
+      console.log('✅ Срочное уведомление отправлено успешно');
+
     } catch (error) {
       console.error('❌ Ошибка отправки срочного уведомления:', error);
+      console.error('   Admin ID:', this.adminId);
+      console.error('   Error details:', {
+        message: error.message,
+        stack: error.stack
+      });
     }
   }
 
   /**
-   * ИСПРАВЛЕННЫЙ МЕТОД: Обрабатывает нажатия на кнопки администратора
+   * Обрабатывает нажатия на кнопки администратора
    */
   async handleAdminCallback(ctx, action, targetUserId) {
     try {
-      console.log('🔍 Admin callback:', { action, targetUserId }); // Отладка
+      console.log('🔍 Admin callback:', { action, targetUserId });
 
       switch (action) {
         case 'urgent_call':
@@ -451,12 +487,10 @@ class AdminNotificationSystem {
           );
           break;
 
-        // НОВЫЙ ОБРАБОТЧИК: Изменение сегмента
         case 'change_segment':
           await this.showSegmentChangeMenu(ctx, targetUserId);
           break;
 
-        // НОВЫЕ ОБРАБОТЧИКИ для работы с сегментами
         default:
           if (action.startsWith('set_segment_')) {
             await this.handleSegmentChange(ctx, action, targetUserId);
@@ -470,12 +504,16 @@ class AdminNotificationSystem {
 
     } catch (error) {
       console.error('❌ Ошибка обработки admin callback:', error);
+      console.error('   Error details:', {
+        message: error.message,
+        stack: error.stack
+      });
       await ctx.answerCbQuery('Ошибка выполнения действия');
     }
   }
 
   /**
-   * НОВЫЙ МЕТОД: Показ меню выбора сегмента
+   * Показ меню выбора сегмента
    */
   async showSegmentChangeMenu(ctx, targetUserId) {
     try {
@@ -506,12 +544,16 @@ class AdminNotificationSystem {
 
     } catch (error) {
       console.error('❌ Ошибка showSegmentChangeMenu:', error);
+      console.error('   Error details:', {
+        message: error.message,
+        stack: error.stack
+      });
       await ctx.answerCbQuery('Ошибка показа меню сегментов');
     }
   }
 
   /**
-   * НОВЫЙ МЕТОД: Обработка изменения сегмента
+   * Обработка изменения сегмента
    */
   async handleSegmentChange(ctx, action, targetUserId) {
     try {
@@ -551,12 +593,16 @@ class AdminNotificationSystem {
 
     } catch (error) {
       console.error('❌ Ошибка handleSegmentChange:', error);
+      console.error('   Error details:', {
+        message: error.message,
+        stack: error.stack
+      });
       await ctx.answerCbQuery('Ошибка изменения сегмента');
     }
   }
 
   /**
-   * НОВЫЙ МЕТОД: Возврат к информации о лиде
+   * Возврат к информации о лиде
    */
   async backToLeadInfo(ctx, targetUserId) {
     try {
@@ -590,12 +636,16 @@ class AdminNotificationSystem {
 
     } catch (error) {
       console.error('❌ Ошибка backToLeadInfo:', error);
+      console.error('   Error details:', {
+        message: error.message,
+        stack: error.stack
+      });
       await ctx.answerCbQuery('Ошибка возврата к информации о лиде');
     }
   }
 
   /**
-   * НОВЫЙ МЕТОД: Рекомендации по действиям для сегмента
+   * Рекомендации по действиям для сегмента
    */
   getSegmentActionRecommendation(segment) {
     const recommendations = {
@@ -609,7 +659,7 @@ class AdminNotificationSystem {
   }
 
   /**
-   * НОВЫЙ МЕТОД: Получение отображаемого имени сегмента
+   * Получение отображаемого имени сегмента
    */
   getSegmentDisplayName(segment) {
     const segmentNames = {
@@ -624,7 +674,7 @@ class AdminNotificationSystem {
   }
 
   /**
-   * НОВЫЙ МЕТОД: Логирование изменений сегмента
+   * Логирование изменений сегмента
    */
   logSegmentChange(userId, oldSegment, newSegment, admin) {
     const logEntry = {
@@ -641,13 +691,10 @@ class AdminNotificationSystem {
     };
 
     console.log('📝 ИЗМЕНЕНИЕ СЕГМЕНТА:', JSON.stringify(logEntry, null, 2));
-    
-    // Здесь можно добавить сохранение в базу данных
-    // await this.saveSegmentChangeLog(logEntry);
   }
 
   /**
-   * НОВЫЙ МЕТОД: Срочное уведомление об изменении сегмента на HOT_LEAD
+   * Срочное уведомление об изменении сегмента на HOT_LEAD
    */
   async sendUrgentSegmentChangeNotification(userId, oldSegment, newSegment) {
     try {
@@ -660,6 +707,9 @@ class AdminNotificationSystem {
         `⚡ *Лид повышен до ГОРЯЧЕГО!*\n` +
         `Требуется связаться в течение 2 часов.`;
 
+      console.log('📨 Отправляем срочное уведомление об изменении сегмента...');
+      console.log(`   User ID: ${userId}`);
+
       await this.bot.telegram.sendMessage(this.adminId, message, {
         parse_mode: 'Markdown',
         ...Markup.inlineKeyboard([
@@ -668,8 +718,14 @@ class AdminNotificationSystem {
         ])
       });
 
+      console.log('✅ Срочное уведомление об изменении сегмента отправлено успешно');
+
     } catch (error) {
       console.error('❌ Ошибка отправки срочного уведомления об изменении сегмента:', error);
+      console.error('   Error details:', {
+        message: error.message,
+        stack: error.stack
+      });
     }
   }
 
@@ -793,6 +849,10 @@ class AdminNotificationSystem {
 
       message += `\n🕐 *Дата анкетирования:* ${new Date(leadData.timestamp || Date.now()).toLocaleString('ru-RU')}`;
 
+      console.log('📨 Отправляем полную анкету админу...');
+      console.log(`   User ID: ${targetUserId}`);
+      console.log(`   Message length: ${message.length}`);
+
       await ctx.reply(message, { 
         parse_mode: 'Markdown',
         ...Markup.inlineKeyboard([
@@ -803,6 +863,12 @@ class AdminNotificationSystem {
 
     } catch (error) {
       console.error('❌ Ошибка отправки полной анкеты:', error);
+      console.error('   Admin ID:', this.adminId);
+      console.error('   Message length:', message?.length || 'unknown');
+      console.error('   Error details:', {
+        message: error.message,
+        stack: error.stack
+      });
       await ctx.reply(
         `😔 Произошла ошибка при получении данных анкеты.\n\n` +
         `📞 Свяжитесь с пользователем напрямую: ${targetUserId}`,
@@ -820,7 +886,10 @@ class AdminNotificationSystem {
    * Отправляет ежедневную сводку администратору
    */
   async sendDailySummary() {
-    if (!this.adminId) return;
+    if (!this.adminId) {
+      console.log('⚠️ ADMIN_ID не настроен, ежедневная сводка не отправлена');
+      return;
+    }
 
     try {
       const message = `📊 *ЕЖЕДНЕВНАЯ СВОДКА*\n\n` +
@@ -833,6 +902,10 @@ class AdminNotificationSystem {
         `💡 *Конверсия в горячие лиды:* ${this.dailyStats.totalLeads > 0 ? Math.round((this.dailyStats.hotLeads / this.dailyStats.totalLeads) * 100) : 0}%\n\n` +
         `📈 Хорошая работа за день!`;
 
+      console.log('📨 Отправляем ежедневную сводку админу...');
+      console.log(`   Admin ID: ${this.adminId}`);
+      console.log(`   Message length: ${message.length}`);
+
       await this.bot.telegram.sendMessage(this.adminId, message, {
         parse_mode: 'Markdown',
         ...Markup.inlineKeyboard([
@@ -841,8 +914,16 @@ class AdminNotificationSystem {
         ])
       });
 
+      console.log('✅ Ежедневная сводка отправлена успешно');
+
     } catch (error) {
       console.error('❌ Ошибка отправки ежедневной сводки:', error);
+      console.error('   Admin ID:', this.adminId);
+      console.error('   Message length:', message?.length || 'unknown');
+      console.error('   Error details:', {
+        message: error.message,
+        stack: error.stack
+      });
     }
   }
 
@@ -887,7 +968,7 @@ class AdminNotificationSystem {
   }
 
   /**
-   * НОВЫЕ ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ: Хранение данных лидов в памяти
+   * Хранение данных лидов в памяти
    */
   getStoredSegment(userId) {
     if (!this.segmentStorage) this.segmentStorage = {};
@@ -940,7 +1021,7 @@ class AdminNotificationSystem {
   }
 
   /**
-   * Очистка старых данных (рекомендуется вызывать периодически)
+   * Очистка старых данных
    */
   cleanupOldData(daysToKeep = 7) {
     if (!this.leadDataStorage) return;
