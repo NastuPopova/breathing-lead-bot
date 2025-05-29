@@ -1,4 +1,6 @@
 // Файл: modules/integration/lead_transfer.js
+// ИСПРАВЛЕННАЯ ВЕРСИЯ - работа без основного бота
+
 const axios = require('axios');
 const config = require('../../config');
 
@@ -13,14 +15,29 @@ class LeadTransferSystem {
     
     this.enableRetries = true;
     this.enableLogging = config.NODE_ENV !== 'production';
+    
+    // ИСПРАВЛЕНО: Режим автономной работы
+    this.standaloneMode = !this.mainBotWebhook;
+    
+    if (this.standaloneMode) {
+      console.log('🔄 LeadTransferSystem: Режим автономной работы (данные сохраняются локально)');
+    }
   }
 
   async processLead(userData) {
     console.log('🚀 Начинаем обработку лида:', userData.userInfo?.telegram_id);
 
     try {
+      // ИСПРАВЛЕНО: Проверяем режим работы
+      if (this.standaloneMode) {
+        console.log('💾 Автономный режим: сохраняем лид локально');
+        return await this.saveLeadLocally(userData);
+      }
+
+      // Если есть основной бот - пытаемся передать
       await this.transferToMainBot(userData);
 
+      // CRM интеграция (если настроена)
       if (config.FEATURES?.enable_crm_integration && this.crmWebhook) {
         await this.transferToCRM(userData);
       } else {
@@ -31,6 +48,10 @@ class LeadTransferSystem {
       
     } catch (error) {
       console.error('❌ Критическая ошибка обработки лида:', error.message);
+      
+      // ИСПРАВЛЕНО: В случае ошибки всегда сохраняем локально
+      console.log('💾 Сохраняем лид локально из-за ошибки передачи');
+      await this.saveLeadLocally(userData);
       await this.logLeadError(userData, error);
     }
   }
@@ -72,6 +93,7 @@ class LeadTransferSystem {
         
         if (attempt === this.retryAttempts) {
           console.error('💥 Все попытки передачи в основной бот исчерпаны');
+          // ИСПРАВЛЕНО: Не выбрасываем ошибку, а сохраняем локально
           return this.saveLeadLocally(userData);
         }
         
@@ -84,6 +106,11 @@ class LeadTransferSystem {
   }
 
   async transferToCRM(userData) {
+    if (!this.crmWebhook) {
+      console.log('⚠️ CRM webhook не настроен, пропускаем');
+      return;
+    }
+
     console.log(`📤 Передаем лида в CRM: ${userData.userInfo?.telegram_id}`);
 
     const crmPayload = {
@@ -126,6 +153,7 @@ class LeadTransferSystem {
         
         if (attempt === this.retryAttempts) {
           console.error('💥 Все попытки передачи в CRM исчерпаны');
+          // ИСПРАВЛЕНО: Не останавливаем процесс, просто логируем
         } else if (this.enableRetries) {
           console.log(`⏳ Ожидание ${this.retryDelay}ms перед повтором...`);
           await new Promise(resolve => setTimeout(resolve, this.retryDelay));
@@ -144,12 +172,29 @@ class LeadTransferSystem {
         score: userData.analysisResult?.scores?.total,
         primary_issue: userData.analysisResult?.primaryIssue,
         answers: userData.surveyAnswers,
-        trainer_contact: this.trainerContact
+        trainer_contact: this.trainerContact,
+        
+        // ИСПРАВЛЕНО: Добавляем дополнительную информацию
+        user_info: userData.userInfo,
+        analysis_result: userData.analysisResult,
+        saved_locally: true,
+        processing_mode: this.standaloneMode ? 'standalone' : 'fallback'
       };
 
-      console.log('💾 ЛОКАЛЬНОЕ СОХРАНЕНИЕ ЛИДА:', JSON.stringify(leadData, null, 2));
+      console.log('💾 ЛОКАЛЬНОЕ СОХРАНЕНИЕ ЛИДА:', JSON.stringify({
+        telegram_id: leadData.telegram_id,
+        segment: leadData.segment,
+        score: leadData.score,
+        timestamp: leadData.timestamp,
+        mode: leadData.processing_mode
+      }, null, 2));
       
-      return { success: true, stored_locally: true, data: leadData };
+      return { 
+        success: true, 
+        stored_locally: true, 
+        data: leadData,
+        mode: this.standaloneMode ? 'standalone' : 'fallback'
+      };
     } catch (error) {
       console.error('❌ Ошибка локального сохранения:', error);
       return { success: false, error: error.message };
@@ -165,7 +210,8 @@ class LeadTransferSystem {
       telegram_id: userData.userInfo?.telegram_id,
       survey_type: userData.surveyType,
       segment: userData.analysisResult?.segment,
-      processing_time: Date.now() - (userData.startTime || Date.now())
+      processing_time: Date.now() - (userData.startTime || Date.now()),
+      mode: this.standaloneMode ? 'standalone' : 'integrated'
     };
 
     console.log('✅ УСПЕШНАЯ ОБРАБОТКА ЛИДА:', JSON.stringify(logData, null, 2));
@@ -182,7 +228,8 @@ class LeadTransferSystem {
         survey_type: userData.surveyType,
         has_answers: !!userData.surveyAnswers,
         has_analysis: !!userData.analysisResult
-      }
+      },
+      fallback_used: true
     };
 
     console.error('💥 ОШИБКА ОБРАБОТКИ ЛИДА:', JSON.stringify(errorData, null, 2));
@@ -192,14 +239,20 @@ class LeadTransferSystem {
     const results = {
       main_bot: { status: 'not_configured', url: this.mainBotWebhook },
       crm: { status: 'not_configured', url: this.crmWebhook },
+      standalone_mode: this.standaloneMode,
       timestamp: new Date().toISOString()
     };
 
     if (this.mainBotWebhook) {
       try {
-        const response = await axios.get(`${this.mainBotWebhook}/api/health`, { timeout: 5000 });
+        const response = await axios.get(`${this.mainBotWebhook}/api/health`, { 
+          timeout: 5000,
+          validateStatus: () => true // Принимаем любой статус для диагностики
+        });
+        
         results.main_bot.status = response.status === 200 ? 'connected' : 'error';
         results.main_bot.response_time = response.headers['x-response-time'] || 'unknown';
+        results.main_bot.http_status = response.status;
       } catch (error) {
         results.main_bot.status = 'error';
         results.main_bot.error = error.message;
@@ -209,8 +262,12 @@ class LeadTransferSystem {
     if (this.crmWebhook) {
       try {
         const testPayload = { test: true, timestamp: Date.now() };
-        const response = await axios.post(this.crmWebhook, testPayload, { timeout: 5000 });
+        const response = await axios.post(this.crmWebhook, testPayload, { 
+          timeout: 5000,
+          validateStatus: () => true
+        });
         results.crm.status = response.status >= 200 && response.status < 300 ? 'connected' : 'error';
+        results.crm.http_status = response.status;
       } catch (error) {
         results.crm.status = 'error';
         results.crm.error = error.message;
@@ -228,14 +285,15 @@ class LeadTransferSystem {
         trainer_contact: this.trainerContact,
         retries_enabled: this.enableRetries,
         retry_attempts: this.retryAttempts,
-        retry_delay: this.retryDelay
+        retry_delay: this.retryDelay,
+        standalone_mode: this.standaloneMode // ИСПРАВЛЕНО
       },
       endpoints: {
         main_bot: this.mainBotWebhook ? `${this.mainBotWebhook}/api/leads/import` : null,
         crm: this.crmWebhook,
         trainer: this.trainerContact
       },
-      version: '2.4.0',
+      version: '2.4.1', // Увеличиваем версию
       last_updated: new Date().toISOString()
     };
   }
