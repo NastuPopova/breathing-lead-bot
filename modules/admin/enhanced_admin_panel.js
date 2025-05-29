@@ -153,7 +153,7 @@ class EnhancedAdminPanel {
     // Конверсия
     const totalLeads = stats.daily_stats?.totalLeads || 0;
     const hotLeads = stats.daily_stats?.hotLeads || 0;
-    const conversionRate = totalLeads > 0 ? ((hotLeaks / totalLeads) * 100).toFixed(1) : 0;
+    const conversionRate = totalLeads > 0 ? ((hotLeads / totalLeads) * 100).toFixed(1) : 0;
     message += `📈 *КОНВЕРСИЯ:*\n`;
     message += `• В горячие лиды: ${conversionRate}%\n`;
     message += `• Средний балл VERSE: ${this.getAverageScore()}/100\n\n`;
@@ -636,15 +636,16 @@ class EnhancedAdminPanel {
 
   // ===== ФОРМАТИРОВАНИЕ =====
 
+  // ИСПРАВЛЕНО: была опечатка leads вместо leadsData
   getLastLeadTime() {
     const leadsData = Object.values(this.adminNotifications.leadDataStorage || {});
-    if (!leads.length) return 'Нет данных';
+    if (!leadsData.length) return 'Нет данных';
     
-    const latest = leads.reduce((latest, lead) => {
+    const latest = leadsData.reduce((latest, lead) => {
       const leadTime = new Date(lead.timestamp || 0);
       const latestTime = new Date(latest.timestamp || 0);
       return leadTime > latestTime ? lead : latest;
-    }, leads[0]);
+    }, leadsData[0]);
     
     return this.getTimeAgo(latest.timestamp);
   }
