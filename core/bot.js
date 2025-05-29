@@ -1,4 +1,4 @@
-// Файл: core/bot.js - ОБНОВЛЕННАЯ ВЕРСИЯ с интеграцией админ-панели
+// Файл: core/bot.js - ПОЛНАЯ ИСПРАВЛЕННАЯ ВЕРСИЯ
 const { Telegraf } = require('telegraf');
 const config = require('../config');
 
@@ -198,7 +198,7 @@ class BreathingLeadBot {
       
       console.log('✅ Бот запущен и работает!');
       console.log(`📊 Конфигурация: ${config.NODE_ENV || 'development'}`);
-      console.log(`🔗 Основной бот: ${config.MAIN_BOT_API_URL ? 'настроен' : 'не настроен'}`);
+      console.log(`🔗 Основной бот: ${config.MAIN_BOT_API_URL ? 'настроен' : 'автономный режим'}`);
       console.log(`👨‍💼 Админ: ${config.ADMIN_ID ? 'настроен' : 'не настроен'}`);
       console.log(`🎛️ Админ-панель: ${this.adminIntegration ? 'активна' : 'отключена'}`);
       
@@ -252,7 +252,7 @@ class BreathingLeadBot {
     }
     
     if (!config.MAIN_BOT_API_URL) {
-      console.warn('⚠️ MAIN_BOT_API_URL не настроен - лиды будут сохраняться локально');
+      console.log('ℹ️ MAIN_BOT_API_URL не настроен - работаем в автономном режиме');
     }
     
     if (!config.ADMIN_ID) {
@@ -273,7 +273,8 @@ class BreathingLeadBot {
         main_bot_connected: !!config.MAIN_BOT_API_URL,
         crm_connected: !!config.CRM_WEBHOOK_URL,
         admin_configured: !!config.ADMIN_ID,
-        environment: config.NODE_ENV || 'development'
+        environment: config.NODE_ENV || 'development',
+        standalone_mode: !config.MAIN_BOT_API_URL
       },
       modules: {
         survey_questions: !!this.surveyQuestions,
@@ -281,7 +282,7 @@ class BreathingLeadBot {
         lead_transfer: !!this.leadTransfer,
         pdf_manager: !!this.pdfManager,
         admin_notifications: !!this.adminNotifications,
-        admin_integration: !!this.adminIntegration // НОВОЕ
+        admin_integration: !!this.adminIntegration
       },
       last_updated: new Date().toISOString()
     };
@@ -376,5 +377,11 @@ class BreathingLeadBot {
       uptime: process.uptime(),
       memory: process.memoryUsage(),
       cpu: process.cpuUsage(),
-      event_loop_delay: process.hrtime.bigint(),
-      middleware_stats: this.middleware
+      timestamp: new Date().toISOString(),
+      middleware_stats: this.middleware ? this.middleware.getStats() : null,
+      admin_stats: this.adminIntegration ? this.adminIntegration.getExtendedStats() : null
+    };
+  }
+}
+
+module.exports = BreathingLeadBot;
