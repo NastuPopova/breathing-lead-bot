@@ -1,4 +1,4 @@
-// Файл: core/bot.js - ПОЛНАЯ ИСПРАВЛЕННАЯ ВЕРСИЯ
+// Файл: core/bot.js - ИСПРАВЛЕННАЯ ВЕРСИЯ
 const { Telegraf } = require('telegraf');
 const config = require('../config');
 
@@ -13,7 +13,8 @@ const BreathingVERSEAnalysis = require('../modules/analysis/verse_analysis');
 const LeadTransferSystem = require('../modules/integration/lead_transfer');
 const ContentGenerator = require('../modules/bonus/content-generator');
 const FileHandler = require('../modules/bonus/file-handler');
-const AdminNotificationSystem = require('../modules/admin/notifications');
+// ИСПРАВЛЕНО: Правильный импорт AdminNotificationSystem
+const AdminNotificationSystem = require('../modules/admin/notifications/notification_system');
 
 class BreathingLeadBot {
   constructor() {
@@ -60,8 +61,8 @@ class BreathingLeadBot {
       this.pdfManager = this.fileHandler;
       console.log('✅ ContentGenerator, FileHandler загружены');
       
-      // Модуль админ-уведомлений
-      this.adminNotifications = new AdminNotificationSystem(this.bot);
+      // ИСПРАВЛЕНО: Модуль админ-уведомлений с правильным импортом
+      this.adminNotifications = new AdminNotificationSystem(this);
       console.log('✅ AdminNotificationSystem загружен');
       
       console.log('✅ Все модули системы загружены');
