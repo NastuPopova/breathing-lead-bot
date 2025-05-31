@@ -1,4 +1,4 @@
-// Файл: core/handlers.js - ИСПРАВЛЕННАЯ ВЕРСИЯ (только основной функционал бота)
+// Файл: core/handlers.js - ИСПРАВЛЕННАЯ ВЕРСИЯ
 
 const { Markup } = require('telegraf');
 const config = require('../config');
@@ -126,7 +126,7 @@ class Handlers {
     await this.handleStart(ctx);
   }
 
-  // ИСПРАВЛЕНО: Основной обработчик callback запросов
+  // ИСПРАВЛЕНО: Основной обработчик callback запросов с правильной передачей в админ-модули
   async handleUserCallback(ctx) {
     const callbackData = ctx.callbackQuery.data;
     console.log(`📞 User Callback: ${callbackData} от пользователя ${ctx.from.id}`);
@@ -135,13 +135,14 @@ class Handlers {
     await ctx.answerCbQuery().catch(() => {});
 
     try {
-      // ИСПРАВЛЕНО: Сначала проверяем админ-функции и передаем их в админ-модуль
+      // ИСПРАВЛЕНО: Сначала проверяем админ-функции и правильно передаем их в админ-модуль
       if (callbackData.startsWith('admin_')) {
         const adminIntegration = this.bot.getAdminPanel();
-        if (adminIntegration) {
+        if (adminIntegration && adminIntegration.isReady()) {
           return await adminIntegration.handleAdminCallback(ctx, callbackData);
         } else {
           await ctx.answerCbQuery('Админ-панель недоступна');
+          console.warn('⚠️ Админ-панель недоступна или не готова');
           return;
         }
       }
@@ -655,7 +656,8 @@ class Handlers {
         'survey_processing',
         'pdf_delivery',
         'contact_handling',
-        'error_handling'
+        'error_handling',
+        'admin_integration'
       ],
       admin_functions_moved: true,
       last_updated: new Date().toISOString()
