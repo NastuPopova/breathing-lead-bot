@@ -1,8 +1,10 @@
-// Файл: core/admin_integration.js - ИСПРАВЛЕННАЯ ВЕРСИЯ с модульной архитектурой
+// Файл: core/admin_integration.js - ОБНОВЛЕННАЯ ВЕРСИЯ для работы с модульными уведомлениями
 // Координирует работу всех админ-модулей
 
 const AdminHandlers = require('../modules/admin/admin_handlers');
 const AdminCallbacks = require('../modules/admin/admin_callbacks');
+// ИСПРАВЛЕНО: Используем новую модульную систему уведомлений
+const AdminNotificationSystem = require('../modules/admin/notifications/notification_system');
 const config = require('../config');
 
 class AdminIntegration {
@@ -11,8 +13,10 @@ class AdminIntegration {
     this.telegramBot = botInstance.bot;
     this.adminId = config.ADMIN_ID;
     
+    // ИСПРАВЛЕНО: Используем модульную систему уведомлений
+    this.adminNotifications = new AdminNotificationSystem(this.bot);
+    
     // Получаем ссылки на существующие модули
-    this.adminNotifications = botInstance.adminNotifications;
     this.verseAnalysis = botInstance.verseAnalysis;
     this.leadTransfer = botInstance.leadTransfer;
     this.pdfManager = botInstance.pdfManager;
@@ -27,14 +31,15 @@ class AdminIntegration {
       startTime: new Date().toISOString(),
       totalAdminActions: 0,
       lastAction: null,
-      errors: 0
+      errors: 0,
+      moduleVersion: '3.0.0'
     };
   }
 
   // ===== ИНИЦИАЛИЗАЦИЯ =====
 
   initialize() {
-    console.log('🎛️ Инициализация модульной админ-панели...');
+    console.log('🎛️ Инициализация модульной админ-панели v3.0...');
     
     try {
       // ИСПРАВЛЕНО: Инициализируем leadDataStorage если отсутствует
@@ -53,19 +58,19 @@ class AdminIntegration {
       this.startAdminScheduler();
       
       this.integrationStats.initialized = true;
-      console.log('✅ Модульная админ-панель готова к работе');
+      console.log('✅ Модульная админ-панель v3.0 готова к работе');
       
     } catch (error) {
       console.error('❌ Ошибка инициализации админ-панели:', error);
       this.integrationStats.errors++;
-      this.sendEmergencyAlert('system_error', 'Ошибка инициализации админ-панели', { error: error.message });
+      this.sendEmergencyAlert('system_error', 'Ошибка инициализации админ-панели v3.0', { error: error.message });
     }
   }
 
   createAdminModules() {
-    console.log('📦 Создание админ-модулей...');
+    console.log('📦 Создание админ-модулей v3.0...');
     
-    // Создаем обработчик команд
+    // ИСПРАВЛЕНО: Передаем модульную систему уведомлений
     this.adminHandlers = new AdminHandlers(
       this.bot,
       this.adminNotifications,
@@ -75,7 +80,7 @@ class AdminIntegration {
     );
     console.log('✅ AdminHandlers создан');
     
-    // Создаем обработчик callback'ов
+    // ИСПРАВЛЕНО: Передаем модульную систему уведомлений
     this.adminCallbacks = new AdminCallbacks(
       this.adminHandlers,
       this.adminNotifications,
@@ -83,6 +88,8 @@ class AdminIntegration {
       this.leadTransfer
     );
     console.log('✅ AdminCallbacks создан');
+    
+    console.log('✅ Все админ-модули созданы с модульными уведомлениями');
   }
 
   setupAdminModules() {
@@ -185,6 +192,7 @@ class AdminIntegration {
     const results = {
       timestamp: new Date().toISOString(),
       overall_status: 'UNKNOWN',
+      version: '3.0.0',
       checks: {}
     };
 
@@ -192,13 +200,19 @@ class AdminIntegration {
       // Проверка интеграции
       results.checks.admin_integration = {
         status: this.integrationStats.initialized ? 'OK' : 'ERROR',
-        message: `Интеграция ${this.integrationStats.initialized ? 'активна' : 'не инициализирована'}`
+        message: `Интеграция v3.0 ${this.integrationStats.initialized ? 'активна' : 'не инициализирована'}`
       };
 
       // Проверка модулей
       results.checks.admin_modules = {
         status: (this.adminHandlers && this.adminCallbacks) ? 'OK' : 'ERROR',
         message: `Handlers: ${!!this.adminHandlers}, Callbacks: ${!!this.adminCallbacks}`
+      };
+
+      // ИСПРАВЛЕНО: Проверка модульной системы уведомлений
+      results.checks.notification_system = {
+        status: (this.adminNotifications && this.adminNotifications.templates) ? 'OK' : 'ERROR',
+        message: `Модульные уведомления: ${!!this.adminNotifications}, Components: ${!!this.adminNotifications?.templates}`
       };
 
       // Проверка данных
@@ -220,6 +234,13 @@ class AdminIntegration {
       results.checks.memory = {
         status: memoryMB < 500 ? 'OK' : memoryMB < 1000 ? 'WARNING' : 'ERROR',
         message: `Использовано ${memoryMB}MB памяти`
+      };
+
+      // НОВОЕ: Проверка аналитики уведомлений
+      const analytics = this.adminNotifications.analytics?.getStats();
+      results.checks.analytics = {
+        status: analytics ? 'OK' : 'WARNING',
+        message: analytics ? `Аналитика активна, успешность: ${analytics.performance?.success_rate}` : 'Аналитика недоступна'
       };
 
       // Определяем общий статус
@@ -246,6 +267,7 @@ class AdminIntegration {
       memory_usage: process.memoryUsage(),
       cpu_usage: process.cpuUsage(),
       admin_panel_status: this.integrationStats.initialized ? 'active' : 'inactive',
+      version: '3.0.0',
       integrations: {
         main_bot: !!config.MAIN_BOT_API_URL,
         crm: !!config.CRM_WEBHOOK_URL,
@@ -254,7 +276,13 @@ class AdminIntegration {
       admin_modules: {
         handlers: !!this.adminHandlers,
         callbacks: !!this.adminCallbacks,
-        notifications: !!this.adminNotifications
+        notifications: !!this.adminNotifications,
+        notification_components: {
+          templates: !!this.adminNotifications?.templates,
+          handlers: !!this.adminNotifications?.handlers,
+          formatters: !!this.adminNotifications?.formatters,
+          analytics: !!this.adminNotifications?.analytics
+        }
       }
     };
   }
@@ -265,12 +293,17 @@ class AdminIntegration {
     const baseStats = this.adminNotifications?.getStats() || {};
     const handlerStats = this.adminHandlers?.getCommandStats() || {};
     const callbackStats = this.adminCallbacks?.getCallbackStats() || {};
+    
+    // НОВОЕ: Получаем аналитику уведомлений
+    const notificationAnalytics = this.adminNotifications?.analytics?.getDetailedAnalytics() || {};
 
     return {
       ...baseStats,
       admin_integration: this.integrationStats,
       admin_handlers: handlerStats,
       admin_callbacks: callbackStats,
+      // НОВОЕ: Добавляем детальную аналитику уведомлений
+      notification_analytics: notificationAnalytics,
       system_health: this.getSystemHealthOverview(),
       timestamp: new Date().toISOString()
     };
@@ -290,19 +323,27 @@ class AdminIntegration {
   // ===== ПЛАНИРОВЩИК И АВТОМАТИЗАЦИЯ =====
 
   startAdminScheduler() {
-    console.log('⏰ Запуск планировщика админ-задач...');
+    console.log('⏰ Запуск планировщика админ-задач v3.0...');
     
     // Ежечасная проверка системы
     setInterval(async () => {
       try {
         const diagnostics = await this.runDiagnostics();
         if (diagnostics.overall_status === 'ERROR') {
-          await this.sendEmergencyAlert('system_error', 'Обнаружены критические ошибки системы', diagnostics);
+          await this.sendEmergencyAlert('system_error', 'Обнаружены критические ошибки системы v3.0', diagnostics);
         }
       } catch (error) {
         console.error('❌ Ошибка планировщика диагностики:', error);
       }
     }, 3600000); // Каждый час
+
+    // НОВОЕ: Ежедневная отправка сводки в 9:00
+    setInterval(async () => {
+      const now = new Date();
+      if (now.getHours() === 9 && now.getMinutes() === 0) {
+        await this.adminNotifications.sendDailySummary();
+      }
+    }, 60000); // Проверяем каждую минуту
 
     // Еженедельная очистка данных
     setInterval(async () => {
@@ -314,65 +355,7 @@ class AdminIntegration {
       }
     }, 7 * 24 * 3600000); // Каждую неделю
 
-    // Ежедневная диагностика в 9:00
-    setInterval(async () => {
-      const now = new Date();
-      if (now.getHours() === 9 && now.getMinutes() === 0) {
-        await this.sendDailyReport();
-      }
-    }, 60000); // Проверяем каждую минуту
-
-    console.log('✅ Планировщик админ-задач запущен');
-  }
-
-  async sendDailyReport() {
-    if (!this.adminId) return;
-
-    try {
-      const stats = this.adminNotifications?.getStats() || {};
-      const today = new Date().toLocaleDateString('ru-RU');
-      
-      let message = `📊 *ЕЖЕДНЕВНЫЙ ОТЧЕТ*\n`;
-      message += `📅 ${today}\n\n`;
-      
-      message += `👥 **Лиды за день:**\n`;
-      message += `• Всего: ${stats.daily_stats?.totalLeads || 0}\n`;
-      message += `• 🔥 Горячие: ${stats.daily_stats?.hotLeads || 0}\n`;
-      message += `• ⭐ Теплые: ${stats.daily_stats?.warmLeads || 0}\n`;
-      message += `• ❄️ Холодные: ${stats.daily_stats?.coldLeads || 0}\n\n`;
-      
-      const totalLeads = stats.daily_stats?.totalLeads || 0;
-      const hotLeads = stats.daily_stats?.hotLeads || 0;
-      const conversion = totalLeads > 0 ? ((hotLeads / totalLeads) * 100).toFixed(1) : 0;
-      
-      message += `📈 **Эффективность:**\n`;
-      message += `• Конверсия в горячие: ${conversion}%\n`;
-      message += `• Админ-действий: ${this.integrationStats.totalAdminActions}\n\n`;
-      
-      message += `🎯 **Следующие действия:**\n`;
-      if (hotLeads > 0) {
-        message += `• Обработать ${hotLeads} горячих лидов\n`;
-      }
-      if (totalLeads === 0) {
-        message += `• Проанализировать причины отсутствия лидов\n`;
-      }
-      message += `• Подготовить план на завтра\n\n`;
-      
-      message += `🕐 Автоматический отчет • ${new Date().toLocaleTimeString('ru-RU')}`;
-
-      await this.telegramBot.telegram.sendMessage(this.adminId, message, {
-        parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '📊 Подробная статистика', callback_data: 'admin_stats' }],
-            [{ text: '🎛️ Админ-панель', callback_data: 'admin_main' }]
-          ]
-        }
-      });
-
-    } catch (error) {
-      console.error('❌ Ошибка отправки ежедневного отчета:', error);
-    }
+    console.log('✅ Планировщик админ-задач v3.0 запущен');
   }
 
   // ===== ЭКСТРЕННЫЕ УВЕДОМЛЕНИЯ =====
@@ -392,7 +375,7 @@ class AdminIntegration {
     const emoji = alertEmojis[alertType] || '⚠️';
     
     try {
-      const alertMessage = `${emoji} *ЭКСТРЕННОЕ УВЕДОМЛЕНИЕ*\n\n` +
+      const alertMessage = `${emoji} *ЭКСТРЕННОЕ УВЕДОМЛЕНИЕ v3.0*\n\n` +
         `**Тип:** ${alertType}\n` +
         `**Сообщение:** ${message}\n\n` +
         `**Детали:**\n\`\`\`\n${JSON.stringify(additionalData, null, 2)}\n\`\`\`\n\n` +
@@ -421,10 +404,12 @@ class AdminIntegration {
     try {
       const backup = {
         timestamp: new Date().toISOString(),
-        version: '2.0.0',
+        version: '3.0.0',
         leads_data: this.adminNotifications.leadDataStorage || {},
         integration_stats: this.integrationStats,
         admin_stats: this.getExtendedStats(),
+        // НОВОЕ: Включаем аналитику уведомлений в бэкап
+        notification_analytics: this.adminNotifications.analytics?.exportAllData() || {},
         configuration: {
           admin_id: this.adminId,
           main_bot_url: config.MAIN_BOT_API_URL,
@@ -434,7 +419,7 @@ class AdminIntegration {
         metadata: {
           total_leads: Object.keys(this.adminNotifications.leadDataStorage || {}).length,
           backup_size: 0,
-          created_by: 'admin_integration_v2'
+          created_by: 'admin_integration_v3.0'
         }
       };
 
@@ -453,60 +438,16 @@ class AdminIntegration {
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
 
-      let cleanedCount = 0;
-      const leadsData = this.adminNotifications.leadDataStorage || {};
+      // Очистка через модульную систему уведомлений
+      const cleanupResult = this.adminNotifications.cleanupOldData(daysToKeep);
 
-      Object.entries(leadsData).forEach(([userId, leadData]) => {
-        const leadDate = new Date(leadData.timestamp || 0);
-        if (leadDate < cutoffDate) {
-          delete leadsData[userId];
-          cleanedCount++;
-        }
-      });
+      console.log(`🧹 Очистка данных v3.0 завершена:`, cleanupResult);
 
-      console.log(`🧹 Очищено ${cleanedCount} старых записей лидов`);
-
-      return {
-        cleaned_count: cleanedCount,
-        remaining_count: Object.keys(leadsData).length,
-        cutoff_date: cutoffDate.toISOString()
-      };
+      return cleanupResult;
 
     } catch (error) {
       console.error('❌ Ошибка очистки данных:', error);
       return { error: error.message };
-    }
-  }
-
-  // ===== ВОССТАНОВЛЕНИЕ И МИГРАЦИЯ =====
-
-  async restoreFromBackup(backupData) {
-    try {
-      console.log('🔄 Восстановление данных из резервной копии...');
-
-      // Валидация данных резервной копии
-      if (!backupData.leads_data || !backupData.timestamp) {
-        throw new Error('Неверный формат резервной копии');
-      }
-
-      // Восстанавливаем данные лидов
-      this.adminNotifications.leadDataStorage = backupData.leads_data;
-
-      console.log(`✅ Восстановлено ${Object.keys(backupData.leads_data).length} лидов`);
-      console.log(`📅 Дата резервной копии: ${backupData.timestamp}`);
-
-      return {
-        success: true,
-        restored_leads: Object.keys(backupData.leads_data).length,
-        backup_date: backupData.timestamp
-      };
-
-    } catch (error) {
-      console.error('❌ Ошибка восстановления:', error);
-      return {
-        success: false,
-        error: error.message
-      };
     }
   }
 
@@ -515,22 +456,30 @@ class AdminIntegration {
   getIntegrationInfo() {
     return {
       name: 'AdminIntegration',
-      version: '2.0.0',
+      version: '3.0.0',
       status: this.integrationStats.initialized ? 'active' : 'inactive',
       features: [
         'modular_architecture',
+        'notification_system_v3',
         'command_handlers',
         'callback_handlers',
         'system_diagnostics',
         'automated_scheduling',
         'emergency_alerts',
         'data_backup',
-        'cleanup_automation'
+        'cleanup_automation',
+        'notification_analytics'
       ],
       modules: {
         admin_handlers: !!this.adminHandlers,
         admin_callbacks: !!this.adminCallbacks,
-        admin_notifications: !!this.adminNotifications
+        admin_notifications: !!this.adminNotifications,
+        notification_components: {
+          templates: !!this.adminNotifications?.templates,
+          handlers: !!this.adminNotifications?.handlers,
+          formatters: !!this.adminNotifications?.formatters,
+          analytics: !!this.adminNotifications?.analytics
+        }
       },
       statistics: this.integrationStats,
       health_status: 'healthy',
@@ -538,20 +487,11 @@ class AdminIntegration {
     };
   }
 
-  exportStats() {
-    return {
-      integration_info: this.getIntegrationInfo(),
-      extended_stats: this.getExtendedStats(),
-      system_health: this.getSystemHealthOverview(),
-      timestamp: new Date().toISOString()
-    };
-  }
-
   // ===== БЕЗОПАСНОЕ ЗАВЕРШЕНИЕ РАБОТЫ =====
 
   async shutdown() {
     try {
-      console.log('🔄 Завершение работы AdminIntegration v2.0...');
+      console.log('🔄 Завершение работы AdminIntegration v3.0...');
       
       // Создаем резервную копию
       const backup = await this.createBackup();
@@ -566,21 +506,27 @@ class AdminIntegration {
         this.adminCallbacks.cleanup();
       }
       
+      // НОВОЕ: Очищаем модульную систему уведомлений
+      if (this.adminNotifications?.handlers) {
+        this.adminNotifications.handlers.cleanup();
+      }
+      
       // Отправляем финальное уведомление админу
       if (this.adminId) {
         await this.telegramBot.telegram.sendMessage(
           this.adminId,
-          `🔄 *Завершение работы модульной админ-панели*\n\n` +
+          `🔄 *Завершение работы модульной админ-панели v3.0*\n\n` +
           `Резервная копия создана\n` +
           `Всего лидов: ${backup.metadata.total_leads}\n` +
           `Админ-действий: ${this.integrationStats.totalAdminActions}\n` +
-          `Время работы: ${this.formatUptime(process.uptime())}\n\n` +
+          `Время работы: ${this.formatUptime(process.uptime())}\n` +
+          `Уведомлений отправлено: ${this.adminNotifications.analytics?.getStats()?.notifications?.totalSent || 0}\n\n` +
           `🕐 ${new Date().toLocaleString('ru-RU')}`,
           { parse_mode: 'Markdown' }
         );
       }
       
-      console.log('✅ AdminIntegration v2.0 завершил работу');
+      console.log('✅ AdminIntegration v3.0 завершил работу');
       
     } catch (error) {
       console.error('❌ Ошибка при завершении AdminIntegration:', error);
@@ -605,20 +551,20 @@ class AdminIntegration {
 
   // ===== МЕТОДЫ ДЛЯ ВНЕШНЕГО ИСПОЛЬЗОВАНИЯ =====
 
-  // Проверка готовности админ-панели
   isReady() {
-    return this.integrationStats.initialized && this.adminHandlers && this.adminCallbacks;
+    return this.integrationStats.initialized && this.adminHandlers && this.adminCallbacks && this.adminNotifications;
   }
 
-  // Получение статуса админ-панели
   getStatus() {
     return {
       ready: this.isReady(),
+      version: '3.0.0',
       admin_id: this.adminId,
       modules_loaded: {
         handlers: !!this.adminHandlers,
         callbacks: !!this.adminCallbacks,
-        notifications: !!this.adminNotifications
+        notifications: !!this.adminNotifications,
+        notification_analytics: !!this.adminNotifications?.analytics
       },
       total_actions: this.integrationStats.totalAdminActions,
       last_action: this.integrationStats.lastAction,
