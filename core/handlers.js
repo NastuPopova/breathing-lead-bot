@@ -126,7 +126,7 @@ class Handlers {
     await this.handleStart(ctx);
   }
 
-  // ИСПРАВЛЕНО: Основной обработчик callback запросов с правильной передачей в админ-модули
+  // ИСПРАВЛЕНО: Основной обработчик callback запросов с правильной обработкой всех кнопок
   async handleUserCallback(ctx) {
     const callbackData = ctx.callbackQuery.data;
     console.log(`📞 User Callback: ${callbackData} от пользователя ${ctx.from.id}`);
@@ -171,7 +171,7 @@ class Handlers {
         await this.pdfManager.handleDownloadRequest(ctx, callbackData);
       }
       
-      // Меню материалов
+      // ИСПРАВЛЕНО: Меню материалов с правильными методами
       else if (callbackData === 'more_materials') {
         await this.pdfManager.showMoreMaterials(ctx);
       } else if (callbackData === 'show_all_programs') {
@@ -182,12 +182,13 @@ class Handlers {
         await this.pdfManager.deleteMenu(ctx);
       }
       
-      // ИСПРАВЛЕНО: Заказы программ - теперь обрабатываются через pdfManager
+      // ИСПРАВЛЕНО: Заказы программ - теперь обрабатываются через pdfManager с правильными методами
       else if (callbackData === 'order_starter') {
         await this.pdfManager.handleOrderStarter(ctx);
       } else if (callbackData === 'order_individual') {
         await this.pdfManager.handleOrderIndividual(ctx);
       } else if (callbackData === 'help_choose_program') {
+        // ИСПРАВЛЕНО: Добавляем обработку "Помочь выбрать программу"
         await this.pdfManager.handleHelpChooseProgram(ctx);
       }
       
@@ -651,13 +652,14 @@ class Handlers {
   getStats() {
     return {
       name: 'MainHandlers',
-      version: '3.0.0',
+      version: '3.1.0',
       features: [
         'survey_processing',
         'pdf_delivery',
         'contact_handling',
         'error_handling',
-        'admin_integration'
+        'admin_integration',
+        'fixed_callback_processing'
       ],
       admin_functions_moved: true,
       last_updated: new Date().toISOString()
