@@ -9,7 +9,7 @@ class ExtendedSurveyQuestions {
 
   initializeQuestions() {
     return {
-      // БЛОК А: ДЕМОГРАФИЯ И КОНТЕКСТ - ИСПРАВЛЕНО: объединены детские категории
+      // БЛОК А: ДЕМОГРАФИЯ И КОНТЕКСТ
       age_group: {
         id: 'age_group',
         block: 'A',
@@ -69,7 +69,7 @@ class ExtendedSurveyQuestions {
         allowBack: true
       },
 
-      // БЛОК Б: ОСНОВНЫЕ ПРОБЛЕМЫ - ИСПРАВЛЕНО: ограничение до 3 выборов
+      // БЛОК Б: ОСНОВНЫЕ ПРОБЛЕМЫ
       current_problems: {
         id: 'current_problems',
         block: 'B',
@@ -96,40 +96,40 @@ class ExtendedSurveyQuestions {
         allowBack: true
       },
 
-   stress_level: {
-  id: 'stress_level',
-  block: 'B',
-  text: `😰 *Оцените уровень стресса:*\n\n` +
-        `Насколько часто вы испытываете стресс по шкале от 1 до 10?\n\n` +
-        `*1-3:* Низкий уровень\n` +
-        `*4-6:* Умеренный стресс\n` +
-        `*7-10:* Высокий уровень`,
-  keyboard: Markup.inlineKeyboard([
-    [
-      Markup.button.callback('1️⃣ Минимальный (почти нет стресса)', 'stress_1'),
-      Markup.button.callback('2️⃣ Очень низкий', 'stress_2'),
-      Markup.button.callback('3️⃣ Низкий', 'stress_3')
-    ],
-    [
-      Markup.button.callback('4️⃣ Легкий', 'stress_4'),
-      Markup.button.callback('5️⃣ Средний', 'stress_5'),
-      Markup.button.callback('6️⃣ Умеренный', 'stress_6')
-    ],
-    [
-      Markup.button.callback('7️⃣ Повышенный', 'stress_7'),
-      Markup.button.callback('8️⃣ Высокий', 'stress_8'),
-      Markup.button.callback('9️⃣ Очень высокий', 'stress_9')
-    ],
-    [
-      Markup.button.callback('🔟 Критический (не справляюсь)', 'stress_10')
-    ],
-    [Markup.button.callback('⬅️ Назад', 'nav_back')]
-  ]),
-  required: true,
-  type: 'scale',
-  note: '💡 Чем выше число, тем сильнее стресс',
-  allowBack: true
-},
+      stress_level: {
+        id: 'stress_level',
+        block: 'B',
+        text: `😰 *Оцените уровень стресса:*\n\n` +
+              `Насколько часто вы испытываете стресс по шкале от 1 до 10?\n\n` +
+              `*1-3:* Низкий уровень\n` +
+              `*4-6:* Умеренный стресс\n` +
+              `*7-10:* Высокий уровень`,
+        keyboard: Markup.inlineKeyboard([
+          [
+            Markup.button.callback('1️⃣ Минимальный (почти нет стресса)', 'stress_1'),
+            Markup.button.callback('2️⃣ Очень низкий', 'stress_2'),
+            Markup.button.callback('3️⃣ Низкий', 'stress_3')
+          ],
+          [
+            Markup.button.callback('4️⃣ Легкий', 'stress_4'),
+            Markup.button.callback('5️⃣ Средний', 'stress_5'),
+            Markup.button.callback('6️⃣ Умеренный', 'stress_6')
+          ],
+          [
+            Markup.button.callback('7️⃣ Повышенный', 'stress_7'),
+            Markup.button.callback('8️⃣ Высокий', 'stress_8'),
+            Markup.button.callback('9️⃣ Очень высокий', 'stress_9')
+          ],
+          [
+            Markup.button.callback('🔟 Критический (не справляюсь)', 'stress_10')
+          ],
+          [Markup.button.callback('⬅️ Назад', 'nav_back')]
+        ]),
+        required: true,
+        type: 'scale',
+        note: '💡 Чем выше число, тем сильнее стресс',
+        allowBack: true
+      },
 
       sleep_quality: {
         id: 'sleep_quality',
@@ -243,7 +243,7 @@ class ExtendedSurveyQuestions {
         allowBack: true
       },
 
-      // БЛОК Г: ОПЫТ И ЦЕЛИ - ИСПРАВЛЕНО: добавлены переводы и ограничения
+      // БЛОК Г: ОПЫТ И ЦЕЛИ
       breathing_experience: {
         id: 'breathing_experience',
         block: 'D',
@@ -326,7 +326,7 @@ class ExtendedSurveyQuestions {
         allowBack: true
       },
 
-      // БЛОК Д: ДЕТСКИЕ ВОПРОСЫ - ИСПРАВЛЕНО: добавлен детальный выбор возраста
+      // БЛОК Д: ДЕТСКИЕ ВОПРОСЫ
       child_age_detail: {
         id: 'child_age_detail',
         block: 'E',
@@ -483,34 +483,107 @@ class ExtendedSurveyQuestions {
       },
 
       // БЛОК Е: АДАПТИВНЫЕ ВОПРОСЫ ДЛЯ ВЗРОСЛЫХ
+      
+      // НОВЫЙ ВОПРОС: Хронические заболевания (показывается всем взрослым)
       chronic_conditions: {
         id: 'chronic_conditions',
         block: 'F',
-        condition: (userData) => !this.isChildFlow(userData) && (
-          userData.main_goals?.includes('goal_pressure') || 
-          userData.main_goals?.includes('goal_breathing') ||
-          userData.current_problems?.includes('prob_high_pressure')
-        ),
-        text: `🏥 *Хронические заболевания:*\n\nВажно учесть для безопасности практик. Выберите если есть:`,
+        condition: (userData) => !this.isChildFlow(userData),
+        text: `🏥 *Есть ли у вас хронические заболевания?*\n\nЭто важно для безопасного подбора дыхательных техник. Вся информация конфиденциальна.\n\nВыберите все подходящие варианты:`,
         keyboard: Markup.inlineKeyboard([
-          [Markup.button.callback('🫁 Бронхиальная астма', 'condition_asthma')],
-          [Markup.button.callback('💔 Гипертония (повышенное давление)', 'condition_hypertension')],
-          [Markup.button.callback('🩸 Сахарный диабет', 'condition_diabetes')],
-          [Markup.button.callback('❤️ Сердечно-сосудистые заболевания', 'condition_cardio')],
-          [Markup.button.callback('🧬 Аутоиммунные заболевания', 'condition_autoimmune')],
-          [Markup.button.callback('🧠 Хронический стресс/депрессия', 'condition_mental')],
-          [Markup.button.callback('🍽️ Заболевания ЖКТ', 'condition_digestive')],
-          [Markup.button.callback('🔧 Другое хроническое заболевание', 'condition_other')],
+          [Markup.button.callback('🫁 Астма/бронхит/ХОБЛ', 'condition_respiratory')],
+          [Markup.button.callback('💔 Гипертония/аритмия', 'condition_cardiovascular')],
+          [Markup.button.callback('🩸 Диабет 1 или 2 типа', 'condition_diabetes')],
+          [Markup.button.callback('🦴 Остеохондроз/грыжи', 'condition_spine')],
+          [Markup.button.callback('🧠 Мигрени/головные боли', 'condition_headaches')],
+          [Markup.button.callback('😰 Панические атаки/ВСД', 'condition_panic')],
+          [Markup.button.callback('🔥 Заболевания щитовидной железы', 'condition_thyroid')],
+          [Markup.button.callback('🍽️ Гастрит/язва/рефлюкс', 'condition_digestive')],
           [Markup.button.callback('💚 Нет хронических заболеваний', 'condition_none')],
           [Markup.button.callback('✅ Завершить выбор', 'condition_done')],
           [Markup.button.callback('⬅️ Назад', 'nav_back')]
         ]),
-        required: false,
+        required: true,
         type: 'multiple_choice',
-        note: "⚠️ Важно: дыхательные практики дополняют, но не заменяют лечение!",
+        minSelections: 1,
+        note: "⚠️ Дыхательные практики дополняют, но не заменяют лечение!",
         allowBack: true
       },
 
+      // НОВЫЙ АДАПТИВНЫЙ ВОПРОС 1: Медикаменты
+      current_medications: {
+        id: 'current_medications',
+        block: 'F',
+        condition: (userData) => !this.isChildFlow(userData) && 
+          userData.chronic_conditions && 
+          userData.chronic_conditions.length > 0 && 
+          !userData.chronic_conditions.includes('none'),
+        text: `💊 *Принимаете ли вы регулярно медикаменты?*\n\nНекоторые препараты могут влиять на дыхание и требуют адаптации техник.`,
+        keyboard: Markup.inlineKeyboard([
+          [Markup.button.callback('💊 Да, от давления', 'meds_pressure')],
+          [Markup.button.callback('🫁 Да, ингаляторы/от астмы', 'meds_respiratory')],
+          [Markup.button.callback('🧠 Да, успокоительные/антидепрессанты', 'meds_mental')],
+          [Markup.button.callback('💉 Да, инсулин/от диабета', 'meds_diabetes')],
+          [Markup.button.callback('🔥 Да, гормональные препараты', 'meds_hormonal')],
+          [Markup.button.callback('💊 Да, другие препараты', 'meds_other')],
+          [Markup.button.callback('❌ Не принимаю регулярно', 'meds_none')],
+          [Markup.button.callback('⬅️ Назад', 'nav_back')]
+        ]),
+        required: false,
+        type: 'single_choice',
+        allowBack: true
+      },
+
+      // НОВЫЙ АДАПТИВНЫЙ ВОПРОС 2: Панические атаки
+      panic_experience: {
+        id: 'panic_experience',
+        block: 'F',
+        condition: (userData) => !this.isChildFlow(userData) && (
+          userData.stress_level >= 7 ||
+          userData.current_problems?.includes('anxiety') ||
+          userData.priority_problem === 'anxiety' ||
+          userData.chronic_conditions?.includes('panic')
+        ),
+        text: `😰 *Были ли у вас панические атаки?*\n\nЭто поможет подобрать специальные успокаивающие техники дыхания.`,
+        keyboard: Markup.inlineKeyboard([
+          [Markup.button.callback('🚨 Да, регулярно (раз в неделю и чаще)', 'panic_regular')],
+          [Markup.button.callback('😟 Да, иногда (раз в месяц)', 'panic_sometimes')],
+          [Markup.button.callback('😔 Да, редко (несколько раз в год)', 'panic_rarely')],
+          [Markup.button.callback('🤔 Были раньше, сейчас нет', 'panic_past')],
+          [Markup.button.callback('✅ Нет, не было', 'panic_never')],
+          [Markup.button.callback('⬅️ Назад', 'nav_back')]
+        ]),
+        required: false,
+        type: 'single_choice',
+        allowBack: true
+      },
+
+      // НОВЫЙ АДАПТИВНЫЙ ВОПРОС 3: Рабочая среда
+      work_environment: {
+        id: 'work_environment',
+        block: 'F',
+        condition: (userData) => !this.isChildFlow(userData) && 
+          ['office_work', 'home_work', 'management'].includes(userData.occupation),
+        text: `💼 *Особенности вашей работы:*\n\nЭто поможет подобрать техники для рабочего дня.\n\nВыберите все подходящие варианты:`,
+        keyboard: Markup.inlineKeyboard([
+          [Markup.button.callback('💻 Работаю за компьютером 8+ часов', 'work_computer')],
+          [Markup.button.callback('📞 Много разговариваю/переговоры', 'work_talking')],
+          [Markup.button.callback('✈️ Частые перелеты/командировки', 'work_travel')],
+          [Markup.button.callback('🏢 Работа в душном помещении', 'work_stuffy')],
+          [Markup.button.callback('⏰ Ненормированный график', 'work_irregular')],
+          [Markup.button.callback('🌙 Ночные смены', 'work_night')],
+          [Markup.button.callback('👥 Постоянный стресс от общения', 'work_social_stress')],
+          [Markup.button.callback('✅ Завершить выбор', 'work_done')],
+          [Markup.button.callback('⬅️ Назад', 'nav_back')]
+        ]),
+        required: false,
+        type: 'multiple_choice',
+        maxSelections: 5,
+        note: "Выберите до 5 наиболее важных особенностей",
+        allowBack: true
+      },
+
+      // Существующий адаптивный вопрос о весе
       weight_goals: {
         id: 'weight_goals',
         block: 'F',
@@ -582,13 +655,16 @@ class ExtendedSurveyQuestions {
         'child_time_availability'
       ],
       adaptiveQuestions: [
-        'chronic_conditions',
-        'weight_goals'
+        'chronic_conditions',     // показывается всем взрослым
+        'current_medications',    // новый - при наличии хронических заболеваний
+        'panic_experience',       // новый - при высоком стрессе или тревожности
+        'work_environment',       // новый - для офисных работников
+        'weight_goals'           // существующий - при цели похудения
       ]
     };
   }
 
-  // ИСПРАВЛЕННЫЕ МЕТОДЫ НАВИГАЦИИ
+  // МЕТОДЫ НАВИГАЦИИ
   getPreviousQuestion(currentQuestion, userData) {
     const { standardFlow, childFlow, adaptiveQuestions } = this.flowLogic;
 
@@ -678,7 +754,7 @@ class ExtendedSurveyQuestions {
   getFirstAdaptiveQuestion(userData) {
     for (const questionId of this.flowLogic.adaptiveQuestions) {
       const question = this.questions[questionId];
-      if (question.condition && question.condition(userData)) {
+      if (!question.condition || question.condition(userData)) {
         return questionId;
       }
     }
@@ -692,7 +768,7 @@ class ExtendedSurveyQuestions {
     for (let i = currentIndex + 1; i < adaptiveQuestions.length; i++) {
       const questionId = adaptiveQuestions[i];
       const question = this.questions[questionId];
-      if (question.condition && question.condition(userData)) {
+      if (!question.condition || question.condition(userData)) {
         return questionId;
       }
     }
@@ -716,7 +792,7 @@ class ExtendedSurveyQuestions {
     return this.questions[questionId];
   }
 
-  // ИСПРАВЛЕННАЯ ВАЛИДАЦИЯ С ПОДДЕРЖКОЙ ОГРАНИЧЕНИЙ
+  // ВАЛИДАЦИЯ С ПОДДЕРЖКОЙ ОГРАНИЧЕНИЙ
   improvedValidateStressLevel(questionId, answer) {
     if (questionId !== 'stress_level') return { valid: true };
 
@@ -791,7 +867,8 @@ class ExtendedSurveyQuestions {
             'current_problems': 'Можно выбрать максимум 3 проблемы',
             'child_problems_detailed': 'Можно выбрать максимум 3 проблемы',
             'format_preferences': 'Можно выбрать максимум 4 формата',
-            'main_goals': 'Можно выбрать максимум 2 цели'
+            'main_goals': 'Можно выбрать максимум 2 цели',
+            'work_environment': 'Можно выбрать максимум 5 особенностей'
           };
           return {
             valid: false,
@@ -824,6 +901,7 @@ class ExtendedSurveyQuestions {
     if (this.isChildFlow(userData)) {
       total += this.flowLogic.childFlow.length;
     } else {
+      // Для взрослых считаем адаптивные вопросы
       for (const questionId of this.flowLogic.adaptiveQuestions) {
         if (this.shouldShowQuestion(questionId, userData)) {
           total++;
@@ -834,7 +912,7 @@ class ExtendedSurveyQuestions {
     return total;
   }
 
-  // ИСПРАВЛЕННЫЙ МАППИНГ С НОВЫМИ ЗНАЧЕНИЯМИ
+  // РАСШИРЕННЫЙ МАППИНГ С НОВЫМИ ЗНАЧЕНИЯМИ
   mapCallbackToValue(callbackData) {
     const mapping = {
       // Возрастные группы
@@ -1015,16 +1093,41 @@ class ExtendedSurveyQuestions {
       'time_stress_moments': 'stress_situations',
       'time_weekends': 'weekends',
 
-      // Хронические заболевания
-      'condition_asthma': 'asthma',
-      'condition_hypertension': 'hypertension',
+      // НОВЫЕ: Хронические заболевания
+      'condition_respiratory': 'respiratory_diseases',
+      'condition_cardiovascular': 'cardiovascular_diseases',
       'condition_diabetes': 'diabetes',
-      'condition_cardio': 'cardiovascular',
-      'condition_autoimmune': 'autoimmune',
-      'condition_mental': 'mental_health',
-      'condition_digestive': 'digestive',
-      'condition_other': 'other_chronic',
+      'condition_spine': 'spine_problems',
+      'condition_headaches': 'chronic_headaches',
+      'condition_panic': 'panic_disorder',
+      'condition_thyroid': 'thyroid_diseases',
+      'condition_digestive': 'digestive_diseases',
       'condition_none': 'none',
+
+      // НОВЫЕ: Медикаменты
+      'meds_pressure': 'pressure_medications',
+      'meds_respiratory': 'respiratory_medications',
+      'meds_mental': 'mental_medications',
+      'meds_diabetes': 'diabetes_medications',
+      'meds_hormonal': 'hormonal_medications',
+      'meds_other': 'other_medications',
+      'meds_none': 'no_medications',
+
+      // НОВЫЕ: Панические атаки
+      'panic_regular': 'panic_regular',
+      'panic_sometimes': 'panic_sometimes',
+      'panic_rarely': 'panic_rarely',
+      'panic_past': 'panic_past',
+      'panic_never': 'panic_never',
+
+      // НОВЫЕ: Рабочая среда
+      'work_computer': 'long_computer_work',
+      'work_talking': 'frequent_talking',
+      'work_travel': 'frequent_travel',
+      'work_stuffy': 'stuffy_environment',
+      'work_irregular': 'irregular_schedule',
+      'work_night': 'night_shifts',
+      'work_social_stress': 'social_stress',
 
       // Цели по весу
       'weight_5kg': 'up_to_5kg',
@@ -1061,9 +1164,10 @@ class ExtendedSurveyQuestions {
         currentProblems: 3,
         childProblems: 3,
         formats: 4,
-        goals: 2
+        goals: 2,
+        workEnvironment: 5
       },
-      version: '2.1.0',
+      version: '3.0.0', // Обновлена версия
       lastUpdated: new Date().toISOString()
     };
   }
