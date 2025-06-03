@@ -232,10 +232,23 @@ class BreathingVERSEAnalysis {
     message += `• Основная проблема: ${primaryProblem}\n`;
     message += `• Готовность к изменениям: ${segmentDescription}\n\n`;
 
+    // НОВОЕ: Информация о здоровье
+    if (data.chronic_conditions && data.chronic_conditions.length > 0 && !data.chronic_conditions.includes('none')) {
+      message += `⚠️ *ВАЖНО ДЛЯ ВАШЕГО ЗДОРОВЬЯ:*\n`;
+      recommendations.health_precautions?.forEach(precaution => {
+        message += `${precaution}\n`;
+      });
+      message += `\n`;
+    }
+
     message += `💡 *ПЕРСОНАЛЬНАЯ ПРОГРАММА:*\n\n`;
 
     message += `🔥 *НАЧНИТЕ СЕГОДНЯ:*\n`;
-    recommendations.urgent_techniques.forEach(tech => {
+    const techniques = recommendations.adapted_techniques?.length > 0 
+      ? recommendations.adapted_techniques 
+      : recommendations.urgent_techniques;
+    
+    techniques.forEach(tech => {
       message += `• ${tech} (5-10 мин)\n`;
     });
     message += `\n`;
@@ -366,7 +379,7 @@ class BreathingVERSEAnalysis {
   }
 
   /**
-   * Расчет срочности помощи для взрослых (0-100)
+   * Расчет срочности помощи для взрослых (0-100) - ОБНОВЛЕННАЯ ВЕРСИЯ
    */
   calculateUrgencyScore(data) {
     let urgencyScore = 0;
@@ -395,6 +408,46 @@ class BreathingVERSEAnalysis {
           urgencyScore += 15;
         }
       });
+    }
+    
+    // НОВОЕ: Хронические заболевания увеличивают срочность
+    if (data.chronic_conditions && data.chronic_conditions.length > 0 && !data.chronic_conditions.includes('none')) {
+      const criticalConditions = ['respiratory_diseases', 'cardiovascular_diseases', 'panic_disorder'];
+      data.chronic_conditions.forEach(condition => {
+        if (criticalConditions.includes(condition)) {
+          urgencyScore += 15; // Критические заболевания
+        } else {
+          urgencyScore += 8; // Другие хронические заболевания
+        }
+      });
+    }
+    
+    // НОВОЕ: Медикаменты тоже влияют на срочность
+    if (data.current_medications && data.current_medications !== 'no_medications') {
+      urgencyScore += 5;
+      // Особые препараты требуют большего внимания
+      if (['respiratory_medications', 'mental_medications'].includes(data.current_medications)) {
+        urgencyScore += 5;
+      }
+    }
+    
+    // НОВОЕ: Панические атаки - критический фактор
+    if (data.panic_experience) {
+      const panicScores = {
+        'panic_regular': 20,    // Регулярные панические атаки
+        'panic_sometimes': 12,  // Периодические
+        'panic_rarely': 5,      // Редкие
+        'panic_past': 3,        // Были в прошлом
+        'panic_never': 0        // Не было
+      };
+      urgencyScore += panicScores[data.panic_experience] || 0;
+    }
+    
+    // НОВОЕ: Рабочая среда может усугублять проблемы
+    if (data.work_environment && Array.isArray(data.work_environment)) {
+      const stressfulFactors = ['stuffy_environment', 'night_shifts', 'social_stress', 'irregular_schedule'];
+      const stressCount = data.work_environment.filter(factor => stressfulFactors.includes(factor)).length;
+      urgencyScore += stressCount * 3;
     }
     
     // Частота проблем с дыханием (0-20 баллов)
@@ -609,8 +662,8 @@ class BreathingVERSEAnalysis {
     return topIssue;
   }
 
-  /**
-   * Генерация персональных рекомендаций для взрослых
+/**
+   * Генерация персональных рекомендаций для взрослых - ОБНОВЛЕННАЯ ВЕРСИЯ
    */
   generatePersonalizedRecommendations(primaryIssue, segment, data) {
     const recommendations = {
@@ -618,7 +671,9 @@ class BreathingVERSEAnalysis {
       main_program: '',
       support_materials: [],
       consultation_type: '',
-      timeline: ''
+      timeline: '',
+      health_precautions: [], // НОВОЕ: предостережения по здоровью
+      adapted_techniques: []  // НОВОЕ: адаптированные техники с учетом здоровья
     };
     
     // Программы по проблемам и сегментам
@@ -650,15 +705,57 @@ class BreathingVERSEAnalysis {
           consultation: 'Групповые занятия + консультации по запросу',
           timeline: 'Первые результаты через 5-7 дней'
         }
+      },
+      'insomnia': {
+        'HOT_LEAD': {
+          main: 'Программа восстановления сна "Глубокий отдых"',
+          urgent: ['Дыхание 4-7-8 для сна', 'Прогрессивная релаксация', 'Лунное дыхание'],
+          consultation: 'Индивидуальная консультация + вечерние сессии',
+          timeline: 'Улучшение сна через 3-5 дней'
+        },
+        'WARM_LEAD': {
+          main: 'Курс "Здоровый сон через дыхание"',
+          urgent: ['Вечернее успокаивающее дыхание', 'Техника "Волны сна"'],
+          consultation: 'Групповые вечерние практики',
+          timeline: 'Нормализация сна через 1-2 недели'
+        }
+      },
+      'breathing_issues': {
+        'HOT_LEAD': {
+          main: 'Индивидуальная программа восстановления дыхания',
+          urgent: ['Диафрагмальное дыхание', 'Полное йоговское дыхание', 'Дыхание Бутейко'],
+          consultation: 'Персональная диагностика + ежедневный контроль',
+          timeline: 'Облегчение дыхания через 2-3 дня'
+        },
+        'WARM_LEAD': {
+          main: 'Базовый курс "Правильное дыхание"',
+          urgent: ['Носовое дыхание', 'Ритмичное дыхание'],
+          consultation: 'Групповые занятия 2 раза в неделю',
+          timeline: 'Улучшение через неделю регулярных практик'
+        }
+      },
+      'high_pressure': {
+        'HOT_LEAD': {
+          main: 'Специальная программа "Дыхание для сердца"',
+          urgent: ['Медленное глубокое дыхание', 'Резонансное дыхание', 'Релаксация по Джекобсону'],
+          consultation: 'Обязательная консультация с контролем давления',
+          timeline: 'Стабилизация давления через 5-7 дней'
+        },
+        'WARM_LEAD': {
+          main: 'Курс "Здоровое сердце через дыхание"',
+          urgent: ['Дыхание 5-5-5', 'Мягкая пранаяма'],
+          consultation: 'Групповые занятия с мониторингом',
+          timeline: 'Улучшение через 2 недели'
+        }
       }
     };
     
-    // Получаем рекомендации для конкретной проблемы и сегмента
+    // Получаем базовые рекомендации
     const issuePrograms = programMatrix[primaryIssue];
     if (issuePrograms && issuePrograms[segment]) {
       const program = issuePrograms[segment];
       recommendations.main_program = program.main;
-      recommendations.urgent_techniques = program.urgent;
+      recommendations.urgent_techniques = [...program.urgent]; // Копируем массив для модификации
       recommendations.consultation_type = program.consultation;
       recommendations.timeline = program.timeline;
     } else {
@@ -669,10 +766,191 @@ class BreathingVERSEAnalysis {
       recommendations.timeline = 'Первые результаты через 1-2 недели';
     }
     
-    // Поддерживающие материалы
+    // НОВОЕ: Адаптация техник с учетом хронических заболеваний
+    if (data.chronic_conditions && data.chronic_conditions.length > 0 && !data.chronic_conditions.includes('none')) {
+      recommendations.adapted_techniques = this.adaptTechniquesForHealth(
+        recommendations.urgent_techniques, 
+        data.chronic_conditions,
+        data.current_medications
+      );
+      
+      // Добавляем предостережения
+      recommendations.health_precautions = this.generateHealthPrecautions(
+        data.chronic_conditions,
+        data.current_medications,
+        primaryIssue
+      );
+    }
+    
+    // НОВОЕ: Адаптация для панических атак
+    if (data.panic_experience && data.panic_experience !== 'panic_never') {
+      this.adaptForPanicHistory(recommendations, data.panic_experience);
+    }
+    
+    // НОВОЕ: Адаптация для рабочей среды
+    if (data.work_environment && data.work_environment.length > 0) {
+      this.adaptForWorkEnvironment(recommendations, data.work_environment);
+    }
+    
+    // Поддерживающие материалы с учетом здоровья
     recommendations.support_materials = this.getSupportMaterials(primaryIssue, segment, data);
     
+    // НОВОЕ: Добавляем специальные материалы при хронических заболеваниях
+    if (data.chronic_conditions && data.chronic_conditions.length > 0) {
+      recommendations.support_materials.push(
+        '📋 Индивидуальная карта противопоказаний',
+        '🏥 Рекомендации по согласованию с врачом'
+      );
+    }
+    
     return recommendations;
+  }
+
+  /**
+   * НОВЫЙ МЕТОД: Адаптация техник под хронические заболевания
+   */
+  adaptTechniquesForHealth(techniques, chronicConditions, medications) {
+    const adaptedTechniques = [];
+    
+    const contraindicationMap = {
+      'respiratory_diseases': {
+        avoid: ['Контролируемая гипервентиляция', 'Интенсивное дыхание'],
+        recommend: ['Мягкое диафрагмальное дыхание', 'Дыхание с удлиненным выдохом', 'Губное дыхание']
+      },
+      'cardiovascular_diseases': {
+        avoid: ['Задержки дыхания более 4 секунд', 'Резкие изменения ритма'],
+        recommend: ['Ровное ритмичное дыхание', 'Резонансное дыхание 5-5', 'Мягкая релаксация']
+      },
+      'panic_disorder': {
+        avoid: ['Быстрые техники', 'Гипервентиляция'],
+        recommend: ['Техника 4-7-8', 'Квадратное дыхание', 'Дыхание с подсчетом']
+      },
+      'spine_problems': {
+        avoid: ['Долгие статичные позы', 'Наклоны'],
+        recommend: ['Дыхание лежа или полулежа', 'Короткие сессии 5-7 минут', 'Дыхание в движении']
+      },
+      'diabetes': {
+        avoid: ['Интенсивные практики натощак'],
+        recommend: ['Регулярные короткие сессии', 'Контроль самочувствия', 'Дыхание после еды']
+      }
+    };
+    
+    // Фильтруем опасные техники
+    let safeTechniques = [...techniques];
+    chronicConditions.forEach(condition => {
+      if (contraindicationMap[condition]) {
+        const toAvoid = contraindicationMap[condition].avoid;
+        safeTechniques = safeTechniques.filter(tech => 
+          !toAvoid.some(avoidTech => tech.toLowerCase().includes(avoidTech.toLowerCase()))
+        );
+      }
+    });
+    
+    // Добавляем рекомендованные техники
+    chronicConditions.forEach(condition => {
+      if (contraindicationMap[condition]) {
+        contraindicationMap[condition].recommend.forEach(recTech => {
+          if (!adaptedTechniques.includes(recTech)) {
+            adaptedTechniques.push(recTech);
+          }
+        });
+      }
+    });
+    
+    // Объединяем безопасные и рекомендованные техники
+    return [...new Set([...safeTechniques, ...adaptedTechniques])].slice(0, 5);
+  }
+
+  /**
+   * НОВЫЙ МЕТОД: Генерация предостережений по здоровью
+   */
+  generateHealthPrecautions(chronicConditions, medications, primaryIssue) {
+    const precautions = [];
+    
+    // Общее предостережение
+    precautions.push('⚠️ Обязательно проконсультируйтесь с врачом перед началом практик');
+    
+    // Специфические предостережения по заболеваниям
+    if (chronicConditions.includes('respiratory_diseases')) {
+      precautions.push('🫁 При астме держите ингалятор под рукой');
+      precautions.push('❌ Избегайте форсированного дыхания');
+    }
+    
+    if (chronicConditions.includes('cardiovascular_diseases')) {
+      precautions.push('💔 Контролируйте пульс и давление');
+      precautions.push('⏱️ Не задерживайте дыхание более 4 секунд');
+    }
+    
+    if (chronicConditions.includes('panic_disorder')) {
+      precautions.push('😰 Начинайте с коротких сессий 3-5 минут');
+      precautions.push('👥 Первые занятия лучше проводить с инструктором');
+    }
+    
+    // Предостережения по медикаментам
+    if (medications && medications !== 'no_medications') {
+      if (medications === 'pressure_medications') {
+        precautions.push('💊 Практикуйте через 1-2 часа после приема лекарств');
+      }
+      if (medications === 'mental_medications') {
+        precautions.push('🧠 Могут быть головокружения - практикуйте сидя');
+      }
+    }
+    
+    return precautions;
+  }
+
+  /**
+   * НОВЫЙ МЕТОД: Адаптация для истории панических атак
+   */
+  adaptForPanicHistory(recommendations, panicExperience) {
+    if (panicExperience === 'panic_regular' || panicExperience === 'panic_sometimes') {
+      // Убираем потенциально триггерные техники
+      recommendations.urgent_techniques = recommendations.urgent_techniques.filter(
+        tech => !tech.includes('гипервентиляция') && !tech.includes('интенсив')
+      );
+      
+      // Добавляем безопасные успокаивающие техники
+      if (!recommendations.urgent_techniques.includes('Техника 5-4-3-2-1')) {
+        recommendations.urgent_techniques.unshift('Техника 5-4-3-2-1 (заземление)');
+      }
+      
+      // Модифицируем консультацию
+      if (!recommendations.consultation_type.includes('психолог')) {
+        recommendations.consultation_type += ' + консультация психолога';
+      }
+      
+      // Добавляем специальный материал
+      recommendations.support_materials.push('🆘 Карточка экстренной помощи при панической атаке');
+    }
+  }
+
+  /**
+   * НОВЫЙ МЕТОД: Адаптация для рабочей среды
+   */
+  adaptForWorkEnvironment(recommendations, workEnvironment) {
+    // Офисные техники для компьютерщиков
+    if (workEnvironment.includes('long_computer_work')) {
+      recommendations.urgent_techniques.push('Микро-перерывы дыхания каждый час');
+      recommendations.support_materials.push('💻 Гид "Дыхание за компьютером"');
+    }
+    
+    // Техники для душных помещений
+    if (workEnvironment.includes('stuffy_environment')) {
+      recommendations.urgent_techniques.push('Охлаждающее дыхание Ситали');
+      recommendations.support_materials.push('🏢 Техники для плохо проветриваемых помещений');
+    }
+    
+    // Адаптация для ночных смен
+    if (workEnvironment.includes('night_shifts')) {
+      recommendations.urgent_techniques.push('Энергетическое дыхание для бодрости');
+      recommendations.support_materials.push('🌙 Дыхательные практики для работающих ночью');
+    }
+    
+    // Для стресса от общения
+    if (workEnvironment.includes('social_stress')) {
+      recommendations.urgent_techniques.push('Быстрая перезагрузка между встречами');
+      recommendations.support_materials.push('👥 Антистресс-дыхание для переговоров');
+    }
   }
 
   /**
@@ -977,7 +1255,7 @@ class BreathingVERSEAnalysis {
       recommendations.timeline = 'Первые результаты через 1-2 недели';
     }
     
-    // Детские поддерживающие материалы
+  // Детские поддерживающие материалы
     recommendations.support_materials = this.getChildSupportMaterials(primaryIssue, segment, data);
     
     return recommendations;
@@ -1010,6 +1288,12 @@ class BreathingVERSEAnalysis {
         'Карточки для школы',
         'Техники быстрого успокоения',
         'Рекомендации для учителей'
+      ],
+      'sleep_problems': [
+        'Аудиосказки для засыпания',
+        'Вечерний ритуал дыхания',
+        'Дневник детского сна',
+        'Консультация сомнолога'
       ]
     };
     
@@ -1079,10 +1363,47 @@ class BreathingVERSEAnalysis {
         'Курс "5 офисных техник" (PDF)',
         'Аудиопрактики для рабочего дня',
         'Гид "Дыхание в стрессовых ситуациях"'
+      ],
+      'insomnia': [
+        'Аудио "Дыхание для глубокого сна" (20 мин)',
+        'Вечерний ритуал засыпания (PDF)',
+        'Трекер качества сна'
+      ],
+      'breathing_issues': [
+        'Видеокурс "Восстановление дыхания"',
+        'Дневник дыхательных практик',
+        'Консультация пульмонолога (рекомендации)'
+      ],
+      'high_pressure': [
+        'Дневник контроля давления',
+        'Безопасные техники при гипертонии (PDF)',
+        'Консультация кардиолога (чек-лист вопросов)'
       ]
     };
     
-    return [...baseMaterials, ...(issueMaterials[primaryIssue] || [])];
+    // Добавляем материалы по основной проблеме
+    const specificMaterials = issueMaterials[primaryIssue] || [];
+    
+    // НОВОЕ: Добавляем материалы для особых случаев
+    if (data.chronic_conditions && data.chronic_conditions.length > 0 && !data.chronic_conditions.includes('none')) {
+      baseMaterials.push('📋 Адаптированные техники для хронических заболеваний');
+    }
+    
+    if (data.panic_experience && data.panic_experience !== 'panic_never') {
+      baseMaterials.push('🆘 Протокол безопасности при панических атаках');
+    }
+    
+    if (data.work_environment && data.work_environment.length > 0) {
+      // Добавляем специальные материалы для рабочей среды
+      if (data.work_environment.includes('long_computer_work')) {
+        baseMaterials.push('💻 Гид "Дыхание за компьютером"');
+      }
+      if (data.work_environment.includes('night_shifts')) {
+        baseMaterials.push('🌙 Дыхание для работающих ночью');
+      }
+    }
+    
+    return [...baseMaterials, ...specificMaterials];
   }
 
   getDefaultProgram(segment) {
@@ -1121,7 +1442,15 @@ class BreathingVERSEAnalysis {
       primaryIssue,
       riskLevel: this.getRiskLevel(data),
       motivation: this.getMotivationLevel(data),
-      expectedSuccess: this.predictSuccessRate(data, segment)
+      expectedSuccess: this.predictSuccessRate(data, segment),
+      // НОВОЕ: добавляем информацию о здоровье
+      healthProfile: {
+        hasChronicConditions: data.chronic_conditions && data.chronic_conditions.length > 0 && !data.chronic_conditions.includes('none'),
+        chronicConditions: data.chronic_conditions || [],
+        medications: data.current_medications || 'no_medications',
+        panicHistory: data.panic_experience || 'panic_never',
+        workEnvironment: data.work_environment || []
+      }
     };
   }
 
@@ -1146,8 +1475,20 @@ class BreathingVERSEAnalysis {
       ['panic_attacks', 'high_pressure', 'severe_breathing_issues'].includes(p)
     );
     
-    if (stressLevel >= 8 || hasСriticalIssues) return 'HIGH';
-    if (stressLevel >= 6) return 'MEDIUM';
+    // НОВОЕ: учитываем хронические заболевания
+    const hasChronicConditions = data.chronic_conditions && 
+      data.chronic_conditions.length > 0 && 
+      !data.chronic_conditions.includes('none');
+    
+    const hasPanicHistory = data.panic_experience && 
+      ['panic_regular', 'panic_sometimes'].includes(data.panic_experience);
+    
+    if (stressLevel >= 8 || hasСriticalIssues || (hasChronicConditions && hasPanicHistory)) {
+      return 'HIGH';
+    }
+    if (stressLevel >= 6 || hasChronicConditions || hasPanicHistory) {
+      return 'MEDIUM';
+    }
     return 'LOW';
   }
 
@@ -1168,6 +1509,11 @@ class BreathingVERSEAnalysis {
     if (data.breathing_experience === 'never' && data.stress_level >= 7) motivation = 'HIGH';
     if (data.main_goals?.length >= 2) motivation = 'HIGH';
     if (data.time_commitment === '3-5_minutes' && data.stress_level <= 3) motivation = 'LOW';
+    
+    // НОВОЕ: люди с хроническими заболеваниями часто более мотивированы
+    if (data.chronic_conditions && data.chronic_conditions.length > 0 && !data.chronic_conditions.includes('none')) {
+      motivation = 'HIGH';
+    }
     
     return motivation;
   }
@@ -1202,7 +1548,18 @@ class BreathingVERSEAnalysis {
     if (data.stress_level >= 7) baseRate += 10; // высокая мотивация
     if (data.age_group === '31-45') baseRate += 5; // sweet spot
     
-    return Math.min(baseRate, 95);
+    // НОВОЕ: снижаем прогноз при сложных хронических заболеваниях
+    if (data.chronic_conditions && data.chronic_conditions.includes('respiratory_diseases')) {
+      baseRate -= 10; // требует более осторожного подхода
+    }
+    
+    // НОВОЕ: повышаем прогноз при готовности адаптировать рабочую среду
+    if (data.work_environment && data.work_environment.includes('long_computer_work') && 
+        data.time_commitment !== '3-5_minutes') {
+      baseRate += 5; // готовы уделять время несмотря на загруженность
+    }
+    
+    return Math.min(Math.max(baseRate, 20), 95); // от 20% до 95%
   }
 
   predictChildSuccessRate(data, segment) {
