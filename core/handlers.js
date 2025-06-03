@@ -1,4 +1,4 @@
-// Файл: core/handlers.js - ИСПРАВЛЕННАЯ ВЕРСИЯ
+// Файл: core/handlers.js - ИСПРАВЛЕННАЯ ВЕРСИЯ с обработкой "Подобрать программу"
 
 const { Markup } = require('telegraf');
 const config = require('../config');
@@ -130,6 +130,7 @@ class Handlers {
   async handleUserCallback(ctx) {
     const callbackData = ctx.callbackQuery.data;
     console.log(`📞 User Callback: ${callbackData} от пользователя ${ctx.from.id}`);
+    console.log(`🔍 DEBUG: Обрабатываем callback: "${callbackData}"`);
 
     // Отвечаем на callback чтобы убрать "часики"
     await ctx.answerCbQuery().catch(() => {});
@@ -187,8 +188,11 @@ class Handlers {
         await this.pdfManager.handleOrderStarter(ctx);
       } else if (callbackData === 'order_individual') {
         await this.pdfManager.handleOrderIndividual(ctx);
-      } else if (callbackData === 'help_choose_program') {
-        // ИСПРАВЛЕНО: Добавляем обработку "Помочь выбрать программу"
+      } 
+      
+      // ИСПРАВЛЕНО: ДОБАВЛЯЕМ ОБРАБОТКУ "Подобрать программу"
+      else if (callbackData === 'help_choose_program') {
+        console.log('✅ Найден callback help_choose_program, вызываем handleHelpChooseProgram');
         await this.pdfManager.handleHelpChooseProgram(ctx);
       }
       
@@ -652,16 +656,18 @@ class Handlers {
   getStats() {
     return {
       name: 'MainHandlers',
-      version: '3.1.0',
+      version: '3.2.0', // Увеличили версию после исправления
       features: [
         'survey_processing',
         'pdf_delivery',
         'contact_handling',
         'error_handling',
         'admin_integration',
-        'fixed_callback_processing'
+        'fixed_callback_processing',
+        'help_choose_program_support' // Новая фича
       ],
       admin_functions_moved: true,
+      help_choose_program_fixed: true, // Флаг исправления
       last_updated: new Date().toISOString()
     };
   }
