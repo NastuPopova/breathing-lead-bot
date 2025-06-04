@@ -1,4 +1,4 @@
-// Файл: modules/bonus/file-handler.js - ИСПРАВЛЕННАЯ ВЕРСИЯ
+// Файл: modules/bonus/file-handler.js - ПЕРЕПИСАННАЯ ВЕРСИЯ с надежной обработкой help_choose_program
 
 const fs = require('fs');
 const { Markup } = require('telegraf');
@@ -29,15 +29,619 @@ class FileHandler {
     // Статистика
     this.bonusStats = {
       totalDelivered: 0,
+      helpChooseProgramCalls: 0,
+      personalizedRecommendations: 0,
+      genericHelpShown: 0,
+      emergencyFallbacks: 0,
       bySegment: { HOT_LEAD: 0, WARM_LEAD: 0, COLD_LEAD: 0, NURTURE_LEAD: 0 },
       byIssue: {},
       byDeliveryMethod: { file: 0, static_pdf: 0, fallback_link: 0 }
     };
+
+    // Проверяем инициализацию
+    this.validateInitialization();
   }
 
-  // ===== ОСНОВНЫЕ МЕТОДЫ =====
+  // Проверка инициализации
+  validateInitialization() {
+    console.log('📦 FileHandler: проверка инициализации...');
+    
+    const checks = {
+      contentGenerator: !!this.contentGenerator,
+      additionalMaterials: Object.keys(this.additionalMaterials).length > 0,
+      handleHelpChooseProgram: typeof this.handleHelpChooseProgram === 'function',
+      showPersonalizedHelp: typeof this.showPersonalizedHelp === 'function',
+      showGenericHelp: typeof this.showGenericHelp === 'function'
+    };
+    
+    Object.entries(checks).forEach(([check, result]) => {
+      console.log(`${result ? '✅' : '❌'} ${check}: ${result}`);
+    });
+    
+    console.log('✅ FileHandler инициализирован');
+  }
 
-  // Получение бонуса для пользователя
+  // ===== ГЛАВНЫЙ МЕТОД: ПОМОЩЬ В ВЫБОРЕ ПРОГРАММЫ =====
+  
+  async handleHelpChooseProgram(ctx) {
+    console.log('🤔 === НАЧАЛО handleHelpChooseProgram ===');
+    
+    // Увеличиваем счетчик
+    this.bonusStats.helpChooseProgramCalls++;
+    
+    // Полная диагностика
+    const diagnostics = this.runFullDiagnostics(ctx);
+    console.log('📊 Диагностика:', diagnostics);
+    
+    try {
+      const analysisResult = ctx.session?.analysisResult;
+      const surveyData = ctx.session?.answers;
+      
+      // ПУТЬ 1: Есть данные анализа - показываем персонализированную помощь
+      if (analysisResult && surveyData && Object.keys(surveyData).length > 0) {
+        console.log('✅ Путь 1: Персонализированная помощь');
+        this.bonusStats.personalizedRecommendations++;
+        return await this.showPersonalizedHelp(ctx, analysisResult, surveyData);
+      }
+      
+      // ПУТЬ 2: Попытка восстановить данные из других источников
+      const recoveredData = await this.tryRecoverUserData(ctx);
+      if (recoveredData) {
+        console.log('✅ Путь 2: Данные восстановлены, персонализированная помощь');
+        this.bonusStats.personalizedRecommendations++;
+        return await this.showPersonalizedHelp(ctx, recoveredData.analysis, recoveredData.survey);
+      }
+      
+      // ПУТЬ 3: Нет данных - показываем общую помощь
+      console.log('📋 Путь 3: Общая помощь (нет данных анализа)');
+      this.bonusStats.genericHelpShown++;
+      return await this.showGenericHelp(ctx);
+      
+    } catch (error) {
+      console.error('❌ Ошибка в handleHelpChooseProgram:', error);
+      console.error('Стек ошибки:', error.stack);
+      
+      // ПУТЬ 4: Экстренный fallback
+      console.log('🆘 Путь 4: Экстренный fallback');
+      this.bonusStats.emergencyFallbacks++;
+      return await this.showEmergencyHelp(ctx);
+    } finally {
+      console.log('🏁 === КОНЕЦ handleHelpChooseProgram ===');
+    }
+  }
+
+  // ===== ДИАГНОСТИКА =====
+  
+  runFullDiagnostics(ctx) {
+    return {
+      timestamp: new Date().toISOString(),
+      user: {
+        id: ctx.from?.id,
+        username: ctx.from?.username,
+        first_name: ctx.from?.first_name
+      },
+      session: {
+        exists: !!ctx.session,
+        hasAnswers: !!ctx.session?.answers,
+        answersCount: Object.keys(ctx.session?.answers || {}).length,
+        hasAnalysisResult: !!ctx.session?.analysisResult,
+        analysisType: ctx.session?.analysisResult?.analysisType,
+        segment: ctx.session?.analysisResult?.segment,
+        primaryIssue: ctx.session?.analysisResult?.primaryIssue
+      },
+      callback: {
+        data: ctx.callbackQuery?.data,
+        messageId: ctx.callbackQuery?.message?.message_id
+      },
+      stats: {
+        totalCalls: this.bonusStats.helpChooseProgramCalls,
+        personalizedCount: this.bonusStats.personalizedRecommendations,
+        genericCount: this.bonusStats.genericHelpShown,
+        emergencyCount: this.bonusStats.emergencyFallbacks
+      }
+    };
+  }
+
+  // ===== ВОССТАНОВЛЕНИЕ ДАННЫХ =====
+  
+  async tryRecoverUserData(ctx) {
+    console.log('🔍 Попытка восстановления данных пользователя');
+    
+    try {
+      const userId = ctx.from?.id;
+      if (!userId) return null;
+      
+      // Пытаемся найти данные в админской системе
+      const adminData = this.searchInAdminSystem(userId);
+      if (adminData) {
+        console.log('✅ Данные найдены в админской системе');
+        return adminData;
+      }
+      
+      // Пытаемся восстановить из контекста сообщений
+      const contextData = this.tryRecoverFromContext(ctx);
+      if (contextData) {
+        console.log('✅ Данные восстановлены из контекста');
+        return contextData;
+      }
+      
+      return null;
+      
+    } catch (error) {
+      console.log('⚠️ Не удалось восстановить данные:', error.message);
+      return null;
+    }
+  }
+
+  searchInAdminSystem(userId) {
+    try {
+      // Поиск в системе уведомлений админа (если доступна)
+      if (global.bot?.adminIntegration?.adminNotifications?.leadDataStorage) {
+        const leadStorage = global.bot.adminIntegration.adminNotifications.leadDataStorage;
+        
+        const userKey = Object.keys(leadStorage).find(key => 
+          leadStorage[key]?.userInfo?.telegram_id?.toString() === userId.toString()
+        );
+        
+        if (userKey && leadStorage[userKey]) {
+          const userData = leadStorage[userKey];
+          return {
+            analysis: userData.analysisResult,
+            survey: userData.surveyAnswers
+          };
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      console.log('⚠️ Ошибка поиска в админской системе:', error.message);
+      return null;
+    }
+  }
+
+  tryRecoverFromContext(ctx) {
+    // Пытаемся найти подсказки в тексте сообщения или других данных
+    // Это базовая эвристика для восстановления
+    try {
+      const messageText = ctx.callbackQuery?.message?.text || '';
+      
+      // Если в сообщении есть упоминания о детях
+      if (messageText.includes('ребенок') || messageText.includes('детск')) {
+        return {
+          analysis: { analysisType: 'child', segment: 'COLD_LEAD', primaryIssue: 'general_wellness' },
+          survey: { child_age_detail: '7-8' }
+        };
+      }
+      
+      // Если есть упоминания о стрессе
+      if (messageText.includes('стресс') || messageText.includes('тревог')) {
+        return {
+          analysis: { analysisType: 'adult', segment: 'WARM_LEAD', primaryIssue: 'chronic_stress' },
+          survey: { age_group: '31-45', stress_level: 6 }
+        };
+      }
+      
+      return null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  // ===== ПЕРСОНАЛИЗИРОВАННАЯ ПОМОЩЬ =====
+  
+  async showPersonalizedHelp(ctx, analysisResult, surveyData) {
+    console.log('🎯 Показываем персонализированную помощь');
+    
+    const isChildFlow = analysisResult?.analysisType === 'child';
+    const segment = analysisResult?.segment || 'COLD_LEAD';
+    const primaryIssue = analysisResult?.primaryIssue;
+
+    console.log('📋 Данные для персонализации:', { isChildFlow, segment, primaryIssue });
+
+    // Увеличиваем статистику по сегментам
+    if (this.bonusStats.bySegment[segment] !== undefined) {
+      this.bonusStats.bySegment[segment]++;
+    }
+
+    let message = `🤔 *ПЕРСОНАЛЬНАЯ РЕКОМЕНДАЦИЯ*\n\n`;
+    
+    // Генерируем рекомендацию на основе сегмента
+    const recommendation = this.generateRecommendationBySegment(segment, isChildFlow, primaryIssue);
+    message += recommendation.text;
+    
+    // Добавляем информацию о проблеме
+    if (primaryIssue) {
+      const problemName = this.translateIssue(primaryIssue);
+      message += `🎯 *Ваша основная проблема:* ${problemName}\n\n`;
+    }
+    
+    // Особенности для детей
+    if (isChildFlow) {
+      message += this.getChildSpecificAdvice(segment);
+    }
+    
+    // Анализ готовности (если есть данные)
+    const readinessInfo = this.analyzeUserReadiness(surveyData);
+    if (readinessInfo) {
+      message += readinessInfo;
+    }
+    
+    message += `⚠️ *ВАЖНО:* Используйте только проверенные программы с поддержкой!\n\n`;
+    
+    // Призыв к действию
+    message += recommendation.cta;
+
+    // Генерируем клавиатуру
+    const keyboard = this.generatePersonalizedKeyboard(segment, isChildFlow, recommendation.priority);
+    
+    await this.safeEditOrReply(ctx, message, keyboard);
+  }
+
+  generateRecommendationBySegment(segment, isChildFlow, primaryIssue) {
+    const recommendations = {
+      'HOT_LEAD': {
+        text: `🚨 *Для вашей ситуации:*\n` +
+              `Судя по анализу, вам нужна срочная помощь. ` +
+              `Рекомендуем *персональную консультацию* - ` +
+              `Анастасия подберет техники экстренной помощи.\n\n`,
+        cta: `🔥 *Действуйте сейчас!* Запишитесь на консультацию сегодня - ` +
+             `чем раньше начнете, тем быстрее почувствуете облегчение.`,
+        priority: 'consultation'
+      },
+      'WARM_LEAD': {
+        text: `💪 *Для вашей ситуации:*\n` +
+              `Вы готовы к изменениям! Можете начать со *стартового комплекта* ` +
+              `и при необходимости дополнить персональной консультацией.\n\n`,
+        cta: `✨ *Отличная мотивация!* Выберите подходящий вариант и начинайте путь к здоровому дыханию.`,
+        priority: 'both'
+      },
+      'COLD_LEAD': {
+        text: `📚 *Для вашей ситуации:*\n` +
+              `Рекомендуем начать со *стартового комплекта*. ` +
+              `Если понадобится персональный подход - записывайтесь на консультацию.\n\n`,
+        cta: `🌱 *Начните с основ!* Стартовый комплект поможет заложить правильную базу.`,
+        priority: 'starter'
+      },
+      'NURTURE_LEAD': {
+        text: `🌱 *Для профилактики:*\n` +
+              `Начните со *стартового комплекта* для формирования ` +
+              `полезных привычек. Профилактика лучше лечения!\n\n`,
+        cta: `💚 *Забота о здоровье!* Вложения в профилактику окупаются здоровьем на годы вперед.`,
+        priority: 'starter'
+      }
+    };
+    
+    return recommendations[segment] || recommendations['COLD_LEAD'];
+  }
+
+  getChildSpecificAdvice(segment) {
+    if (segment === 'HOT_LEAD') {
+      return `👶 *Детская программа:*\n` +
+             `При серьезных проблемах у ребенка обязательно нужна консультация ` +
+             `с детским специалистом для составления безопасной программы.\n\n`;
+    } else {
+      return `👶 *Детская программа:*\n` +
+             `Специальный подход для работы с ребенком. ` +
+             `Все техники адаптированы под детский возраст в игровой форме.\n\n`;
+    }
+  }
+
+  analyzeUserReadiness(surveyData) {
+    if (!surveyData) return '';
+    
+    let readinessText = '';
+    
+    // Анализ времени
+    if (surveyData.time_commitment) {
+      const timeInfo = this.translateTimeCommitment(surveyData.time_commitment);
+      readinessText += `⏰ *Ваше время:* ${timeInfo}\n`;
+    }
+    
+    // Анализ опыта
+    if (surveyData.breathing_experience) {
+      const expInfo = this.translateExperience(surveyData.breathing_experience);
+      readinessText += `🧘 *Ваш опыт:* ${expInfo}\n`;
+    }
+    
+    return readinessText ? readinessText + '\n' : '';
+  }
+
+  // ===== ОБЩАЯ ПОМОЩЬ =====
+  
+  async showGenericHelp(ctx) {
+    console.log('📋 Показываем общую помощь по выбору программ');
+    
+    const message = `🤔 *КАК ВЫБРАТЬ ПРОГРАММУ?*\n\n` +
+
+      `✅ *Выбирайте Стартовый комплект, если:*\n` +
+      `• Вы новичок в дыхательных практиках\n` +
+      `• Хотите освоить базовые техники самостоятельно\n` +
+      `• Готовы следовать структурированной программе\n` +
+      `• Ограниченный бюджет, но есть мотивация\n\n` +
+
+      `✅ *Выбирайте Консультацию, если:*\n` +
+      `• У вас серьезные проблемы со здоровьем\n` +
+      `• Нужна персональная программа и диагностика\n` +
+      `• Важна поддержка и контроль специалиста\n` +
+      `• Хотите быстрых и точных результатов\n\n` +
+
+      `⚠️ *ВАЖНО:* Самостоятельное изучение дыхательных техник из интернета ` +
+      `может быть неэффективно и даже небезопасно. Используйте только ` +
+      `проверенные программы с профессиональной поддержкой!\n\n` +
+
+      `❓ *Сомневаетесь в выборе?*\n` +
+      `Напишите [Анастасии Поповой](https://t.me/NastuPopova) - ` +
+      `она даст персональную рекомендацию исходя из вашей ситуации!`;
+
+    const keyboard = [
+      [{ text: '🛒 Заказать Стартовый комплект', callback_data: 'order_starter' }],
+      [{ text: '👨‍⚕️ Записаться на консультацию', callback_data: 'order_individual' }],
+      [{ text: '📋 Показать все программы', callback_data: 'show_all_programs' }],
+      [{ text: '💬 Написать Анастасии', url: 'https://t.me/NastuPopova' }],
+      [{ text: '🔙 Назад к материалам', callback_data: 'more_materials' }]
+    ];
+
+    await this.safeEditOrReply(ctx, message, keyboard);
+  }
+
+  // ===== ЭКСТРЕННАЯ ПОМОЩЬ =====
+  
+  async showEmergencyHelp(ctx) {
+    console.log('🆘 Показываем экстренную помощь');
+    
+    try {
+      const message = `🚨 *ТЕХНИЧЕСКАЯ ПРОБЛЕМА*\n\n` +
+        `Не удается загрузить систему персональных рекомендаций.\n\n` +
+        `💬 **Что делать:**\n` +
+        `Напишите [Анастасии Поповой](https://t.me/NastuPopova) - ` +
+        `она лично поможет выбрать подходящую программу и ответит ` +
+        `на все вопросы о дыхательных практиках!\n\n` +
+        `📞 *Быстрые варианты:*\n` +
+        `🛒 Стартовый комплект - для самостоятельного изучения\n` +
+        `👨‍⚕️ Консультация - для индивидуального подхода`;
+
+      const keyboard = [
+        [{ text: '💬 Написать Анастасии', url: 'https://t.me/NastuPopova' }],
+        [{ text: '🛒 Стартовый комплект', callback_data: 'order_starter' }],
+        [{ text: '👨‍⚕️ Консультация', callback_data: 'order_individual' }]
+      ];
+
+      await ctx.reply(message, {
+        parse_mode: 'Markdown',
+        reply_markup: { inline_keyboard: keyboard }
+      });
+      
+    } catch (error) {
+      console.error('❌ Даже экстренная помощь не сработала:', error);
+      // Самый простой ответ без разметки
+      try {
+        await ctx.reply('Техническая проблема. Напишите @NastuPopova для помощи в выборе программы.');
+      } catch (finalError) {
+        console.error('❌ Критический сбой - не удается отправить даже простое сообщение:', finalError);
+      }
+    }
+  }
+
+  // ===== ГЕНЕРАЦИЯ КЛАВИАТУР =====
+  
+  generatePersonalizedKeyboard(segment, isChildFlow, priority) {
+    console.log(`🔘 Генерируем персональную клавиатуру: ${segment}, детский: ${isChildFlow}, приоритет: ${priority}`);
+    
+    const keyboards = {
+      'consultation': [
+        [{ text: '🚨 Записаться на срочную консультацию', callback_data: 'order_individual' }],
+        [{ text: '🛒 Все же хочу стартовый комплект', callback_data: 'order_starter' }],
+        [{ text: '📋 Показать все программы', callback_data: 'show_all_programs' }],
+        [{ text: '💬 Написать Анастасии', url: 'https://t.me/NastuPopova' }],
+        [{ text: '🔙 Назад к материалам', callback_data: 'more_materials' }]
+      ],
+      'both': [
+        [{ text: '🛒 Заказать Стартовый комплект', callback_data: 'order_starter' }],
+        [{ text: '👨‍⚕️ Записаться на консультацию', callback_data: 'order_individual' }],
+        [{ text: '📋 Показать все программы', callback_data: 'show_all_programs' }],
+        [{ text: '💬 Написать Анастасии', url: 'https://t.me/NastuPopova' }],
+        [{ text: '🔙 Назад к материалам', callback_data: 'more_materials' }]
+      ],
+      'starter': [
+        [{ text: '🛒 Начать со Стартового комплекта', callback_data: 'order_starter' }],
+        [{ text: '👨‍⚕️ Консультация (если нужен персональный подход)', callback_data: 'order_individual' }],
+        [{ text: '📋 Показать все программы', callback_data: 'show_all_programs' }],
+        [{ text: '💬 Написать Анастасии', url: 'https://t.me/NastuPopova' }],
+        [{ text: '🔙 Назад к материалам', callback_data: 'more_materials' }]
+      ]
+    };
+    
+    return keyboards[priority] || keyboards['both'];
+  }
+
+  // ===== ПЕРЕВОДЫ И УТИЛИТЫ =====
+  
+  translateIssue(issue) {
+    const translations = {
+      'chronic_stress': 'хронический стресс и напряжение',
+      'anxiety': 'повышенная тревожность и панические атаки',
+      'insomnia': 'проблемы со сном и бессонница',
+      'breathing_issues': 'проблемы с дыханием и одышка',
+      'high_pressure': 'повышенное давление',
+      'fatigue': 'хроническая усталость',
+      'headaches': 'частые головные боли',
+      'concentration_issues': 'проблемы с концентрацией',
+      'hyperactivity': 'гиперактивность у ребенка',
+      'separation_anxiety': 'страх разлуки у ребенка',
+      'sleep_problems': 'проблемы со сном у ребенка',
+      'tantrums': 'частые истерики и капризы',
+      'general_wellness': 'общее оздоровление'
+    };
+    
+    return translations[issue] || 'проблемы с самочувствием';
+  }
+
+  translateTimeCommitment(time) {
+    const translations = {
+      '3-5_minutes': '3-5 минут в день (быстрые техники)',
+      '10-15_minutes': '10-15 минут в день (стандартные практики)',
+      '20-30_minutes': '20-30 минут в день (глубокие практики)',
+      '30+_minutes': '30+ минут в день (интенсивное изучение)'
+    };
+    return translations[time] || time;
+  }
+
+  translateExperience(exp) {
+    const translations = {
+      'never': 'новичок в дыхательных практиках',
+      'few_times': 'пробовали несколько раз',
+      'theory': 'изучали теорию',
+      'sometimes': 'иногда практикуете',
+      'regularly': 'регулярно практикуете',
+      'expert': 'опытный практик'
+    };
+    return translations[exp] || exp;
+  }
+
+  // ===== БЕЗОПАСНАЯ ОТПРАВКА СООБЩЕНИЙ =====
+  
+  async safeEditOrReply(ctx, message, keyboard) {
+    console.log('📝 safeEditOrReply: попытка отправки сообщения');
+    
+    try {
+      // Попытка 1: editMessageText
+      await ctx.editMessageText(message, {
+        parse_mode: 'Markdown',
+        reply_markup: { inline_keyboard: keyboard }
+      });
+      console.log('✅ Сообщение отредактировано успешно');
+    } catch (editError) {
+      console.log('⚠️ Редактирование не удалось:', editError.message);
+      
+      try {
+        // Попытка 2: reply
+        await ctx.reply(message, {
+          parse_mode: 'Markdown',
+          reply_markup: { inline_keyboard: keyboard }
+        });
+        console.log('✅ Новое сообщение отправлено успешно');
+      } catch (replyError) {
+        console.error('❌ Reply тоже не удался:', replyError.message);
+        
+        try {
+          // Попытка 3: без Markdown
+          const cleanMessage = message.replace(/\*/g, '').replace(/_/g, '');
+          await ctx.reply(cleanMessage, {
+            reply_markup: { inline_keyboard: keyboard }
+          });
+          console.log('✅ Сообщение отправлено без Markdown');
+        } catch (cleanError) {
+          console.error('❌ И без Markdown не работает:', cleanError.message);
+          
+          try {
+            // Попытка 4: только текст без клавиатуры
+            await ctx.reply('Для помощи в выборе программы напишите @NastuPopova');
+            console.log('✅ Простое сообщение отправлено');
+          } catch (finalError) {
+            console.error('❌ Критический сбой - не удается отправить даже простое сообщение:', finalError);
+          }
+        }
+      }
+    }
+  }
+
+  // ===== ОСТАЛЬНЫЕ МЕТОДЫ (сохраняем существующие) =====
+  
+  getBonusForUser(analysisResult, surveyData) {
+    // Существующий код getBonusForUser
+  }
+
+  async sendPDFFile(ctx) {
+    // Существующий код sendPDFFile
+  }
+
+  async showMoreMaterials(ctx) {
+    // Существующий код showMoreMaterials
+  }
+
+  async showAllPrograms(ctx) {
+    // Существующий код showAllPrograms
+  }
+
+  async handleOrderStarter(ctx) {
+    // Существующий код handleOrderStarter
+  }
+
+  async handleOrderIndividual(ctx) {
+    // Существующий код handleOrderIndividual
+  }
+
+  async handleDownloadRequest(ctx, callbackData) {
+    // Существующий код handleDownloadRequest
+  }
+
+  async closeMenu(ctx) {
+    // Существующий код closeMenu
+  }
+
+  async deleteMenu(ctx) {
+    return await this.closeMenu(ctx);
+  }
+
+  // ===== СТАТИСТИКА И ОТЛАДКА =====
+  
+  getBonusStats() {
+    return {
+      ...this.bonusStats,
+      help_choose_program_reliability: {
+        total_calls: this.bonusStats.helpChooseProgramCalls,
+        success_rate: this.bonusStats.helpChooseProgramCalls > 0 
+          ? ((this.bonusStats.personalizedRecommendations + this.bonusStats.genericHelpShown) / this.bonusStats.helpChooseProgramCalls * 100).toFixed(2) + '%'
+          : '0%',
+        personalized_rate: this.bonusStats.helpChooseProgramCalls > 0
+          ? (this.bonusStats.personalizedRecommendations / this.bonusStats.helpChooseProgramCalls * 100).toFixed(2) + '%'
+          : '0%',
+        emergency_fallback_rate: this.bonusStats.helpChooseProgramCalls > 0
+          ? (this.bonusStats.emergencyFallbacks / this.bonusStats.helpChooseProgramCalls * 100).toFixed(2) + '%'
+          : '0%'
+      },
+      last_updated: new Date().toISOString()
+    };
+  }
+
+  getAdditionalMaterials() {
+    return this.additionalMaterials;
+  }
+
+  // Экспорт конфигурации
+  exportConfig() {
+    return {
+      name: 'FileHandler',
+      version: '3.0.0',
+      features: [
+        'reliable_help_choose_program',
+        'multiple_fallback_paths',
+        'data_recovery_attempts',
+        'personalized_recommendations',
+        'comprehensive_diagnostics',
+        'safe_message_delivery',
+        'detailed_statistics'
+      ],
+      help_choose_program_paths: [
+        'personalized_help_with_analysis',
+        'recovered_data_personalization',
+        'generic_help_fallback',
+        'emergency_help_fallback'
+      ],
+      reliability_features: [
+        'full_diagnostics',
+        'admin_system_data_recovery',
+        'context_based_recovery',
+        'multiple_send_attempts',
+        'graceful_degradation'
+      ],
+      statistics: this.getBonusStats(),
+      last_updated: new Date().toISOString()
+    };
+  }
+
+  // ===== СУЩЕСТВУЮЩИЕ МЕТОДЫ (СОХРАНЯЕМ ИЗ ОРИГИНАЛА) =====
+
   getBonusForUser(analysisResult, surveyData) {
     try {
       const technique = this.contentGenerator.getMasterTechnique(analysisResult, surveyData);
@@ -57,7 +661,6 @@ class FileHandler {
     }
   }
 
-  // Отправка персонального PDF файла
   async sendPDFFile(ctx) {
     try {
       console.log(`📝 Генерация персонального гида для пользователя ${ctx.from.id}`);
@@ -99,9 +702,6 @@ class FileHandler {
     }
   }
 
-  // ===== МЕНЮ И ИНТЕРФЕЙСЫ =====
-
-  // ИСПРАВЛЕНО: Упрощенное главное меню материалов без избыточных кнопок
   async showMoreMaterials(ctx) {
     console.log(`🎁 Показываем меню материалов для пользователя ${ctx.from.id}`);
     
@@ -119,7 +719,6 @@ class FileHandler {
     
     message += `\n📞 *Записаться:* [Анастасия Попова](https://t.me/breathing_opros_bot)`;
 
-    // ИСПРАВЛЕНО: Упрощенная клавиатура - убираем кнопки заказа, оставляем только "Все программы"
     const keyboard = [
       [Markup.button.url('📖 Все программы и отзывы', 'https://t.me/breathing_opros_bot')],
       [isChildFlow
@@ -133,7 +732,6 @@ class FileHandler {
     await this.safeEditOrReply(ctx, message, keyboard);
   }
 
-  // ИСПРАВЛЕНО: Правильное описание программ согласно продающему боту
   async showAllPrograms(ctx) {
     console.log(`📋 Показываем все программы для пользователя ${ctx.from.id}`);
     
@@ -173,33 +771,6 @@ class FileHandler {
     await this.safeEditOrReply(ctx, message, keyboard);
   }
 
-  // ИСПРАВЛЕНО: Меню после отправки персонального PDF с правильными ссылками
-  async showPostPDFMenu(ctx) {
-    const message = `✅ *Ваш персональный гид отправлен!*\n\n` +
-      `🎯 *Что дальше?*\n` +
-      `• Изучите технику из файла\n` +
-      `• Начните практиковать уже сегодня\n` +
-      `• При вопросах обращайтесь к Анастасии\n\n` +
-      `💡 *Хотите расширить программу?*`;
-
-    const keyboard = [
-      // ИСПРАВЛЕНО: Правильная ссылка на основного бота
-      [Markup.button.url('👨‍⚕️ Записаться на консультацию', 'https://t.me/breathing_opros_bot')],
-      [Markup.button.callback('🎁 Посмотреть другие материалы', 'more_materials')],
-      // ИСПРАВЛЕНО: Правильная ссылка на тренера
-      [Markup.button.url('💬 Написать Анастасии', 'https://t.me/NastuPopova')],
-      [Markup.button.callback('🗑️ Удалить меню', 'delete_menu')]
-    ];
-
-    await ctx.reply(message, {
-      parse_mode: 'Markdown',
-      ...Markup.inlineKeyboard(keyboard)
-    });
-  }
-
-  // ===== ОБРАБОТКА СПЕЦИАЛЬНЫХ ДЕЙСТВИЙ =====
-
-  // ИСПРАВЛЕНО: Правильное описание заказа стартового комплекта
   async handleOrderStarter(ctx) {
     const message = `🔰 *СТАРТОВЫЙ КОМПЛЕКТ ДЫХАТЕЛЬНЫХ ПРАКТИК*\n\n` +
       `👥 *Для кого:* Базовый набор для начинающих\n\n` +
@@ -244,206 +815,6 @@ class FileHandler {
     await this.safeEditOrReply(ctx, message, keyboard);
   }
 
-  // ИСПРАВЛЕНО: Персональные рекомендации на основе VERSE анализа
-  async handleHelpChooseProgram(ctx) {
-    const analysisResult = ctx.session?.analysisResult;
-    const surveyData = ctx.session?.answers;
-    
-    // Проверяем наличие анализа
-    if (!analysisResult || !surveyData) {
-      return await this.showGenericProgramHelp(ctx);
-    }
-
-    const isChildFlow = analysisResult.analysisType === 'child';
-    const segment = analysisResult.segment || 'COLD_LEAD';
-    const primaryIssue = analysisResult.primaryIssue;
-
-    let message = `🤔 *КАКАЯ ПРОГРАММА ВАМ ПОДОЙДЕТ?*\n\n`;
-    
-    // ПЕРСОНАЛЬНАЯ РЕКОМЕНДАЦИЯ на основе анализа
-    if (segment === 'HOT_LEAD') {
-      message += `🚨 *Рекомендация для вас:*\n`;
-      message += `Судя по вашим ответам, вам нужна срочная помощь. `;
-      message += `Рекомендуем начать с *персональной консультации* - `;
-      message += `Анастасия подберет техники экстренной помощи.\n\n`;
-      
-      if (primaryIssue) {
-        const problemTranslation = this.translateIssue(primaryIssue);
-        message += `🎯 *Ваша основная проблема:* ${problemTranslation}\n`;
-        message += `💡 *Почему консультация:* требуется индивидуальный подход и быстрое реагирование.\n\n`;
-      }
-      
-    } else if (segment === 'WARM_LEAD') {
-      message += `💪 *Рекомендация для вас:*\n`;
-      message += `Вы готовы к изменениям! Можете начать со *стартового комплекта* `;
-      message += `и при необходимости дополнить персональной консультацией.\n\n`;
-      
-      if (primaryIssue) {
-        const problemTranslation = this.translateIssue(primaryIssue);
-        message += `🎯 *Ваша основная проблема:* ${problemTranslation}\n`;
-        message += `💡 *Почему стартовый комплект:* структурированный подход даст хорошие результаты.\n\n`;
-      }
-      
-    } else if (segment === 'COLD_LEAD') {
-      message += `📚 *Рекомендация для вас:*\n`;
-      message += `Для начала изучите *стартовый комплект*. `;
-      message += `Если понадобится персональный подход - запишитесь на консультацию.\n\n`;
-      
-      if (primaryIssue) {
-        const problemTranslation = this.translateIssue(primaryIssue);
-        message += `🎯 *Ваша основная проблема:* ${problemTranslation}\n`;
-        message += `💡 *Почему стартовый комплект:* базовые техники помогут начать улучшения.\n\n`;
-      }
-      
-    } else { // NURTURE_LEAD
-      message += `🌱 *Рекомендация для вас:*\n`;
-      message += `Начните с изучения *стартового комплекта* для формирования полезных привычек. `;
-      message += `Профилактика лучше лечения!\n\n`;
-      
-      message += `💡 *Почему стартовый комплект:* базовые техники заложат правильную основу.\n\n`;
-    }
-
-    // Дополнительные рекомендации для детского потока
-    if (isChildFlow) {
-      message += `👶 *Особенности детской программы:*\n`;
-      message += `Детские программы требуют особого подхода. `;
-      if (segment === 'HOT_LEAD') {
-        message += `При серьезных проблемах у ребенка рекомендуем начать с консультации `;
-        message += `для работы с детским специалистом.\n\n`;
-      } else {
-        message += `Можно начать со стартового комплекта, адаптированного для детей.\n\n`;
-      }
-    }
-
-    // Анализ готовности по времени и опыту
-    if (surveyData.time_commitment) {
-      const timeTranslation = this.translateTimeCommitment(surveyData.time_commitment);
-      message += `⏰ *Ваше время:* ${timeTranslation}\n`;
-    }
-    
-    if (surveyData.breathing_experience) {
-      const expTranslation = this.translateExperience(surveyData.breathing_experience);
-      message += `🧘 *Ваш опыт:* ${expTranslation}\n\n`;
-    }
-
-    message += `⚠️ *ВАЖНО:* Самостоятельное изучение дыхательных техник из интернета не рекомендуется - это не даст результатов и может быть небезопасно. Используйте только проверенные программы с поддержкой!\n\n`;
-
-    // Персональный призыв к действию
-    if (segment === 'HOT_LEAD') {
-      message += `🔥 *Не откладывайте!* Запишитесь на консультацию сегодня - `;
-      message += `чем раньше начнете, тем быстрее почувствуете облегчение.`;
-    } else {
-      message += `❓ *Готовы начать?* Напишите [Анастасии](https://t.me/NastuPopova) `;
-      message += `за персональной консультацией по выбору программы!`;
-    }
-
-    // Клавиатура с учетом рекомендации
-    const keyboard = this.generatePersonalizedKeyboard(segment, isChildFlow);
-
-    await this.safeEditOrReply(ctx, message, keyboard);
-  }
-
-  // Fallback для случаев без анализа
-  async showGenericProgramHelp(ctx) {
-    const message = `🤔 *КАК ВЫБРАТЬ ПОДХОДЯЩУЮ ПРОГРАММУ?*\n\n` +
-
-      `✅ *Выбирайте Стартовый комплект, если:*\n` +
-      `• Вы новичок в дыхательных практиках\n` +
-      `• Хотите освоить базовые техники по видеоурокам\n` +
-      `• Готовы следовать структурированной программе\n` +
-      `• Нужен проверенный подход с поддержкой\n` +
-      `• Ограниченный бюджет\n\n` +
-
-      `✅ *Выбирайте Индивидуальную консультацию, если:*\n` +
-      `• У вас серьезные проблемы со здоровьем\n` +
-      `• Нужна персональная программа и диагностика\n` +
-      `• Важна поддержка специалиста\n` +
-      `• Хотите быстрых и точных результатов\n` +
-      `• Готовы инвестировать в здоровье\n\n` +
-
-      `⚠️ *ВАЖНО:* Самостоятельное изучение дыхательных техник из интернета не рекомендуется - это не даст результатов и может быть небезопасно. Используйте только проверенные программы с поддержкой!\n\n` +
-
-      `❓ *Все еще сомневаетесь?*\n` +
-      `Напишите [Анастасии](https://t.me/NastuPopova) - она даст персональную рекомендацию!`;
-
-    const keyboard = [
-      [Markup.button.callback('🛒 Заказать Стартовый комплект', 'order_starter')],
-      [Markup.button.callback('👨‍⚕️ Записаться на консультацию', 'order_individual')],
-      [Markup.button.callback('📋 Показать все программы', 'show_all_programs')],
-      [Markup.button.callback('🔙 Назад к материалам', 'more_materials')]
-    ];
-
-    await this.safeEditOrReply(ctx, message, keyboard);
-  }
-
-  // Генерация персонализированной клавиатуры
-  generatePersonalizedKeyboard(segment, isChildFlow) {
-    if (segment === 'HOT_LEAD') {
-      // Для срочных случаев - акцент на консультации
-      return [
-        [Markup.button.callback('🚨 Записаться на срочную консультацию', 'order_individual')],
-        [Markup.button.callback('🛒 Все же хочу стартовый комплект', 'order_starter')],
-        [Markup.button.callback('📋 Показать все программы', 'show_all_programs')],
-        [Markup.button.callback('🔙 Назад к материалам', 'more_materials')]
-      ];
-    } else if (segment === 'WARM_LEAD') {
-      // Для мотивированных - равные варианты
-      return [
-        [Markup.button.callback('🛒 Заказать Стартовый комплект', 'order_starter')],
-        [Markup.button.callback('👨‍⚕️ Записаться на консультацию', 'order_individual')],
-        [Markup.button.callback('📋 Показать все программы', 'show_all_programs')],
-        [Markup.button.callback('🔙 Назад к материалам', 'more_materials')]
-      ];
-    } else {
-      // Для остальных - акцент на стартовом комплекте
-      return [
-        [Markup.button.callback('🛒 Начать со Стартового комплекта', 'order_starter')],
-        [Markup.button.callback('👨‍⚕️ Консультация (если нужен персональный подход)', 'order_individual')],
-        [Markup.button.callback('📋 Показать все программы', 'show_all_programs')],
-        [Markup.button.callback('🔙 Назад к материалам', 'more_materials')]
-      ];
-    }
-  }
-
-  // Вспомогательные методы для переводов
-  translateIssue(issue) {
-    const translations = {
-      'chronic_stress': 'хронический стресс и напряжение',
-      'anxiety': 'повышенная тревожность и панические атаки',
-      'insomnia': 'проблемы со сном и бессонница',
-      'breathing_issues': 'проблемы с дыханием и одышка',
-      'high_pressure': 'повышенное давление',
-      'fatigue': 'хроническая усталость',
-      'hyperactivity': 'гиперактивность у ребенка',
-      'separation_anxiety': 'страх разлуки у ребенка',
-      'sleep_problems': 'проблемы со сном у ребенка',
-      'general_wellness': 'общее оздоровление'
-    };
-    return translations[issue] || issue;
-  }
-
-  translateTimeCommitment(time) {
-    const translations = {
-      '3-5_minutes': '3-5 минут в день (быстрые техники)',
-      '10-15_minutes': '10-15 минут в день (стандартные практики)',
-      '20-30_minutes': '20-30 минут в день (глубокие практики)'
-    };
-    return translations[time] || time;
-  }
-
-  translateExperience(exp) {
-    const translations = {
-      'never': 'новичок в дыхательных практиках',
-      'few_times': 'пробовали несколько раз',
-      'sometimes': 'иногда практикуете',
-      'regularly': 'регулярно практикуете'
-    };
-    return translations[exp] || exp;
-  }
-
-  // ===== ОБРАБОТКА ЗАГРУЗОК =====
-
-  // Обработка запросов на загрузку
   async handleDownloadRequest(ctx, callbackData) {
     console.log(`📥 Обработка запроса скачивания: ${callbackData}`);
     
@@ -458,7 +829,6 @@ class FileHandler {
     }
   }
 
-  // Отправка статичных PDF с множественными попытками
   async sendAdditionalPDF(ctx, pdfType) {
     const material = this.additionalMaterials[pdfType];
     if (!material) {
@@ -471,7 +841,6 @@ class FileHandler {
     console.log(`📤 Попытка отправки PDF: ${material.fileName}`);
     await ctx.answerCbQuery('📤 Отправляю файл...');
 
-    // Попытка 1: Прямая загрузка с Google Drive
     try {
       await ctx.replyWithDocument(
         { url: material.url, filename: material.fileName },
@@ -479,7 +848,6 @@ class FileHandler {
           caption: `🎁 *${material.title}*\n\n${material.description}\n\n📞 Больше материалов у [Анастасии Поповой](https://t.me/NastuPopova)`,
           parse_mode: 'Markdown',
           ...Markup.inlineKeyboard([
-            // ИСПРАВЛЕНО: Правильные ссылки в клавиатуре после PDF
             [Markup.button.url('👨‍⚕️ Записаться на консультацию', 'https://t.me/breathing_opros_bot')],
             [Markup.button.callback('🎁 Другие материалы', 'more_materials')],
             [Markup.button.url('💬 Написать Анастасии', 'https://t.me/NastuPopova')],
@@ -490,7 +858,6 @@ class FileHandler {
 
       console.log(`✅ PDF успешно отправлен: ${material.title}`);
       this.bonusStats.byDeliveryMethod.static_pdf++;
-      return;
 
     } catch (error) {
       console.log(`⚠️ Ошибка отправки файла: ${error.message}`);
@@ -498,7 +865,6 @@ class FileHandler {
     }
   }
 
-  // Fallback для PDF - отправка ссылки
   async sendPDFFallback(ctx, material) {
     try {
       const message = `📄 *${material.title}*\n\n` +
@@ -512,7 +878,6 @@ class FileHandler {
 
       const keyboard = [
         [Markup.button.url('📥 Открыть PDF', material.directUrl)],
-        // ИСПРАВЛЕНО: Правильные ссылки в fallback
         [Markup.button.url('👨‍⚕️ Записаться на консультацию', 'https://t.me/breathing_opros_bot')],
         [Markup.button.callback('🎁 Другие материалы', 'more_materials')],
         [Markup.button.url('💬 Написать Анастасии', 'https://t.me/NastuPopova')],
@@ -540,26 +905,27 @@ class FileHandler {
     }
   }
 
-  // ===== УТИЛИТЫ И ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ =====
+  async showPostPDFMenu(ctx) {
+    const message = `✅ *Ваш персональный гид отправлен!*\n\n` +
+      `🎯 *Что дальше?*\n` +
+      `• Изучите технику из файла\n` +
+      `• Начните практиковать уже сегодня\n` +
+      `• При вопросах обращайтесь к Анастасии\n\n` +
+      `💡 *Хотите расширить программу?*`;
 
-  // Безопасная отправка/редактирование сообщения
-  async safeEditOrReply(ctx, message, keyboard) {
-    try {
-      await ctx.editMessageText(message, {
-        parse_mode: 'Markdown',
-        ...Markup.inlineKeyboard(keyboard)
-      });
-      console.log('✅ Сообщение отредактировано');
-    } catch (error) {
-      console.log('⚠️ Не удалось отредактировать сообщение, отправляем новое');
-      await ctx.reply(message, {
-        parse_mode: 'Markdown',
-        ...Markup.inlineKeyboard(keyboard)
-      });
-    }
+    const keyboard = [
+      [Markup.button.url('👨‍⚕️ Записаться на консультацию', 'https://t.me/breathing_opros_bot')],
+      [Markup.button.callback('🎁 Посмотреть другие материалы', 'more_materials')],
+      [Markup.button.url('💬 Написать Анастасии', 'https://t.me/NastuPopova')],
+      [Markup.button.callback('🗑️ Удалить меню', 'delete_menu')]
+    ];
+
+    await ctx.reply(message, {
+      parse_mode: 'Markdown',
+      ...Markup.inlineKeyboard(keyboard)
+    });
   }
 
-  // Удаление/закрытие меню
   async closeMenu(ctx) {
     console.log(`🗑️ Удаление меню для пользователя ${ctx.from.id}`);
     
@@ -584,12 +950,7 @@ class FileHandler {
     }
   }
 
-  async deleteMenu(ctx) {
-    return await this.closeMenu(ctx);
-  }
-
-  // Fallback техника при ошибках генерации PDF
-  async sendFallbackTechnique(ctx, bonus) {
+  sendFallbackTechnique(ctx, bonus) {
     const technique = bonus.technique;
     let message = `⚠️ Файл временно недоступен, но вот ваша техника:\n\n`;
     message += `🎯 *${technique.name}*\n\n`;
@@ -601,7 +962,7 @@ class FileHandler {
     message += `✨ *Результат:* ${technique.result}\n\n`;
     message += `💬 Напишите [Анастасии Поповой](https://t.me/NastuPopova) за полным гидом!`;
 
-    await ctx.reply(message, {
+    return ctx.reply(message, {
       parse_mode: 'Markdown',
       ...Markup.inlineKeyboard([
         [Markup.button.url('💬 Написать Анастасии', 'https://t.me/NastuPopova')],
@@ -610,7 +971,6 @@ class FileHandler {
     });
   }
 
-  // Fallback бонус при ошибках
   getFallbackBonus() {
     return {
       id: 'fallback_adult_chronic_stress',
@@ -622,7 +982,6 @@ class FileHandler {
     };
   }
 
-  // Очистка временных файлов
   cleanupTempFile(filePath) {
     setTimeout(() => {
       try {
@@ -634,16 +993,6 @@ class FileHandler {
         console.error('⚠️ Ошибка удаления временного файла:', error);
       }
     }, 1000);
-  }
-
-  // ===== ГЕТТЕРЫ И СТАТИСТИКА =====
-
-  getBonusStats() {
-    return this.bonusStats;
-  }
-
-  getAdditionalMaterials() {
-    return this.additionalMaterials;
   }
 }
 
