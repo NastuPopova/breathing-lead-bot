@@ -1,5 +1,5 @@
 // Файл: modules/admin/handlers/main_handler.js
-// ИСПРАВЛЕННАЯ ВЕРСИЯ без ошибок Markdown
+// ИСПРАВЛЕННАЯ ВЕРСИЯ - убираны ошибки Markdown
 
 const config = require('../../../config');
 
@@ -130,14 +130,14 @@ class MainHandler {
       const oldMode = this.adminNotifications.getNotificationMode();
       const newMode = this.adminNotifications.toggleNotificationMode();
       
-      // ИСПРАВЛЕНО: Убираны двойные звездочки, используем только одинарные
+      // ИСПРАВЛЕНО: Правильная Markdown разметка
       let message = `🔄 *РЕЖИМ УВЕДОМЛЕНИЙ ИЗМЕНЕН*\n\n`;
       message += `📤 Было: ${oldMode.emoji} ${oldMode.mode}\n`;
       message += `📥 Стало: ${newMode.emoji} ${newMode.mode}\n\n`;
       message += `📝 ${newMode.description}\n\n`;
       
-      // Добавляем подсказки по режимам
-      message += `💡 *Доступные режимы:*\n`;
+      // Добавляем подсказки по режимам - БЕЗ жирного выделения в середине строки
+      message += `💡 Доступные режимы:\n`;
       message += `🔇 Тихий - никаких уведомлений\n`;
       message += `🔒 Фильтр - только от других пользователей\n`;
       message += `🧪 Тест - все уведомления (включая свои)\n`;
@@ -250,20 +250,19 @@ class MainHandler {
       const mode = this.adminNotifications.getNotificationMode();
       const stats = this.adminNotifications.getStats();
       
-      // ИСПРАВЛЕНО: Убираны двойные звездочки
       let message = `📊 *ДЕТАЛЬНЫЙ СТАТУС УВЕДОМЛЕНИЙ*\n\n`;
       
-      message += `${mode.emoji} *Текущий режим:* ${mode.mode}\n`;
+      message += `${mode.emoji} Текущий режим: ${mode.mode}\n`;
       message += `📝 ${mode.description}\n\n`;
       
-      message += `⚙️ *Настройки:*\n`;
+      message += `⚙️ Настройки:\n`;
       message += `• Уведомления включены: ${stats.notifications_enabled ? '✅' : '❌'}\n`;
       message += `• Тестовый режим: ${stats.settings.test_mode ? '✅' : '❌'}\n`;
       message += `• Фильтр администратора: ${stats.settings.filter_admin_responses ? '✅' : '❌'}\n`;
       message += `• Тихий режим: ${stats.settings.silent_mode ? '✅' : '❌'}\n`;
       message += `• Admin ID: ${stats.admin_id || 'не настроен'}\n\n`;
       
-      message += `📈 *Статистика:*\n`;
+      message += `📈 Статистика:\n`;
       message += `• Лидов в системе: ${stats.stored_leads_count}\n`;
       message += `• Всего сегодня: ${stats.daily_stats.totalLeads}\n`;
       message += `• 🔥 Горячих: ${stats.daily_stats.hotLeads}\n`;
@@ -272,7 +271,7 @@ class MainHandler {
       message += `• 🌱 Взращивание: ${stats.daily_stats.nurtureLeads}\n\n`;
       
       if (stats.analytics) {
-        message += `📊 *Аналитика уведомлений:*\n`;
+        message += `📊 Аналитика уведомлений:\n`;
         message += `• Всего отправлено: ${stats.analytics.notifications?.totalSent || 0}\n`;
         message += `• Успешных: ${stats.analytics.notifications?.successful || 0}\n`;
         message += `• Ошибок: ${stats.analytics.notifications?.failed || 0}\n`;
