@@ -385,7 +385,7 @@ class Handlers {
     await ctx.reply(message, {
       parse_mode: 'Markdown',
       ...Markup.inlineKeyboard([
-        [Markup.button.callback('🔬 Запустить тест', 'start_survey')],
+        [Markup.button.callback('Запустить тест', 'start_survey')],
         [Markup.button.callback('ℹ️ Подробнее о диагностике', 'about_survey')]
       ])
     });
@@ -467,7 +467,7 @@ class Handlers {
     await ctx.editMessageText(message, {
       parse_mode: 'Markdown',
       ...Markup.inlineKeyboard([
-        [Markup.button.callback('🔬 Запустить тест', 'start_survey')],
+        [Markup.button.callback('Запустить тест', 'start_survey')],
         [Markup.button.callback('ℹ️ Подробнее о диагностике', 'about_survey')]
       ])
     });
