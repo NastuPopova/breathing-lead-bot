@@ -1103,7 +1103,14 @@ class ExtendedSurveyQuestions {
       'condition_thyroid': 'thyroid_diseases',
       'condition_digestive': 'digestive_diseases',
       'condition_none': 'none',
-
+      // === УРОВЕНЬ СТРЕССА (ОБЯЗАТЕЛЬНО!) ===
+      'stress_1': 1,
+      'stress_2': 2,
+      'stress_3': 3,
+      'stress_4': 4,
+      'stress_5': 5,
+      'stress_6': 6,
+      'stress_7': 7,
       // НОВЫЕ: Медикаменты
       'meds_pressure': 'pressure_medications',
       'meds_respiratory': 'respiratory_medications',
