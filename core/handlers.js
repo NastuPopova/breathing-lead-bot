@@ -437,7 +437,7 @@ class Handlers {
     await ctx.editMessageText(aboutMessage, {
       parse_mode: 'Markdown',
       ...Markup.inlineKeyboard([
-        [Markup.button.callback('🔬 Да, начать диагностику!', 'start_survey_from_about')],
+        [Markup.button.callback('Запустить тест', 'start_survey_from_about')],
         [Markup.button.callback('🔙 Назад к главному меню', 'back_to_main')]
       ])
     });
