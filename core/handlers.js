@@ -90,14 +90,28 @@ class Handlers {
         callbackData.startsWith('goal_') ||
         callbackData.startsWith('format_') ||
         callbackData.startsWith('stress_') ||
+        callbackData.startsWith('sleep_') ||  // ДОБАВЛЕНО
         callbackData.startsWith('breath_') ||
+        callbackData.startsWith('method_') ||  // ДОБАВЛЕНО
+        callbackData.startsWith('freq_') ||    // ДОБАВЛЕНО
+        callbackData.startsWith('shallow_') || // ДОБАВЛЕНО
+        callbackData.startsWith('exp_') ||     // ДОБАВЛЕНО
+        callbackData.startsWith('time_') ||    // ДОБАВЛЕНО
+        callbackData.startsWith('prio_') ||    // ДОБАВЛЕНО
         callbackData.startsWith('med_') ||
+        callbackData.startsWith('meds_') ||    // ДОБАВЛЕНО
         callbackData.startsWith('panic_') ||
         callbackData.startsWith('env_') ||
+        callbackData.startsWith('work_') ||    // ДОБАВЛЕНО
         callbackData.startsWith('occ_') ||
         callbackData.startsWith('activity_') ||
         callbackData.startsWith('condition_') ||
         callbackData.startsWith('child_age_') ||
+        callbackData.startsWith('edu_') ||     // ДОБАВЛЕНО
+        callbackData.startsWith('schedule_') || // ДОБАВЛЕНО
+        callbackData.startsWith('parent_') ||  // ДОБАВЛЕНО
+        callbackData.startsWith('motivation_') || // ДОБАВЛЕНО
+        callbackData.startsWith('weight_') ||  // ДОБАВЛЕНО
         callbackData.startsWith('both_parents') ||
         callbackData.startsWith('mother') ||
         callbackData.startsWith('father') ||
@@ -290,10 +304,10 @@ class Handlers {
       return await this.handleMultipleChoice(ctx, callbackData, question);
     }
 
-    // Обработка одиночного выбора
+    // Обработка одиночного выбора и шкал
     const mappedValue = this.surveyQuestions.mapCallbackToValue(callbackData);
     
-    console.log(`✅ Маппинг: ${callbackData} -> ${mappedValue}`);
+    console.log(`✅ Маппинг: ${callbackData} -> ${mappedValue} (тип: ${typeof mappedValue})`);
 
     // Валидация ответа
     const validation = this.surveyQuestions.validateAnswer(
@@ -306,7 +320,14 @@ class Handlers {
       return;
     }
 
-    // Сохраняем ответ
+    // Показываем предупреждение если есть
+    if (validation.warning) {
+      await ctx.answerCbQuery(validation.warning, { show_alert: true });
+    } else {
+      await ctx.answerCbQuery('✅ Ответ сохранен');
+    }
+
+    // Сохраняем ответ (для шкал сохраняем числовое значение)
     ctx.session.answers[currentQuestion] = mappedValue;
     
     if (!ctx.session.completedQuestions.includes(currentQuestion)) {
@@ -382,6 +403,74 @@ class Handlers {
     }
 
     console.log(`📋 Текущие выборы для ${currentQuestion}: [${selections.join(', ')}]`);
+    
+    // КРИТИЧНО: Обновляем клавиатуру с галочками
+    await this.updateMultipleChoiceKeyboard(ctx, question, selections);
+  }
+
+  // НОВЫЙ МЕТОД: Обновление клавиатуры множественного выбора
+  async updateMultipleChoiceKeyboard(ctx, question, selections) {
+    try {
+      // Получаем оригинальную клавиатуру
+      const originalKeyboard = question.keyboard.reply_markup.inline_keyboard;
+      
+      // Создаем обновленную клавиатуру с галочками
+      const updatedKeyboard = originalKeyboard.map(row => {
+        return row.map(button => {
+          const callbackData = button.callback_data;
+          
+          // Пропускаем служебные кнопки
+          if (callbackData === 'nav_back' || callbackData.endsWith('_done')) {
+            return button;
+          }
+          
+          // Получаем значение
+          const mappedValue = this.surveyQuestions.mapCallbackToValue(callbackData);
+          
+          // Добавляем или убираем галочку
+          let newText = button.text;
+          
+          if (selections.includes(mappedValue)) {
+            // Добавляем галочку если её нет
+            if (!newText.startsWith('✅ ')) {
+              newText = '✅ ' + newText;
+            }
+          } else {
+            // Убираем галочку если она есть
+            newText = newText.replace('✅ ', '');
+          }
+          
+          return {
+            text: newText,
+            callback_data: callbackData
+          };
+        });
+      });
+      
+      // Обновляем сообщение с новой клавиатурой
+      const progress = this.surveyQuestions.getProgress(
+        ctx.session.completedQuestions || [],
+        ctx.session.answers || {}
+      );
+      
+      const progressBar = this.generateProgressBar(progress.percentage);
+      const questionText = `${progressBar}\n\n${question.text}`;
+      
+      const fullText = question.note 
+        ? `${questionText}\n\n💡 ${question.note}\n\n📝 Выбрано: ${selections.length}`
+        : `${questionText}\n\n📝 Выбрано: ${selections.length}`;
+      
+      await ctx.editMessageText(fullText, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: updatedKeyboard
+        }
+      });
+      
+    } catch (error) {
+      console.error('❌ Ошибка обновления клавиатуры множественного выбора:', error);
+      // Не критично, продолжаем работу
+    }
   }
 
   async handleNavBack(ctx) {
