@@ -793,18 +793,19 @@ class ExtendedSurveyQuestions {
   }
 
   // ВАЛИДАЦИЯ С ПОДДЕРЖКОЙ ОГРАНИЧЕНИЙ
-  improvedValidateStressLevel(questionId, answer) {
-    if (questionId !== 'stress_level') return { valid: true };
-
-    // Проверяем формат stress_X
-    const isValidFormat = /^stress_\d+$/.test(answer);
-    
-    if (!isValidFormat) {
-      return {
-        valid: false,
-        error: 'Пожалуйста, выберите уровень стресса от 1 до 10'
-      };
-    }
+  improvedValidateStressLevel(questionId, value) {
+  // Приводим всё к числу — не важно, строка или число
+  const num = Number(value);
+  
+  if (isNaN(num) || num < 1 || num > 10) {
+    return { 
+      valid: false, 
+      error: 'Пожалуйста, выберите уровень стресса от 1 до 10' 
+    };
+  }
+  
+  return { valid: true };
+}
 
     // Извлекаем число и проверяем диапазон
     const value = parseInt(answer.split('_')[1]);
