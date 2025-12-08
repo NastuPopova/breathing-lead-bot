@@ -793,41 +793,25 @@ class ExtendedSurveyQuestions {
   }
 
   // ВАЛИДАЦИЯ С ПОДДЕРЖКОЙ ОГРАНИЧЕНИЙ
-  improvedValidateStressLevel(questionId, value) {
-  // Приводим всё к числу — не важно, строка или число
-  const num = Number(value);
-  
-  if (isNaN(num) || num < 1 || num > 10) {
-    return { 
-      valid: false, 
-      error: 'Пожалуйста, выберите уровень стресса от 1 до 10' 
-    };
+ getQuestion(questionId) {
+    return this.questions[questionId];
   }
-  
-  return { valid: true };
-}
 
-    // Извлекаем число и проверяем диапазон
-    const value = parseInt(answer.split('_')[1]);
-    
-    if (isNaN(value) || value < 1 || value > 10) {
+  improvedValidateStressLevel(questionId, answer) {
+    if (questionId !== 'stress_level') return { valid: true };
+
+    const num = Number(String(answer).replace('stress_', ''));
+
+    if (isNaN(num) || num < 1 || num > 10) {
       return {
         valid: false,
-        error: 'Уровень стресса должен быть от 1 до 10'
-      };
-    }
-
-    // Добавляем специальные сообщения для высоких уровней стресса
-    if (value >= 8) {
-      return {
-        valid: true,
-        warning: '⚠️ Высокий уровень стресса. Рекомендуем экстренную программу поддержки.'
+        error: 'Пожалуйста, выберите уровень стресса от 1 до 10'
       };
     }
 
     return { valid: true };
   }
-
+    
   validateAnswer(questionId, answer, currentSelections = []) {
     const question = this.questions[questionId];
     if (!question) {
