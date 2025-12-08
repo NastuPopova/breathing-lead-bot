@@ -57,7 +57,10 @@ class Handlers {
   setupUserCallbacks() {
     this.telegramBot.on('callback_query', async (ctx) => {
       const callbackData = ctx.callbackQuery.data;
-      console.log(`User Callback: ${callbackData} от ${ctx.from.id}`);
+      console.log(`\n${'='.repeat(50)}`);
+      console.log(`🔔 User Callback: "${callbackData}" от ${ctx.from.id}`);
+      console.log(`📋 Текущий вопрос в сессии: ${ctx.session?.currentQuestion}`);
+      console.log(`${'='.repeat(50)}\n`);
 
       await ctx.answerCbQuery().catch(() => {});
 
@@ -73,54 +76,60 @@ class Handlers {
 
       // Анкета: основные команды
       if (callbackData === 'start_survey' || callbackData === 'start_survey_from_about') {
+        console.log('✅ Распознано: start_survey');
         return await this.startSurvey(ctx);
       }
       if (callbackData === 'about_survey') {
+        console.log('✅ Распознано: about_survey');
         return await this.showAboutSurvey(ctx);
       }
       if (callbackData === 'back_to_main') {
+        console.log('✅ Распознано: back_to_main');
         return await this.backToMain(ctx);
       }
 
       // ВСЕ ОТВЕТЫ НА ВОПРОСЫ АНКЕТЫ
-      if (
+      const isSurveyAnswer = 
         callbackData.startsWith('age_') ||
         callbackData.startsWith('prob_') ||
         callbackData.startsWith('child_prob_') ||
         callbackData.startsWith('goal_') ||
         callbackData.startsWith('format_') ||
         callbackData.startsWith('stress_') ||
-        callbackData.startsWith('sleep_') ||  // ДОБАВЛЕНО
+        callbackData.startsWith('sleep_') ||
         callbackData.startsWith('breath_') ||
-        callbackData.startsWith('method_') ||  // ДОБАВЛЕНО
-        callbackData.startsWith('freq_') ||    // ДОБАВЛЕНО
-        callbackData.startsWith('shallow_') || // ДОБАВЛЕНО
-        callbackData.startsWith('exp_') ||     // ДОБАВЛЕНО
-        callbackData.startsWith('time_') ||    // ДОБАВЛЕНО
-        callbackData.startsWith('prio_') ||    // ДОБАВЛЕНО
+        callbackData.startsWith('method_') ||
+        callbackData.startsWith('freq_') ||
+        callbackData.startsWith('shallow_') ||
+        callbackData.startsWith('exp_') ||
+        callbackData.startsWith('time_') ||
+        callbackData.startsWith('prio_') ||
         callbackData.startsWith('med_') ||
-        callbackData.startsWith('meds_') ||    // ДОБАВЛЕНО
+        callbackData.startsWith('meds_') ||
         callbackData.startsWith('panic_') ||
         callbackData.startsWith('env_') ||
-        callbackData.startsWith('work_') ||    // ДОБАВЛЕНО
+        callbackData.startsWith('work_') ||
         callbackData.startsWith('occ_') ||
         callbackData.startsWith('activity_') ||
         callbackData.startsWith('condition_') ||
         callbackData.startsWith('child_age_') ||
-        callbackData.startsWith('edu_') ||     // ДОБАВЛЕНО
-        callbackData.startsWith('schedule_') || // ДОБАВЛЕНО
-        callbackData.startsWith('parent_') ||  // ДОБАВЛЕНО
-        callbackData.startsWith('motivation_') || // ДОБАВЛЕНО
-        callbackData.startsWith('weight_') ||  // ДОБАВЛЕНО
+        callbackData.startsWith('edu_') ||
+        callbackData.startsWith('schedule_') ||
+        callbackData.startsWith('parent_') ||
+        callbackData.startsWith('motivation_') ||
+        callbackData.startsWith('weight_') ||
         callbackData.startsWith('both_parents') ||
         callbackData.startsWith('mother') ||
         callbackData.startsWith('father') ||
         callbackData === 'nav_back' ||
-        callbackData.endsWith('_done')
-      ) {
+        callbackData.endsWith('_done');
+
+      if (isSurveyAnswer) {
+        console.log('✅ Распознано как ответ на анкету, отправляем в handleSurveyAnswer');
         return await this.handleSurveyAnswer(ctx, callbackData);
       }
 
+      console.log('⚠️ Callback не распознан ни одним обработчиком!');
       this.logCallbackDiagnostics(ctx, callbackData);
     });
   }
@@ -268,7 +277,10 @@ class Handlers {
   }
 
   async handleSurveyAnswer(ctx, callbackData) {
-    console.log(`📝 Обрабатываем ответ: ${callbackData}`);
+    console.log(`\n${'*'.repeat(60)}`);
+    console.log(`📝 НАЧАЛО ОБРАБОТКИ ОТВЕТА`);
+    console.log(`Callback Data: "${callbackData}"`);
+    console.log(`${'*'.repeat(60)}`);
 
     if (!ctx.session) {
       console.error('❌ Сессия отсутствует!');
@@ -280,64 +292,90 @@ class Handlers {
     
     if (!currentQuestion) {
       console.error('❌ Текущий вопрос не установлен!');
+      console.error('Содержимое сессии:', JSON.stringify(ctx.session, null, 2));
       await ctx.reply('Ошибка: текущий вопрос не найден. Попробуйте /restart');
       return;
     }
 
-    console.log(`📌 Текущий вопрос: ${currentQuestion}`);
+    console.log(`📌 Текущий вопрос: "${currentQuestion}"`);
 
     // Обработка навигации "Назад"
     if (callbackData === 'nav_back') {
+      console.log('⬅️ Обработка навигации назад');
       return await this.handleNavBack(ctx);
     }
 
     const question = this.surveyQuestions.getQuestion(currentQuestion);
     
     if (!question) {
-      console.error(`❌ Вопрос ${currentQuestion} не найден в surveyQuestions`);
+      console.error(`❌ Вопрос "${currentQuestion}" не найден в surveyQuestions`);
+      console.error('Доступные вопросы:', this.surveyQuestions.getAllQuestions());
       await ctx.reply('Ошибка загрузки вопроса. Попробуйте /restart');
       return;
     }
 
+    console.log(`✅ Вопрос найден`);
+    console.log(`   Тип вопроса: ${question.type}`);
+    console.log(`   ID вопроса: ${question.id}`);
+
     // Обработка множественного выбора
     if (question.type === 'multiple_choice') {
+      console.log('🔀 Обработка как множественный выбор');
       return await this.handleMultipleChoice(ctx, callbackData, question);
     }
 
     // Обработка одиночного выбора и шкал
+    console.log(`🔄 Маппинг значения...`);
     const mappedValue = this.surveyQuestions.mapCallbackToValue(callbackData);
     
-    console.log(`✅ Маппинг: ${callbackData} -> ${mappedValue} (тип: ${typeof mappedValue})`);
+    console.log(`✅ Результат маппинга:`);
+    console.log(`   Исходное: "${callbackData}"`);
+    console.log(`   Маппированное: "${mappedValue}"`);
+    console.log(`   Тип: ${typeof mappedValue}`);
 
     // Валидация ответа
+    console.log(`🔍 Валидация ответа...`);
     const validation = this.surveyQuestions.validateAnswer(
       currentQuestion,
       mappedValue
     );
 
+    console.log(`📋 Результат валидации:`, validation);
+
     if (!validation.valid) {
+      console.log(`❌ Валидация не пройдена: ${validation.error}`);
       await ctx.answerCbQuery(validation.error || 'Некорректный ответ');
       return;
     }
 
+    console.log(`✅ Валидация пройдена успешно`);
+
     // Показываем предупреждение если есть
     if (validation.warning) {
+      console.log(`⚠️ Показываем предупреждение: ${validation.warning}`);
       await ctx.answerCbQuery(validation.warning, { show_alert: true });
     } else {
       await ctx.answerCbQuery('✅ Ответ сохранен');
     }
 
     // Сохраняем ответ (для шкал сохраняем числовое значение)
+    console.log(`💾 Сохранение ответа...`);
     ctx.session.answers[currentQuestion] = mappedValue;
     
     if (!ctx.session.completedQuestions.includes(currentQuestion)) {
       ctx.session.completedQuestions.push(currentQuestion);
     }
 
-    console.log(`💾 Ответ сохранен: ${currentQuestion} = ${mappedValue}`);
-    console.log(`📊 Всего ответов: ${Object.keys(ctx.session.answers).length}`);
+    console.log(`✅ Ответ сохранен успешно:`);
+    console.log(`   Вопрос: ${currentQuestion}`);
+    console.log(`   Значение: ${mappedValue}`);
+    console.log(`   Всего ответов: ${Object.keys(ctx.session.answers).length}`);
+    console.log(`   Завершено вопросов: ${ctx.session.completedQuestions.length}`);
 
     // Переходим к следующему вопросу
+    console.log(`➡️ Переход к следующему вопросу...`);
+    console.log(`${'*'.repeat(60)}\n`);
+    
     await this.moveToNextQuestion(ctx);
   }
 
