@@ -64,65 +64,57 @@ class Handlers {
 
       await ctx.answerCbQuery().catch(() => {});
       // === ОБРАБОТКА ПЕРСОНАЛЬНОГО БОНУСА И КОНСУЛЬТАЦИИ ===
-      if (callbackData === 'get_bonus') {
-  console.log('🎁 Нажата кнопка: Получить персональную технику');
-  await ctx.answerCbQuery('🧠 Готовлю ваши материалы...');
+            if (callbackData === 'get_bonus') {
+        console.log('🎁 Нажата кнопка: Получить персональную технику');
+        await ctx.answerCbQuery('🧠 Готовлю ваш персональный гид...');
 
-  try {
-    const analysisResult = ctx.session?.analysisResult;
-    const surveyAnswers = ctx.session?.answers || {};
-    const isChildFlow = analysisResult?.analysisType === 'child';
+        try {
+          const analysisResult = ctx.session?.analysisResult;
+          const surveyAnswers = ctx.session?.answers || {};
 
-    if (!analysisResult) {
-      await ctx.reply('😔 Результаты не найдены. Начните заново: /start');
-      return;
-    }
+          if (!analysisResult) {
+            await ctx.reply('😔 Результаты анализа не найдены. Начните заново: /start');
+            return;
+          }
 
-    // 1. Сначала отправляем СТАТИЧНЫЕ материалы (всегда)
-    const staticKey = isChildFlow ? 'child_games' : 'adult_antistress';
-    const staticMaterial = this.pdfManager.fileHandler.additionalMaterials[staticKey];
+          // Генерируем и отправляем персональный PDF
+          const bonus = this.pdfManager.getBonusForUser(analysisResult, surveyAnswers);
+          await this.pdfManager.fileHandler.sendPersonalizedBonus(ctx, bonus);
 
-    if (staticMaterial) {
-      await ctx.reply(`🎁 Вот ваш базовый гид:\n${staticMaterial.title}\n${staticMaterial.description}`);
-      await ctx.replyWithDocument({ url: staticMaterial.url }, { caption: staticMaterial.title });
-    }
+          // Дополнительный бонус — канал
+          await ctx.reply(
+            `🔐 *Ваш дополнительный бонус*\n\n` +
+            `Заходите в наш канал в телеграмм "Дыхание как путь к здоровью"\n` +
+            `https://t.me/spokoinoe_dyhanie\n\n` +
+            `Там вы найдёте новые техники, мотивацию и сообщество единомышленников 🌿`,
+            { parse_mode: 'Markdown' }
+          );
 
-    await ctx.reply('📄 Дополнительно: чек-листы, аудио и доступ к каналу — скоро пришлю ссылки от Анастасии!');
+          // Финальное меню после бонусов
+          await this.pdfManager.fileHandler.showPostPDFMenu(ctx);
 
-    // 2. Затем пытаемся отправить ПЕРСОНАЛЬНЫЙ гид
-    try {
-      const bonus = this.pdfManager.getBonusForUser(analysisResult, surveyAnswers);
-      await this.pdfManager.fileHandler.sendPersonalizedBonus(ctx, bonus);
-      await this.pdfManager.fileHandler.showPostPDFMenu(ctx);
-    } catch (persError) {
-      console.error('⚠️ Персональный гид не сгенерирован, но статичный отправлен:', persError);
-      // Не падаем — пользователь уже получил базовый материал
-      await ctx.reply('🔄 Персональный гид в разработке — скоро Анастасия отправит улучшенную версию!');
-    }
+        } catch (error) {
+          console.error('❌ Ошибка при отправке персонального гида:', error);
+          await ctx.reply('😔 Произошла временная ошибка с генерацией гида. Напишите @NastuPopova — она отправит материалы лично');
+        }
+        return;
+      }
 
-  } catch (error) {
-    console.error('❌ Критическая ошибка при отправке бонусов:', error);
-    await ctx.reply('😔 Произошла ошибка. Напишите @NastuPopova — она отправит материалы лично');
-  }
-  return;
-}
-
-      if (callbackData === 'contact_request') {
+            if (callbackData === 'contact_request') {
         console.log('📞 Нажата кнопка: Записаться на консультацию');
         await ctx.answerCbQuery();
 
         const message = config.MESSAGES?.CONTACT_TRAINER || 
-          `📞 *Запись на консультацию*\n\n` +
-          `Для получения персональной программы обратитесь:\n\n` +
-          `👩‍⚕️ Анастасия Попова: @NastuPopova\n` +
-          `🤖 Основной бот: ${config.MAIN_BOT_URL || '@breathing_opros_bot'}\n\n` +
-          `Просто напишите ей!`;
+          `🌟 *Мои продукты и программы*\n\n` +
+          `Перейдите в основной бот — там все мои курсы, консультации и программы по дыханию:\n\n` +
+          `🤖 @breathing_opros_bot\n\n` +
+          `Выберите подходящую программу и запишитесь на консультацию!`;
 
         await ctx.reply(message, {
           parse_mode: 'Markdown',
           ...Markup.inlineKeyboard([
-            [Markup.button.url('💬 Написать Анастасии', 'https://t.me/NastuPopova')],
-            [Markup.button.url('🤖 Основной бот', config.MAIN_BOT_URL || 'https://t.me/breathing_opros_bot')],
+            [Markup.button.url('🌟 Мои продукты и программы', 'https://t.me/breathing_opros_bot')],
+            [Markup.button.url('💬 Написать Анастасии лично', 'https://t.me/NastuPopova')],
             [Markup.button.callback('🔙 Назад к результатам', 'back_to_results')]
           ])
         });
