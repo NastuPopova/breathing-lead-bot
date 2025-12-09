@@ -63,7 +63,62 @@ class Handlers {
       console.log(`${'='.repeat(50)}\n`);
 
       await ctx.answerCbQuery().catch(() => {});
+      // === ОБРАБОТКА ПЕРСОНАЛЬНОГО БОНУСА И КОНСУЛЬТАЦИИ ===
+      if (callbackData === 'get_bonus') {
+        console.log('🎁 Нажата кнопка: Получить персональную технику');
+        await ctx.answerCbQuery('🧠 Готовлю ваш персональный гид...');
 
+        try {
+          const analysisResult = ctx.session?.analysisResult;
+          const surveyAnswers = ctx.session?.answers || {};
+
+          if (!analysisResult) {
+            await ctx.reply('😔 Результаты анализа не найдены. Начните заново: /start');
+            return;
+          }
+
+          const bonus = this.pdfManager.getBonusForUser(analysisResult, surveyAnswers);
+          console.log(`✅ Бонус сгенерирован: ${bonus.technique.name}`);
+
+          await this.pdfManager.fileHandler.sendPersonalizedBonus(ctx, bonus);
+          await this.pdfManager.fileHandler.showPostPDFMenu(ctx);
+
+        } catch (error) {
+          console.error('❌ Ошибка при отправке бонуса:', error);
+          await ctx.reply('😔 Произошла ошибка. Напишите @NastuPopova — она отправит гид лично');
+        }
+        return;
+      }
+
+      if (callbackData === 'contact_request') {
+        console.log('📞 Нажата кнопка: Записаться на консультацию');
+        await ctx.answerCbQuery();
+
+        const message = config.MESSAGES?.CONTACT_TRAINER || 
+          `📞 *Запись на консультацию*\n\n` +
+          `Для получения персональной программы обратитесь:\n\n` +
+          `👩‍⚕️ Анастасия Попова: @NastuPopova\n` +
+          `🤖 Основной бот: ${config.MAIN_BOT_URL || '@breathing_opros_bot'}\n\n` +
+          `Просто напишите ей!`;
+
+        await ctx.reply(message, {
+          parse_mode: 'Markdown',
+          ...Markup.inlineKeyboard([
+            [Markup.button.url('💬 Написать Анастасии', 'https://t.me/NastuPopova')],
+            [Markup.button.url('🤖 Основной бот', config.MAIN_BOT_URL || 'https://t.me/breathing_opros_bot')],
+            [Markup.button.callback('🔙 Назад к результатам', 'back_to_results')]
+          ])
+        });
+        return;
+      }
+
+      if (callbackData === 'back_to_results') {
+        await ctx.answerCbQuery();
+        if (ctx.session?.analysisResult) {
+          await this.showResults(ctx, ctx.session.analysisResult);
+        }
+        return;
+      }
       // ПРИОРИТЕТНАЯ обработка "Подобрать программу"
       if (callbackData === 'help_choose_program') {
         return await this.handleProgramHelp(ctx);
@@ -677,7 +732,27 @@ class Handlers {
       ])
     });
   }
+  async showAboutSurvey(ctx) {
+    console.log('ℹ️ Показ информации о диагностике');
 
+    const message = `🌬️ *Подробно о диагностике дыхания*\n\n` +
+      `Это быстрая и точная проверка вашего дыхания (всего 4-5 минут).\n\n` +
+      `Что вы получите:\n` +
+      `✅ Персональный анализ текущего состояния\n` +
+      `✅ Индивидуальные рекомендации по улучшению\n` +
+      `✅ Бесплатные дыхательные техники для старта\n` +
+      `✅ Советы, адаптированные под вашу ситуацию\n\n` +
+      `Диагностика полностью анонимна и конфиденциальна.\n\n` +
+      `Готовы узнать, как дыхание влияет на ваше здоровье?`;
+
+    await ctx.reply(message, {
+      parse_mode: 'Markdown',
+      ...Markup.inlineKeyboard([
+        [Markup.button.callback('▶️ Начать диагностику', 'start_survey')],
+        [Markup.button.callback('🔙 Назад в меню', 'back_to_main')]
+      ])
+    });
+  }
   async handleError(ctx, error) {
     console.error('Обработка ошибки:', error);
     try {
