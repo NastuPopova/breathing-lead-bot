@@ -18,37 +18,28 @@ class PDFManager {
   }
 
   // Основной метод получения бонуса для пользователя
-  getBonusForUser(analysisResult, surveyData) {
+    getBonusForUser(analysisResult, surveyData) {
     try {
       console.log(`🎁 Подбираем бонус для пользователя`);
 
-      // Получаем технику на основе анализа
       const technique = this.contentGenerator.getMasterTechnique(analysisResult, surveyData);
 
-      // Генерируем персонализированные данные
       const title = this.contentGenerator.generatePersonalizedTitle(analysisResult, surveyData);
       const subtitle = this.contentGenerator.generatePersonalizedSubtitle(analysisResult, surveyData);
 
-      // Определяем тип потока (взрослый/детский)
       const isChildFlow = analysisResult.analysisType === 'child';
       const segment = analysisResult.segment || 'COLD_LEAD';
 
-      // Создаем объект бонуса
       const bonus = {
-        id: this.contentGenerator.bonusesTemplate.id,
+        id: `personal_bonus_${Date.now()}_${Math.floor(Math.random() * 1000)}`,  // Уникальный ID
         title: title,
         subtitle: subtitle,
-        description: this.contentGenerator.bonusesTemplate.description,
+        description: 'Персональный дыхательный гид, созданный специально для вас',
         technique: technique,
-        target_segments: this.contentGenerator.bonusesTemplate.target_segments,
-
-        // Дополнительные метаданные
         analysisType: analysisResult.analysisType,
         primaryIssue: analysisResult.primaryIssue,
         segment: segment,
         isChildFlow: isChildFlow,
-
-        // Для логирования и аналитики
         createdAt: new Date().toISOString(),
         fileName: this.contentGenerator.generateBeautifulFileName(analysisResult, surveyData)
       };
@@ -58,8 +49,6 @@ class PDFManager {
 
     } catch (error) {
       console.error(`❌ Ошибка подбора бонуса для пользователя:`, error);
-
-      // Возвращаем дефолтный бонус в случае ошибки
       return this.getDefaultBonus();
     }
   }
@@ -197,22 +186,32 @@ class PDFManager {
   }
 
   // Дефолтный бонус при ошибках
-  getDefaultBonus() {
-    const defaultTechnique = this.contentGenerator.masterTechniques.chronic_stress;
-    
+    getDefaultBonus() {
+    const defaultTechnique = {
+      name: 'Дыхание для давления',
+      problem: 'Повышенное давление',
+      duration: '5-7 минут',
+      result: 'Снижение давления и расслабление',
+      steps: [
+        'Сядьте удобно, закройте глаза.',
+        'Вдохните через нос на 5 секунд.',
+        'Медленно выдохните через рот на 7 секунд.',
+        'Повторите 6-8 раз.'
+      ]
+    };
+
     return {
-      id: this.contentGenerator.bonusesTemplate.id,
-      title: this.contentGenerator.bonusesTemplate.title,
-      subtitle: this.contentGenerator.bonusesTemplate.subtitle,
-      description: this.contentGenerator.bonusesTemplate.description,
+      id: 'default_bonus_fallback_2025',
+      title: 'Дыхательный гид: Нормализация давления',
+      subtitle: 'Базовая техника для вашего здоровья',
+      description: 'Универсальная техника при повышенном давлении',
       technique: defaultTechnique,
-      target_segments: this.contentGenerator.bonusesTemplate.target_segments,
       analysisType: 'adult',
-      primaryIssue: 'chronic_stress',
-      segment: 'COLD_LEAD',
+      primaryIssue: 'high_pressure',
+      segment: 'HOT_LEAD',
       isChildFlow: false,
       createdAt: new Date().toISOString(),
-      fileName: `Дыхательный_гид_Базовый_${new Date().getDate()}.${new Date().getMonth() + 1}`,
+      fileName: `Дыхательный_гид_Давление_${new Date().getDate()}.${new Date().getMonth() + 1}`,
       isDefault: true
     };
   }
