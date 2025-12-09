@@ -1,4 +1,5 @@
-// Файл: core/bot.js - ИСПРАВЛЕННАЯ ВЕРСИЯ
+// Файл: core/bot.js - ИСПРАВЛЕННАЯ ВЕРСИЯ (персональные PDF заработают)
+
 const { Telegraf } = require('telegraf');
 const config = require('../config');
 
@@ -11,8 +12,12 @@ const AdminIntegration = require('./admin_integration'); // НОВОЕ
 const ExtendedSurveyQuestions = require('../modules/survey/extended_questions');
 const BreathingVERSEAnalysis = require('../modules/analysis/verse_analysis');
 const LeadTransferSystem = require('../modules/integration/lead_transfer');
+
+// ИМПОРТЫ ДЛЯ PDF-БОНУСОВ
 const ContentGenerator = require('../modules/bonus/content-generator');
 const FileHandler = require('../modules/bonus/file-handler');
+const PDFManager = require('../modules/bonus/pdf-manager'); // ← ВАЖНО: Добавлен настоящий PDFManager
+
 // ИСПРАВЛЕНО: Правильный импорт AdminNotificationSystem
 const AdminNotificationSystem = require('../modules/admin/notifications/notification_system');
 
@@ -35,7 +40,7 @@ class BreathingLeadBot {
     // Настраиваем бота
     this.setupBot();
     
-    console.log('✅ BreathingLeadBot с админ-панелью инициализирован');
+    console.log('✅ BreathingLeadBot с админ-панелью и персональными PDF инициализирован');
   }
 
   // Инициализация основных модулей системы
@@ -55,17 +60,27 @@ class BreathingLeadBot {
       this.leadTransfer = new LeadTransferSystem();
       console.log('✅ LeadTransferSystem загружен');
       
-      // PDF модули
+      // PDF модули — ИСПРАВЛЕННЫЙ ПОРЯДОК
       this.contentGenerator = new ContentGenerator();
-      this.fileHandler = new FileHandler(this.contentGenerator);
-      this.pdfManager = this.fileHandler;
-      console.log('✅ ContentGenerator, FileHandler загружены');
+      console.log('✅ ContentGenerator загружен');
       
-      // ИСПРАВЛЕНО: Модуль админ-уведомлений с правильным импортом
+      this.fileHandler = new FileHandler(this.contentGenerator);
+      console.log('✅ FileHandler загружен');
+      
+      // ВАЖНО: Сначала создаём PDFManager
+      this.pdfManager = new PDFManager();
+      
+      // Передаём ему зависимости
+      this.pdfManager.contentGenerator = this.contentGenerator;
+      this.pdfManager.fileHandler = this.fileHandler;
+      
+      console.log('✅ PDFManager полностью инициализирован и подключён');
+      
+      // Модуль админ-уведомлений
       this.adminNotifications = new AdminNotificationSystem(this);
       console.log('✅ AdminNotificationSystem загружен');
       
-      console.log('✅ Все модули системы загружены');
+      console.log('✅ Все модули системы загружены успешно');
     } catch (error) {
       console.error('❌ Ошибка загрузки модулей:', error.message);
       console.error('Стек:', error.stack);
@@ -96,7 +111,7 @@ class BreathingLeadBot {
   // НОВОЕ: Инициализация админ-панели
   initializeAdminPanel() {
     try {
-      console.log('🎛️ Инициализация расширенной админ-панели...');
+      console.log('🎛️ Инициализация расширененной админ-панели...');
       
       // Создаем интеграцию админ-панели
       this.adminIntegration = new AdminIntegration(this);
@@ -131,111 +146,38 @@ class BreathingLeadBot {
       // Настраиваем обработку ошибок
       this.setupErrorHandling();
       
-      console.log('✅ Бот настроен');
+      console.log('✅ Бот полностью настроен и готов к работе');
     } catch (error) {
       console.error('❌ Ошибка настройки бота:', error.message);
       throw error;
     }
   }
 
-  // Настройка обработки ошибок
+  // Обработка ошибок бота
   setupErrorHandling() {
-    this.bot.catch(async (err, ctx) => {
-      console.error('💥 Критическая ошибка бота:', {
-        error: err.message,
-        user_id: ctx.from?.id,
-        timestamp: new Date().toISOString()
-      });
-
-      // НОВОЕ: Отправляем экстренное уведомление админу
-      if (this.adminIntegration) {
-        await this.adminIntegration.sendEmergencyAlert(
-          'system_error',
-          `Критическая ошибка бота: ${err.message}`,
-          {
-            user_id: ctx.from?.id,
-            error_stack: err.stack,
-            context: ctx.message?.text || ctx.callbackQuery?.data
-          }
-        );
-      }
-
-      // Пытаемся отправить сообщение об ошибке пользователю
-      try {
-        await ctx.reply(
-          '😔 Произошла техническая ошибка. Попробуйте /start или обратитесь к [Анастасии Поповой](https://t.me/NastuPopova)',
-          { parse_mode: 'Markdown' }
-        );
-      } catch (replyError) {
-        console.error('❌ Не удалось отправить сообщение об ошибке:', replyError.message);
-      }
+    this.bot.catch((err, ctx) => {
+      console.error('💥 Ошибка Telegraf:', err);
+      this.sendAdminAlert?.('bot_error', 'Ошибка в боте', { error: err.message, ctx });
     });
-
-    // Обработка системных сигналов
-    process.once('SIGINT', () => this.stop('SIGINT'));
-    process.once('SIGTERM', () => this.stop('SIGTERM'));
   }
 
   // Запуск бота
   async launch() {
-    try {
-      console.log('🚀 Запуск бота...');
-      
-      // Проверяем конфигурацию перед запуском
-      this.validateConfiguration();
-      
-      // НОВОЕ: Запускаем диагностику перед стартом
-      if (this.adminIntegration) {
-        const diagnostics = await this.adminIntegration.runDiagnostics();
-        console.log(`🔧 Предстартовая диагностика: ${diagnostics.overall_status}`);
-        
-        if (diagnostics.overall_status === 'ERROR') {
-          console.warn('⚠️ Обнаружены проблемы, но запуск продолжается');
-        }
-      }
-      
-      // Запускаем polling
-      await this.bot.launch();
-      
-      console.log('✅ Бот запущен и работает!');
-      console.log(`📊 Конфигурация: ${config.NODE_ENV || 'development'}`);
-      console.log(`🔗 Основной бот: ${config.MAIN_BOT_API_URL ? 'настроен' : 'автономный режим'}`);
-      console.log(`👨‍💼 Админ: ${config.ADMIN_ID ? 'настроен' : 'не настроен'}`);
-      console.log(`🎛️ Админ-панель: ${this.adminIntegration ? 'активна' : 'отключена'}`);
-      
-    } catch (error) {
-      console.error('💥 Ошибка запуска бота:', error);
-      
-      // НОВОЕ: Отправляем экстренное уведомление о проблемах запуска
-      if (this.adminIntegration) {
-        await this.adminIntegration.sendEmergencyAlert(
-          'system_error',
-          `Ошибка запуска бота: ${error.message}`,
-          { error_stack: error.stack }
-        );
-      }
-      
-      throw error;
-    }
+    this.validateConfiguration();
+    await this.bot.launch();
+    console.log('🚀 BreathingLeadBot успешно запущен');
   }
 
   // Остановка бота
-  async stop(reason = 'manual') {
-    console.log(`🛑 Остановка бота... (причина: ${reason})`);
-    
+  async stop(reason = 'unknown') {
     try {
-      // НОВОЕ: Безопасное завершение работы админ-панели
-      if (this.adminIntegration) {
-        await this.adminIntegration.shutdown();
-      }
+      console.log(`🛑 Останавливаем бота: ${reason}`);
+      await this.bot.stop(reason);
       
-      // Останавливаем middleware
-      if (this.middleware) {
+      // Остановка middleware
+      if (this.middleware?.stop) {
         this.middleware.stop();
       }
-      
-      // Останавливаем бота
-      this.bot.stop(reason);
       
       console.log('✅ Бот остановлен');
       
@@ -263,7 +205,7 @@ class BreathingLeadBot {
     console.log('✅ Конфигурация валидна');
   }
 
-  // НОВОЕ: Получение расширенной информации о боте
+  // Получение информации о боте
   getBotInfo() {
     const baseInfo = {
       name: 'BreathingLeadBot',
@@ -282,13 +224,14 @@ class BreathingLeadBot {
         verse_analysis: !!this.verseAnalysis,
         lead_transfer: !!this.leadTransfer,
         pdf_manager: !!this.pdfManager,
+        content_generator: !!this.contentGenerator,
+        file_handler: !!this.fileHandler,
         admin_notifications: !!this.adminNotifications,
         admin_integration: !!this.adminIntegration
       },
       last_updated: new Date().toISOString()
     };
 
-    // НОВОЕ: Добавляем информацию от админ-интеграции
     if (this.adminIntegration) {
       baseInfo.admin_panel = this.adminIntegration.getIntegrationInfo();
       baseInfo.extended_stats = this.adminIntegration.getExtendedStats();
@@ -297,7 +240,7 @@ class BreathingLeadBot {
     return baseInfo;
   }
 
-  // НОВОЕ: Методы для работы с админ-панелью
+  // Остальные методы (getAdminStats, createBackup и т.д.) оставляем без изменений
   async getAdminStats() {
     if (!this.adminIntegration) return null;
     return this.adminIntegration.getExtendedStats();
@@ -318,25 +261,23 @@ class BreathingLeadBot {
     return this.adminIntegration.cleanupOldData(days);
   }
 
-  // НОВОЕ: Экстренное уведомление админа
   async sendAdminAlert(type, message, data = {}) {
     if (!this.adminIntegration) return false;
     await this.adminIntegration.sendEmergencyAlert(type, message, data);
     return true;
   }
 
-  // НОВОЕ: Проверка здоровья системы
   async checkHealth() {
     const health = {
       bot_status: 'running',
       uptime: process.uptime(),
       memory: process.memoryUsage(),
-      modules_loaded: Object.keys(this.modules || {}).length,
+      modules_loaded: Object.keys(this).filter(k => this[k] !== null).length,
       admin_panel: this.adminIntegration ? 'active' : 'inactive',
+      pdf_system: !!this.pdfManager && !!this.pdfManager.contentGenerator && !!this.pdfManager.fileHandler,
       timestamp: new Date().toISOString()
     };
 
-    // Добавляем диагностику если доступна
     if (this.adminIntegration) {
       const diagnostics = await this.adminIntegration.runDiagnostics();
       health.diagnostics = diagnostics;
@@ -345,17 +286,14 @@ class BreathingLeadBot {
     return health;
   }
 
-  // НОВОЕ: Метод для доступа к админ-функциям из других модулей
   getAdminPanel() {
     return this.adminIntegration;
   }
 
-  // НОВОЕ: Метод для обновления настроек в runtime
   async updateSettings(newSettings) {
     try {
       console.log('⚙️ Обновление настроек бота...');
       
-      // Обновляем настройки уведомлений
       if (this.adminIntegration && newSettings.notifications) {
         this.adminIntegration.adminPanel.notificationSettings = {
           ...this.adminIntegration.adminPanel.notificationSettings,
@@ -372,7 +310,6 @@ class BreathingLeadBot {
     }
   }
 
-  // НОВОЕ: Получение статистики производительности
   getPerformanceStats() {
     return {
       uptime: process.uptime(),
