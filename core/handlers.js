@@ -65,40 +65,41 @@ class Handlers {
       await ctx.answerCbQuery().catch(() => {});
       // === ОБРАБОТКА ПЕРСОНАЛЬНОГО БОНУСА И КОНСУЛЬТАЦИИ ===
             if (callbackData === 'get_bonus') {
-        console.log('🎁 Нажата кнопка: Получить персональную технику');
-        await ctx.answerCbQuery('🧠 Готовлю ваш персональный гид...');
+  console.log('🎁 Нажата кнопка: Получить персональную технику');
+  await ctx.answerCbQuery('🧠 Готовлю ваш персональный гид...');
 
-        try {
-          const analysisResult = ctx.session?.analysisResult;
-          const surveyAnswers = ctx.session?.answers || {};
+  try {
+    const analysisResult = ctx.session?.analysisResult;
+    const surveyAnswers = ctx.session?.answers || {};
 
-          if (!analysisResult) {
-            await ctx.reply('😔 Результаты анализа не найдены. Начните заново: /start');
-            return;
-          }
+    if (!analysisResult) {
+      await ctx.reply('😔 Результаты анализа не найдены. Начните заново: /start');
+      return;
+    }
 
-          // Генерируем и отправляем персональный PDF
-          const bonus = this.pdfManager.getBonusForUser(analysisResult, surveyAnswers);
-          await this.bot.pdfManager.fileHandler.sendPersonalizedBonus(ctx, bonus);
+    // Генерируем бонус (но пока НЕ отправляем PDF)
+    const bonus = this.pdfManager.getBonusForUser(analysisResult, surveyAnswers);
 
-          // Дополнительный бонус — канал
-          await ctx.reply(
-            `🔐 *Ваш дополнительный бонус*\n\n` +
-            `Заходите в наш канал в телеграмм "Дыхание как путь к здоровью"\n` +
-            `https://t.me/spokoinoe_dyhanie\n\n` +
-            `Там вы найдёте новые техники, мотивацию и сообщество единомышленников 🌿`,
-            { parse_mode: 'Markdown' }
-          );
+    // Сохраняем бонус в сессию, чтобы потом отправить по кнопке
+    ctx.session.pendingBonus = bonus;
 
-          // Финальное меню после бонусов
-          await this.pdfManager.fileHandler.showPostPDFMenu(ctx);
+    // 1. Отправляем интригующее тизер-сообщение
+    await this.sendIntriguingTeaser(ctx, bonus, analysisResult);
 
-        } catch (error) {
-          console.error('❌ Ошибка при отправке персонального гида:', error);
-          await ctx.reply('😔 Произошла временная ошибка с генерацией гида. Напишите @NastuPopova — она отправит материалы лично');
-        }
-        return;
-      }
+    // 2. Кнопка для получения PDF
+    await ctx.reply('📥 Нажмите кнопку ниже, чтобы получить ваш персональный гид в PDF:', {
+      parse_mode: 'Markdown',
+      ...Markup.inlineKeyboard([
+        [Markup.button.callback('📥 Получить мой гид (PDF)', 'download_bonus')]
+      ])
+    });
+
+  } catch (error) {
+    console.error('❌ Ошибка при подготовке гида:', error);
+    await ctx.reply('😔 Произошла временная ошибка. Напишите @NastuPopova — она отправит материалы лично');
+  }
+  return;
+}
 
             if (callbackData === 'contact_request') {
         console.log('📞 Нажата кнопка: Записаться на консультацию');
@@ -678,8 +679,7 @@ class Handlers {
       parse_mode: 'Markdown',
       ...Markup.inlineKeyboard([
         [Markup.button.callback('🎁 Получить персональную технику', 'get_bonus')],
-        [Markup.button.callback('📞 Записаться на консультацию', 'contact_request')],
-        [Markup.button.url('💬 Написать Анастасии', 'https://t.me/NastuPopova')]
+        [Markup.button.url('💬 Написать инструктору', 'https://t.me/NastuPopova')]
       ])
     });
   }
