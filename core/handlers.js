@@ -79,7 +79,7 @@ class Handlers {
 
           // Генерируем и отправляем персональный PDF
           const bonus = this.pdfManager.getBonusForUser(analysisResult, surveyAnswers);
-          await this.pdfManager.fileHandler.sendPersonalizedBonus(ctx, bonus);
+          await this.bot.pdfManager.fileHandler.sendPersonalizedBonus(ctx, bonus);
 
           // Дополнительный бонус — канал
           await ctx.reply(
