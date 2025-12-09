@@ -793,25 +793,6 @@ class ExtendedSurveyQuestions {
   }
 
   // ВАЛИДАЦИЯ С ПОДДЕРЖКОЙ ОГРАНИЧЕНИЙ
- getQuestion(questionId) {
-    return this.questions[questionId];
-  }
-
-  improvedValidateStressLevel(questionId, answer) {
-    if (questionId !== 'stress_level') return { valid: true };
-
-    const num = Number(String(answer).replace('stress_', ''));
-
-    if (isNaN(num) || num < 1 || num > 10) {
-      return {
-        valid: false,
-        error: 'Пожалуйста, выберите уровень стресса от 1 до 10'
-      };
-    }
-
-    return { valid: true };
-  }
-    
   validateAnswer(questionId, answer, currentSelections = []) {
     const question = this.questions[questionId];
     if (!question) {
@@ -827,13 +808,46 @@ class ExtendedSurveyQuestions {
       return stressValidation;
     }
 
+    // Добавляем отдельную валидацию для sleep_quality
+    if (questionId === 'sleep_quality') {
+      const num = Number(answer);
+      if (isNaN(num) || num < 1 || num > 10) {
+        return {
+          valid: false,
+          error: 'Пожалуйста, выберите оценку качества сна от 1 до 10'
+        };
+      }
+      return { valid: true };
+    }
+
     switch (question.type) {
       case 'single_choice':
-      case 'scale':
         const isValid = typeof answer === 'string' && answer.length > 0;
         return {
           valid: isValid,
           error: isValid ? null : 'Выберите один из вариантов'
+        };
+
+      case 'scale':
+        // Для scale принимаем и строки, и числа
+        const isValidScale = (typeof answer === 'string' || typeof answer === 'number') && 
+                             String(answer).length > 0;
+        
+        // Дополнительная проверка для числовых шкал
+        if (isValidScale && !isNaN(Number(answer))) {
+          const num = Number(answer);
+          // Проверяем диапазон 1-10 для всех шкал
+          if (num < 1 || num > 10) {
+            return {
+              valid: false,
+              error: 'Пожалуйста, выберите значение от 1 до 10'
+            };
+          }
+        }
+        
+        return {
+          valid: isValidScale,
+          error: isValidScale ? null : 'Выберите один из вариантов'
         };
 
       case 'multiple_choice':
@@ -866,6 +880,21 @@ class ExtendedSurveyQuestions {
       default:
         return { valid: true };
     }
+  }
+
+  improvedValidateStressLevel(questionId, answer) {
+    if (questionId !== 'stress_level') return { valid: true };
+
+    const num = Number(String(answer).replace('stress_', ''));
+
+    if (isNaN(num) || num < 1 || num > 10) {
+      return {
+        valid: false,
+        error: 'Пожалуйста, выберите уровень стресса от 1 до 10'
+      };
+    }
+
+    return { valid: true };
   }
 
   getProgress(completedQuestions, userData) {
