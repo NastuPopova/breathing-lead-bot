@@ -679,7 +679,7 @@ class FileHandler {
     // Если персональный — генерируем
     console.log(`📝 Генерация персонального гида для пользователя ${ctx.from.id}`);
     
-    / Генерация HTML
+    // Генерация HTML
     const filePath = await this.contentGenerator.generatePersonalizedHTML(
       ctx.from.id,
       ctx.session.analysisResult || bonus.analysisResult || {},  // защита от undefined
