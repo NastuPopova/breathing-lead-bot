@@ -663,6 +663,12 @@ class FileHandler {
 
   async sendPDFFile(ctx) {
     try {
+      // НОВАЯ ПРОВЕРКА: если бонус статичный — отправляем готовый файл
+  if (bonus.type === 'static' && bonus.staticType) {
+    console.log(`📄 Отправляем статичный PDF fallback: ${bonus.staticType}`);
+    await ctx.answerCbQuery('📤 Отправляю базовый гид...');
+    return await this.sendAdditionalPDF(ctx, bonus.staticType);
+  }
       console.log(`📝 Генерация персонального гида для пользователя ${ctx.from.id}`);
 
       const bonus = this.getBonusForUser(ctx.session.analysisResult, ctx.session.answers);
