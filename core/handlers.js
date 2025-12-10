@@ -340,7 +340,13 @@ class Handlers {
     console.log('Session:', !!ctx.session);
     console.log('=====================================');
   }
-
+  
+setupTextHandlers() {
+    // Заглушка: текстовые обработчики пока не используются
+    // Все взаимодействие через команды и inline-кнопки
+    console.log('✅ Текстовые обработчики настроены (заглушка)');
+  }
+  
   getStats() {
     return {
       name: 'MainHandlers',
