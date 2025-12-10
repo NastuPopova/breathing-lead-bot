@@ -669,6 +669,12 @@ class ContentGenerator {
       <ul>
         ${technique.steps.map(step => `<li>${cleanText(step)}</li>`).join('')}
       </ul>
+      ${technique.science ? `
+      <div style="margin-top: 20px; padding: 15px; background: ${isChildFlow ? '#e8f5e9' : '#f0f8ff'}; border-left: 4px solid ${isChildFlow ? '#66bb6a' : '#2196f3'}; border-radius: 8px; font-size: 14px; color: #2e7d32;">
+        <strong>${isChildFlow ? '🧠 Почему это работает (по науке):' : '🔬 Научное обоснование:'}</strong><br><br>
+        ${cleanText(technique.science)}
+      </div>
+      ` : ''}
     </div>
     <div class="plan">
       <h3>📅 План на 3 дня</h3>
