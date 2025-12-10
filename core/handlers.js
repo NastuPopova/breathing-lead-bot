@@ -1,4 +1,4 @@
-// Файл: core/handlers.js - ПОЛНАЯ ВЕРСИЯ с всеми методами
+// Файл: core/handlers.js - ПОЛНАЯ РАБОЧАЯ ВЕРСИЯ
 
 const { Markup } = require('telegraf');
 const config = require('../config');
@@ -55,7 +55,6 @@ class Handlers {
   }
 
   setupUserCallbacks() {
-    // Единый обработчик всех callback_query
     this.telegramBot.on('callback_query', async (ctx) => {
       const callbackData = ctx.callbackQuery.data;
       console.log(`\n${'='.repeat(50)}`);
@@ -64,9 +63,8 @@ class Handlers {
       console.log(`${'='.repeat(50)}\n`);
 
       await ctx.answerCbQuery().catch(() => {});
-
-      // === ПОЛУЧЕНИЕ ПЕРСОНАЛЬНОЙ ТЕХНИКИ (ТИЗЕР) ===
-      if (callbackData === 'get_bonus') {
+      // === ОБРАБОТКА ПЕРСОНАЛЬНОГО БОНУСА И КОНСУЛЬТАЦИИ ===
+            if (callbackData === 'get_bonus') {
         console.log('🎁 Нажата кнопка: Получить персональную технику');
         await ctx.answerCbQuery('🧠 Готовлю ваш персональный гид...');
 
@@ -79,89 +77,30 @@ class Handlers {
             return;
           }
 
-          // Генерируем бонус, но пока НЕ отправляем PDF
+          // Генерируем и отправляем персональный PDF
           const bonus = this.pdfManager.getBonusForUser(analysisResult, surveyAnswers);
+          await this.bot.pdfManager.fileHandler.sendPersonalizedBonus(ctx, bonus);
 
-          // Сохраняем в сессию для последующей отправки
-          ctx.session.pendingBonus = bonus;
-
-          // Интригующий тизер
-          await this.sendIntriguingTeaser(ctx, bonus, analysisResult);
-
-          // Кнопка для скачивания PDF
-          await ctx.reply('📥 Нажмите кнопку ниже, чтобы получить ваш персональный гид в PDF:', {
-            parse_mode: 'Markdown',
-            ...Markup.inlineKeyboard([
-              [Markup.button.callback('📥 Получить мой гид (PDF)', 'download_bonus')]
-            ])
-          });
-
-        } catch (error) {
-          console.error('❌ Ошибка при подготовке гида:', error);
-          await ctx.reply('😔 Произошла временная ошибка. Напишите @NastuPopova — она отправит материалы лично');
-        }
-        return;
-      }
-
-      // === СКАЧИВАНИЕ PDF ПО КНОПКЕ ===
-      if (callbackData === 'download_bonus') {
-        console.log('📥 Нажата кнопка: Получить мой гид (PDF)');
-        await ctx.answerCbQuery('📄 Отправляю ваш гид...');
-
-        try {
-          const bonus = ctx.session?.pendingBonus;
-
-          if (!bonus) {
-            await ctx.reply('😔 Гид не найден. Пройдите диагностику заново: /start');
-            return;
-          }
-
-          // Отправляем сам PDF
-          await this.pdfManager.fileHandler.sendPDFFile(ctx);
-
-          // Бонус — канал
+          // Дополнительный бонус — канал
           await ctx.reply(
-            `📖 *Дополнительный бонус для вас*\n\n` +
-            `Присоединяйтесь к открытому каналу «Дыхание как путь к здоровью»\n` +
+            `🔐 *Ваш дополнительный бонус*\n\n` +
+            `Заходите в наш канал в телеграмм "Дыхание как путь к здоровью"\n` +
             `https://t.me/spokoinoe_dyhanie\n\n` +
-            `Там полезные статьи о дыхании, научные факты, истории клиентов и вдохновение на изменения 🌿`,
+            `Там вы найдёте новые техники, мотивацию и сообщество единомышленников 🌿`,
             { parse_mode: 'Markdown' }
           );
 
-          // Финальное меню
+          // Финальное меню после бонусов
           await this.pdfManager.fileHandler.showPostPDFMenu(ctx);
 
-          // Очищаем сессию
-          delete ctx.session.pendingBonus;
-
         } catch (error) {
-          console.error('❌ Ошибка отправки гида:', error);
-          await ctx.reply('😔 Не удалось отправить файл. Напишите @NastuPopova — она пришлёт гид лично');
+          console.error('❌ Ошибка при отправке персонального гида:', error);
+          await ctx.reply('😔 Произошла временная ошибка с генерацией гида. Напишите @NastuPopova — она отправит материалы лично');
         }
         return;
       }
 
-      // === НАЧАЛО АНКЕТЫ ===
-      if (callbackData === 'start_survey' || callbackData === 'start_survey_from_about') {
-        console.log('📋 Начинаем анкету');
-        await this.startSurvey(ctx);
-        return;
-      }
-
-      // === ИНФОРМАЦИЯ О ДИАГНОСТИКЕ ===
-      if (callbackData === 'about_survey') {
-        await this.showAboutSurvey(ctx);
-        return;
-      }
-
-      // === ВОЗВРАТ В ГЛАВНОЕ МЕНЮ ===
-      if (callbackData === 'back_to_main') {
-        await this.handleStart(ctx);
-        return;
-      }
-
-      // === ЗАПИСЬ НА КОНСУЛЬТАЦИЮ ===
-      if (callbackData === 'contact_request') {
+            if (callbackData === 'contact_request') {
         console.log('📞 Нажата кнопка: Записаться на консультацию');
         await ctx.answerCbQuery();
 
@@ -169,423 +108,564 @@ class Handlers {
           `🌟 *Мои продукты и программы*\n\n` +
           `Перейдите в основной бот — там все мои курсы, консультации и программы по дыханию:\n\n` +
           `🤖 @breathing_opros_bot\n\n` +
-          `Выберите подходящую программу и запишитесь!`;
+          `Выберите подходящую программу и запишитесь на консультацию!`;
 
         await ctx.reply(message, {
           parse_mode: 'Markdown',
           ...Markup.inlineKeyboard([
-            [Markup.button.url('🤖 Перейти в основной бот', 'https://t.me/breathing_opros_bot')],
-            [Markup.button.url('💬 Написать Анастасии', 'https://t.me/NastuPopova')]
+            [Markup.button.url('🌟 Мои продукты и программы', 'https://t.me/breathing_opros_bot')],
+            [Markup.button.url('💬 Написать Анастасии лично', 'https://t.me/NastuPopova')],
+            [Markup.button.callback('🔙 Назад к результатам', 'back_to_results')]
           ])
         });
         return;
       }
 
-      // === ДОПОЛНИТЕЛЬНЫЕ МАТЕРИАЛЫ ===
-      if (callbackData === 'more_materials') {
-        await this.pdfManager.fileHandler.showMoreMaterials(ctx);
+      if (callbackData === 'back_to_results') {
+        await ctx.answerCbQuery();
+        if (ctx.session?.analysisResult) {
+          await this.showResults(ctx, ctx.session.analysisResult);
+        }
         return;
       }
-
-      // === ПОМОЩЬ В ВЫБОРЕ ПРОГРАММЫ ===
+      // ПРИОРИТЕТНАЯ обработка "Подобрать программу"
       if (callbackData === 'help_choose_program') {
-        await this.pdfManager.fileHandler.handleHelpChooseProgram(ctx);
-        return;
+        return await this.handleProgramHelp(ctx);
       }
 
-      // === ВСЕ ПРОГРАММЫ ===
-      if (callbackData === 'show_all_programs') {
-        await this.pdfManager.fileHandler.showAllPrograms(ctx);
-        return;
+      // Админка
+      if (callbackData.startsWith('admin_')) {
+        return; // админка обрабатывается отдельно
       }
 
-      // === ЗАКАЗ ПРОГРАММ ===
-      if (callbackData === 'order_starter') {
-        await this.pdfManager.fileHandler.handleOrderStarter(ctx);
-        return;
+      // Анкета: основные команды
+      if (callbackData === 'start_survey' || callbackData === 'start_survey_from_about') {
+        console.log('✅ Распознано: start_survey');
+        return await this.startSurvey(ctx);
+      }
+      if (callbackData === 'about_survey') {
+        console.log('✅ Распознано: about_survey');
+        return await this.showAboutSurvey(ctx);
+      }
+      if (callbackData === 'back_to_main') {
+        console.log('✅ Распознано: back_to_main');
+        return await this.backToMain(ctx);
       }
 
-      if (callbackData === 'order_individual') {
-        await this.pdfManager.fileHandler.handleOrderIndividual(ctx);
-        return;
+      // ВСЕ ОТВЕТЫ НА ВОПРОСЫ АНКЕТЫ
+      const isSurveyAnswer = 
+        callbackData.startsWith('age_') ||
+        callbackData.startsWith('prob_') ||
+        callbackData.startsWith('child_prob_') ||
+        callbackData.startsWith('goal_') ||
+        callbackData.startsWith('format_') ||
+        callbackData.startsWith('stress_') ||
+        callbackData.startsWith('sleep_') ||
+        callbackData.startsWith('breath_') ||
+        callbackData.startsWith('method_') ||
+        callbackData.startsWith('freq_') ||
+        callbackData.startsWith('shallow_') ||
+        callbackData.startsWith('exp_') ||
+        callbackData.startsWith('time_') ||
+        callbackData.startsWith('prio_') ||
+        callbackData.startsWith('med_') ||
+        callbackData.startsWith('meds_') ||
+        callbackData.startsWith('panic_') ||
+        callbackData.startsWith('env_') ||
+        callbackData.startsWith('work_') ||
+        callbackData.startsWith('occ_') ||
+        callbackData.startsWith('activity_') ||
+        callbackData.startsWith('condition_') ||
+        callbackData.startsWith('child_age_') ||
+        callbackData.startsWith('edu_') ||
+        callbackData.startsWith('schedule_') ||
+        callbackData.startsWith('parent_') ||
+        callbackData.startsWith('motivation_') ||
+        callbackData.startsWith('weight_') ||
+        callbackData.startsWith('both_parents') ||
+        callbackData.startsWith('mother') ||
+        callbackData.startsWith('father') ||
+        callbackData === 'nav_back' ||
+        callbackData.endsWith('_done');
+
+      if (isSurveyAnswer) {
+        console.log('✅ Распознано как ответ на анкету, отправляем в handleSurveyAnswer');
+        return await this.handleSurveyAnswer(ctx, callbackData);
       }
 
-      // === СКАЧИВАНИЕ СТАТИЧНЫХ PDF ===
-      if (callbackData.startsWith('download_static_')) {
-        await this.pdfManager.fileHandler.handleDownloadRequest(ctx, callbackData);
-        return;
-      }
-
-      // === ЗАКРЫТИЕ МЕНЮ ===
-      if (callbackData === 'delete_menu' || callbackData === 'close_menu') {
-        await this.pdfManager.fileHandler.closeMenu(ctx);
-        return;
-      }
-
-      // === ОТВЕТЫ НА ВОПРОСЫ АНКЕТЫ ===
-      if (ctx.session?.currentQuestion) {
-        await this.handleSurveyAnswer(ctx, callbackData);
-        return;
-      }
-
-      // Если ничего не подошло — логируем
-      console.log(`⚠️ Необработанный callback: ${callbackData}`);
+      console.log('⚠️ Callback не распознан ни одним обработчиком!');
+      this.logCallbackDiagnostics(ctx, callbackData);
     });
   }
 
   setupTextHandlers() {
-    // Заглушка: текстовые обработчики пока не используются
-    console.log('✅ Текстовые обработчики настроены (заглушка)');
-  }
-
-  // === ОСНОВНЫЕ ОБРАБОТЧИКИ КОМАНД ===
-
-  async handleStart(ctx) {
-    console.log('▶️ Обработка команды /start');
-    
-    // Инициализируем сессию если её нет
-    if (!ctx.session || Object.keys(ctx.session).length === 0) {
-      ctx.session = this.getDefaultSession();
-    }
-    
-    const welcomeMessage = config.MESSAGES?.WELCOME || 
-      `🌬️ *Добро пожаловать в диагностику дыхания!*\n\n` +
-      `Пройдите быструю диагностику дыхания (4-5 минут) и получите:\n\n` +
-      `✅ Персональный анализ состояния\n` +
-      `✅ Индивидуальные рекомендации\n` +
-      `✅ Бесплатные материалы для практики\n\n` +
-      `Готовы узнать, как улучшить свое дыхание?`;
-    
-    await ctx.reply(welcomeMessage, {
-      parse_mode: 'Markdown',
-      ...Markup.inlineKeyboard([
-        [Markup.button.callback('▶️ Начать диагностику', 'start_survey')],
-        [Markup.button.callback('ℹ️ Подробнее о диагностике', 'about_survey')]
-      ])
+    this.telegramBot.on('text', async (ctx) => {
+      if (ctx.session?.currentQuestion) {
+        await ctx.reply('Пожалуйста, используйте кнопки выше для ответа на вопрос.');
+      } else {
+        await ctx.reply('Для начала диагностики используйте /start');
+      }
     });
   }
 
-  async handleHelp(ctx) {
-    console.log('❓ Обработка команды /help');
-    
-    const helpMessage = `💡 *СПРАВКА ПО БОТУ*\n\n` +
-      `🌬️ *Что делает этот бот:*\n` +
-      `Проводит быструю диагностику вашего дыхания и подбирает персональные техники.\n\n` +
-      `📋 *Доступные команды:*\n` +
-      `/start - Начать диагностику заново\n` +
-      `/help - Показать эту справку\n` +
-      `/restart - Перезапустить анкету\n\n` +
-      `💬 *Нужна помощь?*\n` +
-      `Напишите [Анастасии Поповой](https://t.me/NastuPopova)`;
-    
-    await ctx.reply(helpMessage, {
+  // === ОСНОВНЫЕ МЕТОДЫ ===
+  async handleStart(ctx) {
+    console.log(`Команда /start от пользователя ${ctx.from.id}`);
+    const message = config.MESSAGES.WELCOME;
+
+    await ctx.reply(message, {
       parse_mode: 'Markdown',
       ...Markup.inlineKeyboard([
-        [Markup.button.callback('▶️ Начать диагностику', 'start_survey')],
-        [Markup.button.url('💬 Написать Анастасии', 'https://t.me/NastuPopova')]
+        [Markup.button.callback('Запустить тест', 'start_survey')],
+        [Markup.button.callback('Подробнее о диагностике', 'about_survey')]
       ])
     });
   }
 
   async handleRestart(ctx) {
-    console.log('🔄 Обработка команды /restart');
-    
-    // Очищаем сессию
-    ctx.session = this.getDefaultSession();
-    
-    await ctx.reply('🔄 Анкета сброшена. Начните заново:', {
+    ctx.session = {};
+    await this.handleStart(ctx);
+  }
+
+  async showAboutSurvey(ctx) {
+    const aboutMessage = config.MESSAGES.ABOUT_SURVEY || 'Подробное описание диагностики...';
+    await ctx.editMessageText(aboutMessage, {
+      parse_mode: 'Markdown',
       ...Markup.inlineKeyboard([
-        [Markup.button.callback('▶️ Начать диагностику', 'start_survey')]
+        [Markup.button.callback('Запустить тест', 'start_survey_from_about')],
+        [Markup.button.callback('Назад', 'back_to_main')]
       ])
     });
   }
 
-  getDefaultSession() {
-    return {
-      currentQuestion: null,
-      answers: {},
-      multipleChoiceSelections: {},
-      startTime: Date.now(),
-      questionStartTime: Date.now(),
-      completedQuestions: [],
-      navigationHistory: [],
-      analysisResult: null,
-      contactInfo: {},
-      sessionId: `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      createdAt: new Date().toISOString(),
-      lastActivity: Date.now()
-    };
+  async backToMain(ctx) {
+    await ctx.deleteMessage().catch(() => {});
+    await this.handleStart(ctx);
   }
 
   // === АНКЕТА ===
-
   async startSurvey(ctx) {
-    console.log('📋 Запуск анкеты');
+    console.log(`🚀 Начинаем анкету для пользователя ${ctx.from.id}`);
     
+    // Инициализируем сессию
+    ctx.session = { 
+      answers: {}, 
+      completedQuestions: [], 
+      startTime: Date.now(),
+      multipleChoiceSelections: {},
+      questionStartTime: Date.now()
+    };
+    
+    console.log('✅ Сессия создана:', ctx.session);
+    
+    // Задаем первый вопрос
+    await this.askQuestion(ctx, 'age_group');
+  }
+
+  async askQuestion(ctx, questionKey) {
+    console.log(`📋 Задаем вопрос: ${questionKey}`);
+    
+    if (!this.surveyQuestions) {
+      console.error('❌ surveyQuestions не инициализирован!');
+      await ctx.reply('Ошибка загрузки вопросов. Попробуйте /restart');
+      return;
+    }
+
     try {
-      // Сброс сессии для новой анкеты
-      ctx.session.currentQuestion = null;
-      ctx.session.answers = {};
-      ctx.session.multipleChoiceSelections = {};
-      ctx.session.startTime = Date.now();
-      ctx.session.completedQuestions = [];
+      const question = this.surveyQuestions.getQuestion(questionKey);
       
-      // Проверяем доступные методы surveyQuestions
-      console.log('🔍 Доступные методы surveyQuestions:', Object.getOwnPropertyNames(Object.getPrototypeOf(this.surveyQuestions)));
-      
-      // Пробуем разные способы получить первый вопрос
-      let firstQuestion = null;
-      
-      // Способ 1: прямой доступ к questions
-      if (this.surveyQuestions.questions && Array.isArray(this.surveyQuestions.questions)) {
-        firstQuestion = this.surveyQuestions.questions[0];
-        console.log('✅ Первый вопрос получен через questions[0]');
+      if (!question) {
+        console.error(`❌ Вопрос ${questionKey} не найден`);
+        await ctx.reply('Ошибка: вопрос не найден. Попробуйте /restart');
+        return;
       }
-      // Способ 2: метод getQuestion
-      else if (typeof this.surveyQuestions.getQuestion === 'function') {
-        firstQuestion = this.surveyQuestions.getQuestion('age_group');
-        console.log('✅ Первый вопрос получен через getQuestion("age_group")');
-      }
-      // Способ 3: метод getQuestionById
-      else if (typeof this.surveyQuestions.getQuestionById === 'function') {
-        firstQuestion = this.surveyQuestions.getQuestionById('age_group');
-        console.log('✅ Первый вопрос получен через getQuestionById("age_group")');
-      }
-      
-      if (!firstQuestion) {
-        throw new Error('Не удалось получить первый вопрос анкеты. Проверьте модуль ExtendedSurveyQuestions.');
-      }
-      
-      await this.askQuestion(ctx, firstQuestion);
-      
-    } catch (error) {
-      console.error('❌ Ошибка запуска анкеты:', error);
-      console.error('Детали:', error.stack);
-      await ctx.reply(
-        '😔 Произошла ошибка при запуске анкеты. Попробуйте /start или напишите @NastuPopova'
+
+      console.log(`✅ Вопрос найден: ${question.text.substring(0, 50)}...`);
+
+      // Обновляем текущий вопрос в сессии
+      ctx.session.currentQuestion = questionKey;
+      ctx.session.questionStartTime = Date.now();
+
+      // Добавляем индикатор прогресса
+      const progress = this.surveyQuestions.getProgress(
+        ctx.session.completedQuestions || [],
+        ctx.session.answers || {}
       );
-    }
-  }
 
-  async askQuestion(ctx, question) {
-    console.log(`❓ Задаем вопрос: ${question.id}`);
-    
-    ctx.session.currentQuestion = question.id;
-    ctx.session.questionStartTime = Date.now();
-    
-    const keyboard = this.buildKeyboard(question);
-    
-    try {
-      await ctx.reply(question.text, {
-        parse_mode: 'Markdown',
-        ...keyboard
-      });
+      const progressBar = this.generateProgressBar(progress.percentage);
+      const questionText = `${progressBar}\n\n${question.text}`;
+
+      // Отправляем вопрос
+      if (question.note) {
+        await ctx.editMessageText(
+          `${questionText}\n\n💡 ${question.note}`,
+          {
+            parse_mode: 'Markdown',
+            reply_markup: question.keyboard.reply_markup
+          }
+        ).catch(async () => {
+          // Если редактирование не удалось, отправляем новое сообщение
+          await ctx.reply(
+            `${questionText}\n\n💡 ${question.note}`,
+            {
+              parse_mode: 'Markdown',
+              reply_markup: question.keyboard.reply_markup
+            }
+          );
+        });
+      } else {
+        await ctx.editMessageText(questionText, {
+          parse_mode: 'Markdown',
+          reply_markup: question.keyboard.reply_markup
+        }).catch(async () => {
+          await ctx.reply(questionText, {
+            parse_mode: 'Markdown',
+            reply_markup: question.keyboard.reply_markup
+          });
+        });
+      }
+
+      console.log(`✅ Вопрос ${questionKey} отправлен пользователю`);
+
     } catch (error) {
-      console.error('❌ Ошибка отправки вопроса:', error);
-      // Пробуем без Markdown
-      await ctx.reply(question.text.replace(/\*/g, ''), keyboard);
+      console.error(`❌ Ошибка при отправке вопроса ${questionKey}:`, error);
+      await ctx.reply('Произошла ошибка. Попробуйте /restart');
     }
   }
 
-  buildKeyboard(question) {
-    if (question.type === 'single_choice' || question.type === 'age_group') {
-      const buttons = question.options.map(opt => [
-        Markup.button.callback(opt.label, opt.value)
-      ]);
-      return Markup.inlineKeyboard(buttons);
-    }
-    
-    if (question.type === 'multiple_choice') {
-      const buttons = question.options.map(opt => [
-        Markup.button.callback(opt.label, opt.value)
-      ]);
-      buttons.push([Markup.button.callback('✅ Готово', `${question.id}_done`)]);
-      return Markup.inlineKeyboard(buttons);
-    }
-    
-    return Markup.inlineKeyboard([]);
+  generateProgressBar(percentage) {
+    const filled = Math.round(percentage / 10);
+    const empty = 10 - filled;
+    const bar = '▓'.repeat(filled) + '░'.repeat(empty);
+    return `📊 Прогресс: ${bar} ${percentage}%`;
   }
 
   async handleSurveyAnswer(ctx, callbackData) {
-    const currentQuestionId = ctx.session.currentQuestion;
-    
-    console.log(`📝 Обработка ответа: ${callbackData} на вопрос ${currentQuestionId}`);
-    
-    try {
-      // Пробуем разные способы получить текущий вопрос
-      let currentQuestion = null;
-      
-      if (typeof this.surveyQuestions.getQuestionById === 'function') {
-        currentQuestion = this.surveyQuestions.getQuestionById(currentQuestionId);
-      } else if (typeof this.surveyQuestions.getQuestion === 'function') {
-        currentQuestion = this.surveyQuestions.getQuestion(currentQuestionId);
-      } else if (this.surveyQuestions.questions) {
-        currentQuestion = this.surveyQuestions.questions.find(q => q.id === currentQuestionId);
-      }
-      
-      if (!currentQuestion) {
-        console.error('❌ Вопрос не найден:', currentQuestionId);
-        await ctx.answerCbQuery('Ошибка: вопрос не найден');
-        return;
-      }
-      
-      // Обработка множественного выбора
-      if (currentQuestion.type === 'multiple_choice') {
-        if (callbackData === `${currentQuestionId}_done`) {
-          await this.finishMultipleChoice(ctx, currentQuestion);
-          return;
-        } else {
-          await this.handleMultipleChoiceSelection(ctx, callbackData, currentQuestion);
-          return;
-        }
-      }
-      
-      // Обработка одиночного выбора
-      ctx.session.answers[currentQuestionId] = callbackData;
-      ctx.session.completedQuestions.push(currentQuestionId);
-      
-      await ctx.answerCbQuery('✅ Ответ сохранен');
-      
-      // Переход к следующему вопросу - пробуем разные методы
-      let nextQuestion = null;
-      
-      if (typeof this.surveyQuestions.getNextQuestion === 'function') {
-        nextQuestion = this.surveyQuestions.getNextQuestion(currentQuestionId, ctx.session.answers);
-      } else if (typeof this.surveyQuestions.getNext === 'function') {
-        nextQuestion = this.surveyQuestions.getNext(currentQuestionId, ctx.session.answers);
-      } else {
-        // Fallback: пытаемся найти следующий вопрос вручную
-        console.warn('⚠️ Метод getNextQuestion не найден, используем fallback');
-        nextQuestion = this.findNextQuestionFallback(currentQuestionId, ctx.session.answers);
-      }
-      
-      if (nextQuestion) {
-        await this.askQuestion(ctx, nextQuestion);
-      } else {
-        await this.finishSurvey(ctx);
-      }
-      
-    } catch (error) {
-      console.error('❌ Ошибка обработки ответа:', error);
-      console.error('Стек:', error.stack);
-      await ctx.answerCbQuery('Произошла ошибка');
-    }
-  }
+    console.log(`\n${'*'.repeat(60)}`);
+    console.log(`📝 НАЧАЛО ОБРАБОТКИ ОТВЕТА`);
+    console.log(`Callback Data: "${callbackData}"`);
+    console.log(`${'*'.repeat(60)}`);
 
-  findNextQuestionFallback(currentQuestionId, answers) {
-    console.log('🔄 Fallback: поиск следующего вопроса');
-    
-    // Базовая последовательность вопросов
-    const questionFlow = [
-      'age_group',
-      'current_problems', 
-      'stress_level',
-      'breathing_frequency',
-      'main_goals'
-    ];
-    
-    const currentIndex = questionFlow.indexOf(currentQuestionId);
-    
-    if (currentIndex === -1 || currentIndex === questionFlow.length - 1) {
-      return null; // Конец анкеты
-    }
-    
-    const nextQuestionId = questionFlow[currentIndex + 1];
-    
-    // Пытаемся получить вопрос
-    if (typeof this.surveyQuestions.getQuestionById === 'function') {
-      return this.surveyQuestions.getQuestionById(nextQuestionId);
-    } else if (this.surveyQuestions.questions) {
-      return this.surveyQuestions.questions.find(q => q.id === nextQuestionId);
-    }
-    
-    return null;
-  }
-
-  async handleMultipleChoiceSelection(ctx, callbackData, question) {
-    if (!ctx.session.multipleChoiceSelections[question.id]) {
-      ctx.session.multipleChoiceSelections[question.id] = [];
-    }
-    
-    const selections = ctx.session.multipleChoiceSelections[question.id];
-    const index = selections.indexOf(callbackData);
-    
-    if (index > -1) {
-      selections.splice(index, 1);
-      await ctx.answerCbQuery('❌ Выбор отменен');
-    } else {
-      const maxSelections = question.maxSelections || 5;
-      if (selections.length >= maxSelections) {
-        await ctx.answerCbQuery(`⚠️ Максимум ${maxSelections} вариантов`);
-        return;
-      }
-      selections.push(callbackData);
-      await ctx.answerCbQuery('✅ Выбрано');
-    }
-  }
-
-  async finishMultipleChoice(ctx, question) {
-    const selections = ctx.session.multipleChoiceSelections[question.id] || [];
-    
-    if (selections.length === 0) {
-      await ctx.answerCbQuery('⚠️ Выберите хотя бы один вариант');
+    if (!ctx.session) {
+      console.error('❌ Сессия отсутствует!');
+      await ctx.reply('Сессия истекла. Начните заново: /start');
       return;
     }
+
+    const currentQuestion = ctx.session.currentQuestion;
     
-    ctx.session.answers[question.id] = selections;
-    ctx.session.completedQuestions.push(question.id);
-    delete ctx.session.multipleChoiceSelections[question.id];
+    if (!currentQuestion) {
+      console.error('❌ Текущий вопрос не установлен!');
+      console.error('Содержимое сессии:', JSON.stringify(ctx.session, null, 2));
+      await ctx.reply('Ошибка: текущий вопрос не найден. Попробуйте /restart');
+      return;
+    }
+
+    console.log(`📌 Текущий вопрос: "${currentQuestion}"`);
+
+    // Обработка навигации "Назад"
+    if (callbackData === 'nav_back') {
+      console.log('⬅️ Обработка навигации назад');
+      return await this.handleNavBack(ctx);
+    }
+
+    const question = this.surveyQuestions.getQuestion(currentQuestion);
     
-    await ctx.answerCbQuery('✅ Ответ сохранен');
+    if (!question) {
+      console.error(`❌ Вопрос "${currentQuestion}" не найден в surveyQuestions`);
+      console.error('Доступные вопросы:', this.surveyQuestions.getAllQuestions());
+      await ctx.reply('Ошибка загрузки вопроса. Попробуйте /restart');
+      return;
+    }
+
+    console.log(`✅ Вопрос найден`);
+    console.log(`   Тип вопроса: ${question.type}`);
+    console.log(`   ID вопроса: ${question.id}`);
+
+    // Обработка множественного выбора
+    if (question.type === 'multiple_choice') {
+      console.log('🔀 Обработка как множественный выбор');
+      return await this.handleMultipleChoice(ctx, callbackData, question);
+    }
+
+    // Обработка одиночного выбора и шкал
+    console.log(`🔄 Маппинг значения...`);
+    const mappedValue = this.surveyQuestions.mapCallbackToValue(callbackData);
     
-    // Пробуем разные способы получить следующий вопрос
-    let nextQuestion = null;
-    
-    if (typeof this.surveyQuestions.getNextQuestion === 'function') {
-      nextQuestion = this.surveyQuestions.getNextQuestion(question.id, ctx.session.answers);
-    } else if (typeof this.surveyQuestions.getNext === 'function') {
-      nextQuestion = this.surveyQuestions.getNext(question.id, ctx.session.answers);
+    console.log(`✅ Результат маппинга:`);
+    console.log(`   Исходное: "${callbackData}"`);
+    console.log(`   Маппированное: "${mappedValue}"`);
+    console.log(`   Тип: ${typeof mappedValue}`);
+
+    // Валидация ответа
+    console.log(`🔍 Валидация ответа...`);
+    const validation = this.surveyQuestions.validateAnswer(
+      currentQuestion,
+      mappedValue
+    );
+
+    console.log(`📋 Результат валидации:`, validation);
+
+    if (!validation.valid) {
+      console.log(`❌ Валидация не пройдена: ${validation.error}`);
+      await ctx.answerCbQuery(validation.error || 'Некорректный ответ');
+      return;
+    }
+
+    console.log(`✅ Валидация пройдена успешно`);
+
+    // Показываем предупреждение если есть
+    if (validation.warning) {
+      console.log(`⚠️ Показываем предупреждение: ${validation.warning}`);
+      await ctx.answerCbQuery(validation.warning, { show_alert: true });
     } else {
-      nextQuestion = this.findNextQuestionFallback(question.id, ctx.session.answers);
+      await ctx.answerCbQuery('✅ Ответ сохранен');
+    }
+
+    // Сохраняем ответ (для шкал сохраняем числовое значение)
+    console.log(`💾 Сохранение ответа...`);
+    ctx.session.answers[currentQuestion] = mappedValue;
+    
+    if (!ctx.session.completedQuestions.includes(currentQuestion)) {
+      ctx.session.completedQuestions.push(currentQuestion);
+    }
+
+    console.log(`✅ Ответ сохранен успешно:`);
+    console.log(`   Вопрос: ${currentQuestion}`);
+    console.log(`   Значение: ${mappedValue}`);
+    console.log(`   Всего ответов: ${Object.keys(ctx.session.answers).length}`);
+    console.log(`   Завершено вопросов: ${ctx.session.completedQuestions.length}`);
+
+    // Переходим к следующему вопросу
+    console.log(`➡️ Переход к следующему вопросу...`);
+    console.log(`${'*'.repeat(60)}\n`);
+    
+    await this.moveToNextQuestion(ctx);
+  }
+
+  async handleMultipleChoice(ctx, callbackData, question) {
+    const currentQuestion = ctx.session.currentQuestion;
+    
+    // Инициализируем массив выборов если его нет
+    if (!ctx.session.multipleChoiceSelections) {
+      ctx.session.multipleChoiceSelections = {};
     }
     
-    if (nextQuestion) {
-      await this.askQuestion(ctx, nextQuestion);
+    if (!ctx.session.multipleChoiceSelections[currentQuestion]) {
+      ctx.session.multipleChoiceSelections[currentQuestion] = [];
+    }
+
+    const selections = ctx.session.multipleChoiceSelections[currentQuestion];
+
+    // Проверяем, это кнопка "Завершить выбор"
+    if (callbackData.endsWith('_done')) {
+      console.log(`✅ Завершение выбора для ${currentQuestion}`);
+      
+      // Валидация минимального количества выборов
+      if (question.minSelections && selections.length < question.minSelections) {
+        await ctx.answerCbQuery(`Выберите минимум ${question.minSelections} вариант(ов)`);
+        return;
+      }
+
+      // Сохраняем ответы
+      ctx.session.answers[currentQuestion] = [...selections];
+      
+      if (!ctx.session.completedQuestions.includes(currentQuestion)) {
+        ctx.session.completedQuestions.push(currentQuestion);
+      }
+
+      console.log(`💾 Множественный выбор сохранен: ${currentQuestion} = [${selections.join(', ')}]`);
+
+      // Очищаем временные выборы
+      delete ctx.session.multipleChoiceSelections[currentQuestion];
+
+      // Переходим к следующему вопросу
+      return await this.moveToNextQuestion(ctx);
+    }
+
+    // Обычный выбор элемента
+    const mappedValue = this.surveyQuestions.mapCallbackToValue(callbackData);
+
+    // Проверяем лимит выборов
+    if (question.maxSelections && selections.length >= question.maxSelections && !selections.includes(mappedValue)) {
+      await ctx.answerCbQuery(`Можно выбрать максимум ${question.maxSelections} вариант(ов)`);
+      return;
+    }
+
+    // Добавляем или убираем выбор
+    if (selections.includes(mappedValue)) {
+      const index = selections.indexOf(mappedValue);
+      selections.splice(index, 1);
+      await ctx.answerCbQuery('✖️ Выбор убран');
+      console.log(`➖ Убран выбор: ${mappedValue}`);
     } else {
-      await this.finishSurvey(ctx);
+      selections.push(mappedValue);
+      await ctx.answerCbQuery('✓ Выбрано');
+      console.log(`➕ Добавлен выбор: ${mappedValue}`);
+    }
+
+    console.log(`📋 Текущие выборы для ${currentQuestion}: [${selections.join(', ')}]`);
+    
+    // КРИТИЧНО: Обновляем клавиатуру с галочками
+    await this.updateMultipleChoiceKeyboard(ctx, question, selections);
+  }
+
+  // НОВЫЙ МЕТОД: Обновление клавиатуры множественного выбора
+  async updateMultipleChoiceKeyboard(ctx, question, selections) {
+    try {
+      // Получаем оригинальную клавиатуру
+      const originalKeyboard = question.keyboard.reply_markup.inline_keyboard;
+      
+      // Создаем обновленную клавиатуру с галочками
+      const updatedKeyboard = originalKeyboard.map(row => {
+        return row.map(button => {
+          const callbackData = button.callback_data;
+          
+          // Пропускаем служебные кнопки
+          if (callbackData === 'nav_back' || callbackData.endsWith('_done')) {
+            return button;
+          }
+          
+          // Получаем значение
+          const mappedValue = this.surveyQuestions.mapCallbackToValue(callbackData);
+          
+          // Добавляем или убираем галочку
+          let newText = button.text;
+          
+          if (selections.includes(mappedValue)) {
+            // Добавляем галочку если её нет
+            if (!newText.startsWith('✅ ')) {
+              newText = '✅ ' + newText;
+            }
+          } else {
+            // Убираем галочку если она есть
+            newText = newText.replace('✅ ', '');
+          }
+          
+          return {
+            text: newText,
+            callback_data: callbackData
+          };
+        });
+      });
+      
+      // Обновляем сообщение с новой клавиатурой
+      const progress = this.surveyQuestions.getProgress(
+        ctx.session.completedQuestions || [],
+        ctx.session.answers || {}
+      );
+      
+      const progressBar = this.generateProgressBar(progress.percentage);
+      const questionText = `${progressBar}\n\n${question.text}`;
+      
+      const fullText = question.note 
+        ? `${questionText}\n\n💡 ${question.note}\n\n📝 Выбрано: ${selections.length}`
+        : `${questionText}\n\n📝 Выбрано: ${selections.length}`;
+      
+      await ctx.editMessageText(fullText, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: updatedKeyboard
+        }
+      });
+      
+    } catch (error) {
+      console.error('❌ Ошибка обновления клавиатуры множественного выбора:', error);
+      // Не критично, продолжаем работу
     }
   }
 
-  async finishSurvey(ctx) {
-    console.log('🏁 Завершение анкеты');
+  async handleNavBack(ctx) {
+    console.log('⬅️ Навигация назад');
+    
+    const currentQuestion = ctx.session.currentQuestion;
+    const previousQuestion = this.surveyQuestions.getPreviousQuestion(
+      currentQuestion,
+      ctx.session.answers
+    );
+
+    if (!previousQuestion) {
+      console.log('⚠️ Нет предыдущего вопроса, возврат к началу');
+      await ctx.answerCbQuery('Это первый вопрос');
+      return;
+    }
+
+    console.log(`⬅️ Переход к предыдущему вопросу: ${previousQuestion}`);
+
+    // Убираем текущий вопрос из завершенных
+    const index = ctx.session.completedQuestions.indexOf(currentQuestion);
+    if (index > -1) {
+      ctx.session.completedQuestions.splice(index, 1);
+    }
+
+    // Удаляем ответ на текущий вопрос
+    delete ctx.session.answers[currentQuestion];
+
+    // Задаем предыдущий вопрос
+    await this.askQuestion(ctx, previousQuestion);
+  }
+
+  async moveToNextQuestion(ctx) {
+    console.log('➡️ Переход к следующему вопросу');
+    
+    const currentQuestion = ctx.session.currentQuestion;
+    const nextQuestion = this.surveyQuestions.getNextQuestion(
+      currentQuestion,
+      ctx.session.answers
+    );
+
+    if (!nextQuestion) {
+      console.log('✅ Анкета завершена!');
+      return await this.completeSurvey(ctx);
+    }
+
+    console.log(`➡️ Следующий вопрос: ${nextQuestion}`);
+    
+    // Проверяем условие показа следующего вопроса
+    if (!this.surveyQuestions.shouldShowQuestion(nextQuestion, ctx.session.answers)) {
+      console.log(`⏭️ Пропускаем вопрос ${nextQuestion} (не подходит по условиям)`);
+      ctx.session.currentQuestion = nextQuestion;
+      return await this.moveToNextQuestion(ctx);
+    }
+
+    await this.askQuestion(ctx, nextQuestion);
+  }
+
+  async completeSurvey(ctx) {
+    console.log('🎉 Завершение анкеты');
     
     try {
-      // Показываем сообщение анализа
-      const analysisMessage = config.MESSAGES?.ANALYSIS_START ||
-        `🧠 *Анализирую ваши ответы...*\n\n` +
-        `Анастасия изучает ваш профиль и подбирает персональные рекомендации.\n\n` +
-        `Это займет несколько секунд...`;
-      
-      await ctx.reply(analysisMessage, { parse_mode: 'Markdown' });
-      
-      // Небольшая задержка для реалистичности
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Анализ результатов
+      const surveyDuration = Date.now() - ctx.session.startTime;
+      console.log(`⏱️ Длительность анкетирования: ${Math.round(surveyDuration / 1000)} сек`);
+
+      // Отправляем сообщение о завершении
+      await ctx.editMessageText(
+        '✅ *Диагностика завершена!*\n\n⏳ Анализирую ваши ответы...',
+        { parse_mode: 'Markdown' }
+      );
+
+      // VERSE-анализ
+      console.log('🧠 Запуск VERSE-анализа...');
       const analysisResult = this.verseAnalysis.analyzeUser(ctx.session.answers);
+      console.log('✅ VERSE-анализ завершен:', analysisResult.segment);
+
+      // Сохраняем результаты
       ctx.session.analysisResult = analysisResult;
-      
-      console.log('✅ Анализ завершен:', analysisResult.segment);
-      
-      // Передача лида
-      await this.transferLead(ctx, analysisResult);
-      
-      // Показываем результаты
+      ctx.session.completedAt = new Date().toISOString();
+
+      // Отображаем результаты
       await this.showResults(ctx, analysisResult);
-      
+
+      // Передача лида
+      console.log('📤 Передача лида...');
+      await this.transferLead(ctx, analysisResult);
+
     } catch (error) {
       console.error('❌ Ошибка завершения анкеты:', error);
-      await ctx.reply('😔 Произошла ошибка при анализе. Напишите @NastuPopova');
+      await ctx.reply(
+        '😔 Произошла ошибка при обработке результатов. Обратитесь к @NastuPopova',
+        { parse_mode: 'Markdown' }
+      );
     }
   }
 
@@ -598,66 +678,11 @@ class Handlers {
       parse_mode: 'Markdown',
       ...Markup.inlineKeyboard([
         [Markup.button.callback('🎁 Получить персональную технику', 'get_bonus')],
+        [Markup.button.callback('📞 Записаться на консультацию', 'contact_request')],
         [Markup.button.url('💬 Написать Анастасии', 'https://t.me/NastuPopova')]
       ])
     });
   }
-
-  // === ИНТРИГУЮЩИЙ ТИЗЕР ===
-
-  async sendIntriguingTeaser(ctx, bonus, analysisResult) {
-    const technique = bonus.technique;
-    const segment = analysisResult.segment || 'WARM_LEAD';
-    const isHot = segment === 'HOT_LEAD';
-    const isChild = analysisResult.analysisType === 'child';
-
-    let profileTitle = '';
-    let urgencyText = '';
-    let teaserText = '';
-
-    if (isChild) {
-      profileTitle = '🎈 *Дыхательный профиль ребёнка*';
-      urgencyText = isHot ? 'Требует внимания в ближайшие дни' : 'Можно начать улучшать уже сейчас';
-
-      teaserText = `Я подобрала игровую технику *«${technique.name}»* — дети играют с удовольствием, а родители быстро замечают положительные изменения.\n\n` +
-                   `🔥 Представьте: меньше капризов, спокойные вечера и радостные утра.\n\n` +
-                   `Полная игровая инструкция для родителей, план на 3 дня и советы по мотивации — в вашем персональном гиде ниже.`;
-    } else {
-      const profileMap = {
-        'insomnia': 'Тревожный сон на фоне стресса',
-        'chronic_stress': 'Хроническое напряжение и перегруз',
-        'anxiety': 'Тревожность и внутреннее беспокойство',
-        'panic_attacks': 'Панические атаки и страх',
-        'high_pressure': 'Повышенное давление и головные боли',
-        'breathing_issues': 'Одышка и нехватка воздуха',
-        'fatigue': 'Постоянная усталость и снижение энергии',
-        'headaches': 'Частые головные боли и мигрени',
-        'concentration_issues': 'Проблемы с концентрацией',
-        'digestion_issues': 'Проблемы с пищеварением'
-      };
-
-      const mainIssue = analysisResult.primaryIssue || 'chronic_stress';
-      profileTitle = `🎯 *Ваш дыхательный профиль:* ${profileMap[mainIssue] || 'Напряжённое состояние'}`;
-      urgencyText = isHot ? 'Требует внимания в ближайшие дни' : 'Можно улучшить уже сейчас';
-
-      const hotHint = isHot ? '🔥 Эта техника даёт заметный эффект уже с первого применения.\n\n' : '';
-
-      teaserText = `Я подобрала для вас мощную технику *«${technique.name}»* — она помогает организму быстро перейти в режим восстановления.\n\n` +
-                   `${hotHint}` +
-                   `Многие мои клиенты отмечают: напряжение уходит, мысли затихают, появляется лёгкость и ясность.\n\n` +
-                   `🔥 Представьте: всего несколько минут практики — и вы чувствуете себя спокойнее и энергичнее.\n\n` +
-                   `Полная пошаговая инструкция, научное объяснение и план на 3 дня — в вашем персональном гиде ниже.`;
-    }
-
-    const message = `${profileTitle}\n\n` +
-                    `Основная проблема: ${technique.problem}\n` +
-                    `Уровень срочности: ${urgencyText}\n\n` +
-                    `${teaserText}`;
-
-    await ctx.reply(message, { parse_mode: 'Markdown' });
-  }
-
-  // === ОСТАЛЬНЫЕ МЕТОДЫ ===
 
   async transferLead(ctx, analysisResult) {
     try {
@@ -678,6 +703,7 @@ class Handlers {
       await this.leadTransfer.processLead(userData);
       console.log('✅ Лид успешно передан');
 
+      // Уведомление админа
       if (this.bot.adminIntegration) {
         await this.bot.adminIntegration.notifySurveyResults(userData);
       }
@@ -687,6 +713,34 @@ class Handlers {
     }
   }
 
+  async handleProgramHelp(ctx) {
+    console.log('🤔 handleProgramHelp');
+    
+    if (!this.pdfManager?.handleHelpChooseProgram) {
+      return await this.showBuiltInProgramHelp(ctx);
+    }
+
+    try {
+      await this.pdfManager.handleHelpChooseProgram(ctx);
+    } catch (error) {
+      console.error('❌ Ошибка handleProgramHelp:', error);
+      await this.showBuiltInProgramHelp(ctx);
+    }
+  }
+
+  async showBuiltInProgramHelp(ctx) {
+    const message = `🤔 *КАК ВЫБРАТЬ ПРОГРАММУ?*\n\n` +
+      `🛒 **Стартовый комплект** — для самостоятельного изучения\n\n` +
+      `👨‍⚕️ **Персональная консультация** — индивидуальный подход\n\n` +
+      `💬 Для точной рекомендации напишите @NastuPopova`;
+
+    await ctx.reply(message, {
+      parse_mode: 'Markdown',
+      ...Markup.inlineKeyboard([
+        [Markup.button.url('💬 Написать Анастасии', 'https://t.me/NastuPopova')]
+      ])
+    });
+  }
   async showAboutSurvey(ctx) {
     console.log('ℹ️ Показ информации о диагностике');
 
@@ -703,12 +757,11 @@ class Handlers {
     await ctx.reply(message, {
       parse_mode: 'Markdown',
       ...Markup.inlineKeyboard([
-        [Markup.button.callback('▶️ Начать диагностику', 'start_survey_from_about')],
+        [Markup.button.callback('▶️ Начать диагностику', 'start_survey')],
         [Markup.button.callback('🔙 Назад в меню', 'back_to_main')]
       ])
     });
   }
-
   async handleError(ctx, error) {
     console.error('Обработка ошибки:', error);
     try {
@@ -716,11 +769,19 @@ class Handlers {
     } catch {}
   }
 
+  logCallbackDiagnostics(ctx, callbackData) {
+    console.log('=== ДИАГНОСТИКА CALLBACK ===');
+    console.log('Data:', callbackData);
+    console.log('User:', ctx.from?.id);
+    console.log('Session:', !!ctx.session);
+    console.log('=====================================');
+  }
+
   getStats() {
     return {
       name: 'MainHandlers',
-      version: '8.0.0-COMPLETE',
-      features: ['full_survey_flow', 'two_step_bonus', 'intriguing_teaser', 'all_commands'],
+      version: '6.0.0-COMPLETE',
+      features: ['full_survey_working', 'launch_test_button', 'extended_questions_support', 'complete_handlers'],
       last_updated: new Date().toISOString()
     };
   }
