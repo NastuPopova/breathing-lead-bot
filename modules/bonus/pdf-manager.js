@@ -58,7 +58,7 @@ getBonusForUser(analysisResult, surveyData) {
     console.error(`❌ Ошибка подбора бонуса:`, error);
     return this.getStaticFallbackBonus(analysisResult);
   }
-},
+}
 
   // Генерация сообщения о бонусе
   generateBonusMessage(bonus, analysisResult) {
