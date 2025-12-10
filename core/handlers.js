@@ -330,17 +330,37 @@ class Handlers {
       ctx.session.startTime = Date.now();
       ctx.session.completedQuestions = [];
       
-      // Получаем первый вопрос
-      const firstQuestion = this.surveyQuestions.getFirstQuestion();
+      // Проверяем доступные методы surveyQuestions
+      console.log('🔍 Доступные методы surveyQuestions:', Object.getOwnPropertyNames(Object.getPrototypeOf(this.surveyQuestions)));
+      
+      // Пробуем разные способы получить первый вопрос
+      let firstQuestion = null;
+      
+      // Способ 1: прямой доступ к questions
+      if (this.surveyQuestions.questions && Array.isArray(this.surveyQuestions.questions)) {
+        firstQuestion = this.surveyQuestions.questions[0];
+        console.log('✅ Первый вопрос получен через questions[0]');
+      }
+      // Способ 2: метод getQuestion
+      else if (typeof this.surveyQuestions.getQuestion === 'function') {
+        firstQuestion = this.surveyQuestions.getQuestion('age_group');
+        console.log('✅ Первый вопрос получен через getQuestion("age_group")');
+      }
+      // Способ 3: метод getQuestionById
+      else if (typeof this.surveyQuestions.getQuestionById === 'function') {
+        firstQuestion = this.surveyQuestions.getQuestionById('age_group');
+        console.log('✅ Первый вопрос получен через getQuestionById("age_group")');
+      }
       
       if (!firstQuestion) {
-        throw new Error('Не удалось получить первый вопрос анкеты');
+        throw new Error('Не удалось получить первый вопрос анкеты. Проверьте модуль ExtendedSurveyQuestions.');
       }
       
       await this.askQuestion(ctx, firstQuestion);
       
     } catch (error) {
       console.error('❌ Ошибка запуска анкеты:', error);
+      console.error('Детали:', error.stack);
       await ctx.reply(
         '😔 Произошла ошибка при запуске анкеты. Попробуйте /start или напишите @NastuPopova'
       );
@@ -392,7 +412,16 @@ class Handlers {
     console.log(`📝 Обработка ответа: ${callbackData} на вопрос ${currentQuestionId}`);
     
     try {
-      const currentQuestion = this.surveyQuestions.getQuestionById(currentQuestionId);
+      // Пробуем разные способы получить текущий вопрос
+      let currentQuestion = null;
+      
+      if (typeof this.surveyQuestions.getQuestionById === 'function') {
+        currentQuestion = this.surveyQuestions.getQuestionById(currentQuestionId);
+      } else if (typeof this.surveyQuestions.getQuestion === 'function') {
+        currentQuestion = this.surveyQuestions.getQuestion(currentQuestionId);
+      } else if (this.surveyQuestions.questions) {
+        currentQuestion = this.surveyQuestions.questions.find(q => q.id === currentQuestionId);
+      }
       
       if (!currentQuestion) {
         console.error('❌ Вопрос не найден:', currentQuestionId);
@@ -417,8 +446,18 @@ class Handlers {
       
       await ctx.answerCbQuery('✅ Ответ сохранен');
       
-      // Переход к следующему вопросу
-      const nextQuestion = this.surveyQuestions.getNextQuestion(currentQuestionId, ctx.session.answers);
+      // Переход к следующему вопросу - пробуем разные методы
+      let nextQuestion = null;
+      
+      if (typeof this.surveyQuestions.getNextQuestion === 'function') {
+        nextQuestion = this.surveyQuestions.getNextQuestion(currentQuestionId, ctx.session.answers);
+      } else if (typeof this.surveyQuestions.getNext === 'function') {
+        nextQuestion = this.surveyQuestions.getNext(currentQuestionId, ctx.session.answers);
+      } else {
+        // Fallback: пытаемся найти следующий вопрос вручную
+        console.warn('⚠️ Метод getNextQuestion не найден, используем fallback');
+        nextQuestion = this.findNextQuestionFallback(currentQuestionId, ctx.session.answers);
+      }
       
       if (nextQuestion) {
         await this.askQuestion(ctx, nextQuestion);
@@ -428,8 +467,39 @@ class Handlers {
       
     } catch (error) {
       console.error('❌ Ошибка обработки ответа:', error);
+      console.error('Стек:', error.stack);
       await ctx.answerCbQuery('Произошла ошибка');
     }
+  }
+
+  findNextQuestionFallback(currentQuestionId, answers) {
+    console.log('🔄 Fallback: поиск следующего вопроса');
+    
+    // Базовая последовательность вопросов
+    const questionFlow = [
+      'age_group',
+      'current_problems', 
+      'stress_level',
+      'breathing_frequency',
+      'main_goals'
+    ];
+    
+    const currentIndex = questionFlow.indexOf(currentQuestionId);
+    
+    if (currentIndex === -1 || currentIndex === questionFlow.length - 1) {
+      return null; // Конец анкеты
+    }
+    
+    const nextQuestionId = questionFlow[currentIndex + 1];
+    
+    // Пытаемся получить вопрос
+    if (typeof this.surveyQuestions.getQuestionById === 'function') {
+      return this.surveyQuestions.getQuestionById(nextQuestionId);
+    } else if (this.surveyQuestions.questions) {
+      return this.surveyQuestions.questions.find(q => q.id === nextQuestionId);
+    }
+    
+    return null;
   }
 
   async handleMultipleChoiceSelection(ctx, callbackData, question) {
@@ -468,7 +538,16 @@ class Handlers {
     
     await ctx.answerCbQuery('✅ Ответ сохранен');
     
-    const nextQuestion = this.surveyQuestions.getNextQuestion(question.id, ctx.session.answers);
+    // Пробуем разные способы получить следующий вопрос
+    let nextQuestion = null;
+    
+    if (typeof this.surveyQuestions.getNextQuestion === 'function') {
+      nextQuestion = this.surveyQuestions.getNextQuestion(question.id, ctx.session.answers);
+    } else if (typeof this.surveyQuestions.getNext === 'function') {
+      nextQuestion = this.surveyQuestions.getNext(question.id, ctx.session.answers);
+    } else {
+      nextQuestion = this.findNextQuestionFallback(question.id, ctx.session.answers);
+    }
     
     if (nextQuestion) {
       await this.askQuestion(ctx, nextQuestion);
