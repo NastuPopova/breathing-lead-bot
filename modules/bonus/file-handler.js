@@ -661,25 +661,46 @@ class FileHandler {
     }
   }
 
-  async sendPDFFile(ctx) {
-    try {
-      // НОВАЯ ПРОВЕРКА: если бонус статичный — отправляем готовый файл
-  if (bonus.type === 'static' && bonus.staticType) {
-    console.log(`📄 Отправляем статичный PDF fallback: ${bonus.staticType}`);
-    await ctx.answerCbQuery('📤 Отправляю базовый гид...');
-    return await this.sendAdditionalPDF(ctx, bonus.staticType);
-  }
-      console.log(`📝 Генерация персонального гида для пользователя ${ctx.from.id}`);
+  async sendPDFFile(ctx, bonus) {  // ← ДОБАВЬ ПАРАМЕТР bonus!
+  try {
+    if (!bonus) {
+      console.error('❌ Bonus не передан в sendPDFFile');
+      await ctx.reply('😔 Произошла ошибка. Попробуйте позже или напишите @NastuPopova');
+      return;
+    }
 
-      const bonus = this.getBonusForUser(ctx.session.analysisResult, ctx.session.answers);
-      const filePath = await this.contentGenerator.generatePersonalizedHTML(
-        ctx.from.id,
-        ctx.session.analysisResult,
-        ctx.session.answers
-      );
+    // Теперь можно безопасно проверять bonus.type
+    if (bonus.type === 'static' && bonus.staticType) {
+      console.log(`📄 Отправляем статичный PDF fallback: ${bonus.staticType}`);
+      await ctx.answerCbQuery('📤 Отправляю базовый гид...');
+      return await this.sendAdditionalPDF(ctx, bonus.staticType);
+    }
 
-      const isChildFlow = ctx.session.analysisResult.analysisType === 'child';
+    // Если персональный — генерируем
+    console.log(`📝 Генерация персонального гида для пользователя ${ctx.from.id}`);
+    
+    / Генерация HTML
+    const filePath = await this.contentGenerator.generatePersonalizedHTML(
+      ctx.from.id,
+      ctx.session.analysisResult || bonus.analysisResult || {},  // защита от undefined
+      ctx.session.answers || {}
+    );
+
+// Проверяем, что filePath вернулся (на случай ошибки в generatePersonalizedHTML)
+    if (!filePath || !fs.existsSync(filePath)) {
+      console.error('❌ Не удалось сгенерировать HTML-файл');
+      await ctx.reply('😔 Временная проблема с созданием гида. Напишите @NastuPopova — она пришлёт лично');
+      return;
+    }
+    
+      const isChildFlow = bonus.isChildFlow || false;
       const technique = bonus.technique;
+
+    if (!technique) {
+      console.error('❌ В бонусе нет техники');
+      await ctx.reply('😔 Ошибка в персонализации. Напишите @NastuPopova');
+      return;
+    }
 
       let caption = `🎁 *${bonus.title}*\n\n`;
       caption += isChildFlow
@@ -688,11 +709,12 @@ class FileHandler {
       caption += `✨ *В файле:*\n`;
       caption += `• ${technique.name}\n`;
       caption += `• Пошаговая инструкция\n`;
+      caption += `• Научное обоснование\n`;  // ← добавили, т.к. теперь есть science
       caption += `• План освоения на 3 дня\n`;
       caption += `• Ожидаемые результаты\n\n`;
       caption += `📱 Откройте файл в браузере для лучшего отображения.\n\n`;
       caption += `📞 *Больше техник у* [Анастасии Поповой](https://t.me/NastuPopova)`;
-
+/ Отправка документа
       await ctx.replyWithDocument(
         { source: filePath },
         { caption, parse_mode: 'Markdown' }
@@ -703,10 +725,10 @@ class FileHandler {
       this.bonusStats.byDeliveryMethod.file++;
       
     } catch (error) {
-      console.error('❌ Ошибка отправки персонального гида:', error.message);
-      await this.sendFallbackTechnique(ctx, this.getBonusForUser(ctx.session.analysisResult, ctx.session.answers));
-    }
+    console.error('❌ Ошибка в sendPDFFile:', error);
+    await ctx.reply('😔 Не удалось создать гид. Напишите @NastuPopova — она пришлёт материалы лично');
   }
+}
 
   async showMoreMaterials(ctx) {
     console.log(`🎁 Показываем меню материалов для пользователя ${ctx.from.id}`);
