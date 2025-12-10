@@ -6,7 +6,7 @@ class PDFManager {
   constructor() {
     // Инициализация компонентов
     this.contentGenerator = new ContentGenerator();
-    this.fileHandler = new FileHandler();
+    this.fileHandler = new FileHandler(this.contentGenerator);
     
     // Статистика доставки бонусов
     this.deliveryStats = {
