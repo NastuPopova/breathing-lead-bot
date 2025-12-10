@@ -622,20 +622,43 @@ class Handlers {
   // НОВЫЙ МЕТОД: Обновление клавиатуры множественного выбора
   async updateMultipleChoiceKeyboard(ctx, question, selections) {
     try {
-      // Получаем оригинальную клавиатуру
       const originalKeyboard = question.keyboard.reply_markup.inline_keyboard;
       
-      // Создаем обновленную клавиатуру с галочками
       const updatedKeyboard = originalKeyboard.map(row => {
         return row.map(button => {
-		return {
+          const callbackData = button.callback_data;
+          
+          // Пропускаем служебные кнопки (назад и "Готово")
+          if (callbackData === 'nav_back' || callbackData.endsWith('_done')) {
+            return button;
+          }
+          
+          // Получаем исходный текст кнопки
+          let newText = button.text.trim();
+          
+          // Определяем значение, которое соответствует этой кнопке
+          const mappedValue = this.surveyQuestions.mapCallbackToValue(callbackData);
+          
+          // Проверяем, выбран ли этот вариант
+          const isSelected = selections.includes(mappedValue);
+          
+          // Добавляем или убираем галочку
+          if (isSelected) {
+            if (!newText.startsWith('✅')) {
+              newText = '✅ ' + newText;
+            }
+          } else {
+            newText = newText.replace(/^✅\s*/, '');
+          }
+          
+          return {
             text: newText,
             callback_data: callbackData
           };
         });
       });
       
-      // Обновляем сообщение с новой клавиатурой
+      // Формируем текст сообщения с прогрессом
       const progress = this.surveyQuestions.getProgress(
         ctx.session.completedQuestions || [],
         ctx.session.answers || {}
@@ -648,6 +671,7 @@ class Handlers {
         ? `${questionText}\n\n💡 ${question.note}\n\n📝 Выбрано: ${selections.length}`
         : `${questionText}\n\n📝 Выбрано: ${selections.length}`;
       
+      // Обновляем сообщение
       await ctx.editMessageText(fullText, {
         parse_mode: 'Markdown',
         reply_markup: {
@@ -657,7 +681,17 @@ class Handlers {
       
     } catch (error) {
       console.error('❌ Ошибка обновления клавиатуры множественного выбора:', error);
-      // Не критично, продолжаем работу
+      
+      // Если editMessageText упал (например, сообщение изменилось), попробуем отправить заново
+      try {
+        await ctx.reply('🔄 Обновляю варианты...', {
+          reply_markup: { 
+            inline_keyboard: updatedKeyboard 
+          }
+        });
+      } catch (sendError) {
+        console.error('❌ Не удалось даже отправить новое сообщение:', sendError);
+      }
     }
   }
 
