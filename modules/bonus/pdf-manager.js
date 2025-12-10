@@ -18,40 +18,47 @@ class PDFManager {
   }
 
   // Основной метод получения бонуса для пользователя
-    getBonusForUser(analysisResult, surveyData) {
-    try {
-      console.log(`🎁 Подбираем бонус для пользователя`);
+getBonusForUser(analysisResult, surveyData) {
+  try {
+    console.log(`🎁 Подбираем бонус для пользователя`);
 
-      const technique = this.contentGenerator.getMasterTechnique(analysisResult, surveyData);
+    const technique = this.contentGenerator.getMasterTechnique(analysisResult, surveyData);
 
-      const title = this.contentGenerator.generatePersonalizedTitle(analysisResult, surveyData);
-      const subtitle = this.contentGenerator.generatePersonalizedSubtitle(analysisResult, surveyData);
-
-      const isChildFlow = analysisResult.analysisType === 'child';
-      const segment = analysisResult.segment || 'COLD_LEAD';
-
-      const bonus = {
-        id: `personal_bonus_${Date.now()}_${Math.floor(Math.random() * 1000)}`,  // Уникальный ID
-        title: title,
-        subtitle: subtitle,
-        description: 'Персональный дыхательный гид, созданный специально для вас',
-        technique: technique,
-        analysisType: analysisResult.analysisType,
-        primaryIssue: analysisResult.primaryIssue,
-        segment: segment,
-        isChildFlow: isChildFlow,
-        createdAt: new Date().toISOString(),
-        fileName: this.contentGenerator.generateBeautifulFileName(analysisResult, surveyData)
-      };
-
-      console.log(`✅ Бонус подобран: ${technique.name} для сегмента ${segment}`);
-      return bonus;
-
-    } catch (error) {
-      console.error(`❌ Ошибка подбора бонуса для пользователя:`, error);
-      return this.getDefaultBonus();
+    // Если техника не найдена — используем статичный fallback
+    if (!technique || !technique.name) {
+      console.warn('⚠️ Мастер-техника не найдена, переходим на статичный PDF fallback');
+      return this.getStaticFallbackBonus(analysisResult);
     }
+
+    const title = this.contentGenerator.generatePersonalizedTitle(analysisResult, surveyData);
+    const subtitle = this.contentGenerator.generatePersonalizedSubtitle(analysisResult, surveyData);
+
+    const isChildFlow = analysisResult.analysisType === 'child';
+    const segment = analysisResult.segment || 'COLD_LEAD';
+
+    const bonus = {
+      id: `personal_bonus_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      title: title,
+      subtitle: subtitle,
+      description: 'Персональный дыхательный гид, созданный специально для вас',
+      technique: technique,
+      analysisType: analysisResult.analysisType,
+      primaryIssue: analysisResult.primaryIssue,
+      segment: segment,
+      isChildFlow: isChildFlow,
+      createdAt: new Date().toISOString(),
+      fileName: this.contentGenerator.generateBeautifulFileName(analysisResult, surveyData),
+      type: 'personalized'  // важный флаг
+    };
+
+    console.log(`✅ Персональный бонус подобран: ${technique.name}`);
+    return bonus;
+
+  } catch (error) {
+    console.error(`❌ Ошибка подбора бонуса:`, error);
+    return this.getStaticFallbackBonus(analysisResult);
   }
+},
 
   // Генерация сообщения о бонусе
   generateBonusMessage(bonus, analysisResult) {
@@ -215,6 +222,41 @@ class PDFManager {
       isDefault: true
     };
   }
+
+  // Добавь этот новый метод в класс PDFManager (в любое место внутри класса)
+getStaticFallbackBonus(analysisResult) {
+  const isChildFlow = analysisResult.analysisType === 'child';
+
+  if (isChildFlow) {
+    return {
+      id: 'static_fallback_child',
+      title: 'Дыхательные игры для детей',
+      subtitle: 'Базовый гид с игровыми техниками',
+      description: 'Универсальный набор дыхательных игр для детей',
+      type: 'static',
+      staticType: 'child_games',  // ключ из additionalMaterials в file-handler.js
+      analysisType: 'child',
+      segment: analysisResult.segment || 'NURTURE_LEAD',
+      isChildFlow: true,
+      createdAt: new Date().toISOString(),
+      fileName: 'Базовый_гид_Дыхательные_игры_дети.pdf'
+    };
+  } else {
+    return {
+      id: 'static_fallback_adult',
+      title: 'Антистресс дыхание',
+      subtitle: 'Базовый гид для снятия стресса',
+      description: 'Универсальные техники для взрослых',
+      type: 'static',
+      staticType: 'adult_antistress',  // ключ из additionalMaterials
+      analysisType: 'adult',
+      segment: analysisResult.segment || 'WARM_LEAD',
+      isChildFlow: false,
+      createdAt: new Date().toISOString(),
+      fileName: 'Базовый_гид_Антистресс_дыхание_взрослые.pdf'
+    };
+  }
+}
 
   // Показ всех программ (для будущих расширений)
   async showAllPrograms(ctx) {
