@@ -186,20 +186,27 @@ class Handlers {
   }
   
   setupTextHandlers() {
-    // Обработка обычных текстовых сообщений (если кто-то что-то напишет вручную)
+    // Ловим ВСЕ текстовые сообщения и принудительно сбрасываем в начало
     this.telegramBot.on('text', async (ctx) => {
-      // Если пользователь просто написал текст — предлагаем начать заново
+      // Сбрасываем сессию, чтобы не было "залипших" вопросов
+      ctx.session = {};
+      ctx.session.startTime = Date.now();
+
       await ctx.reply(
-        'Я работаю только с кнопками. Чтобы пройти диагностику — нажмите /start',
-        Markup.inlineKeyboard([
-          [Markup.button.callback('Начать диагностику', 'next')]
-        ])
+        'Я работаю только через кнопки. Давайте начнём диагностику заново:',
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: 'Начать диагностику', callback_data: 'next' }]
+            ]
+          }
+        }
       );
     });
 
-    // Можно добавить обработку стикеров, фото и т.д. — по желанию
-    this.telegramBot.on('sticker', async (ctx) => {
-      await ctx.reply('Sticker');
+    // Опционально — ловим стикеры, фото и т.д.
+    this.telegramBot.on(['sticker', 'photo', 'video', 'voice', 'document', 'animation'], async (ctx) => {
+      await ctx.reply('Heart');
     });
   }
   // ==================== ВСЁ, ЧТО БЫЛО РАНЬШЕ ====================
@@ -257,6 +264,13 @@ class Handlers {
   }
 
   async moveToNextQuestion(ctx) {
+     // Если нет текущего вопроса — значит, кто-то спамит "next" без старта
+    if (!ctx.session?.currentQuestion && !ctx.session?.answers) {
+      ctx.session = {};
+      ctx.session.startTime = Date.now();
+      await this.handleStart(ctx);
+      return;
+    }
     const currentQuestion = ctx.session.currentQuestion;
     const nextQuestion = this.surveyQuestions.getNextQuestion(currentQuestion, ctx.session.answers);
 
