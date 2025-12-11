@@ -66,18 +66,17 @@ class Handlers {
       const data = ctx.callbackQuery.data;
       await ctx.answerCbQuery().catch(() => {});
 
-      // ═══ НАЧАЛО АНКЕТЫ ═══
+     / НАЧАЛО АНКЕТЫ — САМАЯ ВАЖНАЯ СТРОКА!
       if (data === 'begin_survey') {
-        console.log('🎬 Начало анкеты');
-        const first = this.surveyQuestions.getFirstQuestion();
-        if (!first) {
-          console.error('❌ Не найден первый вопрос');
-          await ctx.reply('Ошибка загрузки анкеты. Обратитесь к @NastuPopova');
+        console.log('Пользователь начал анкету');
+        const firstQuestion = this.surveyQuestions.getFirstQuestion();
+        if (!firstQuestion) {
+          await ctx.reply('Ошибка: анкета не загрузилась. Напишите @NastuPopova');
           return;
         }
-        ctx.session.currentQuestion = first;
+        ctx.session.currentQuestion = firstQuestion;
         ctx.session.answers = {};
-        await this.askQuestion(ctx, first);
+        await this.askQuestion(ctx, firstQuestion);
         return;
       }
 
