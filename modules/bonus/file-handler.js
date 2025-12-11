@@ -944,8 +944,7 @@ class FileHandler {
     [Markup.button.url('👩‍⚕️ Записаться на консультацию', 'https://t.me/NastuPopova')],
     [Markup.button.url('🛒 Все программы и курсы', 'https://t.me/breathing_opros_bot')],
     [Markup.button.url('📖 Полезные статьи о дыхании', 'https://t.me/spokoinoe_dyhanie')],
-    [Markup.button.callback('🗑️ Закрыть меню', 'delete_menu')]
-  ];
+    ];
 
   await ctx.reply(message, {
     parse_mode: 'Markdown',
