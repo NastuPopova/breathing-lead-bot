@@ -178,6 +178,19 @@ class Handlers {
         return;
       }
 
+      // Начинаем анкету только по явной кнопке
+      if (callbackData === 'begin_survey') {
+        const firstQuestion = this.surveyQuestions.getFirstQuestion();
+        if (firstQuestion) {
+          ctx.session.currentQuestion = firstQuestion;
+          await this.askQuestion(ctx, firstQuestion);
+        }
+        return;
+      }
+
+      }
+
+      // Оставляем старый 'next' только для переходов внутри анкеты
       if (callbackData === 'next') {
         await this.moveToNextQuestion(ctx);
         return;
@@ -212,14 +225,21 @@ class Handlers {
   // ==================== ВСЁ, ЧТО БЫЛО РАНЬШЕ ====================
 
   async handleStart(ctx) {
+    // Полный сброс сессии
     ctx.session = {};
     ctx.session.startTime = Date.now();
+    ctx.session.answers = {};
+    ctx.session.currentQuestion = null; // важно!
 
     await ctx.reply(
-      `Привет! Я помогу подобрать дыхательные практики под ваши задачи.\n\nОтветьте на несколько вопросов — это займёт 2–3 минуты`,
-      Markup.inlineKeyboard([
-        [Markup.button.callback('Начать диагностику', 'next')]
-      ])
+      'Привет! Я помогу подобрать дыхательные практики под ваши задачи.\n\nОтветьте на несколько вопросов — это займёт 2–3 минуты',
+      {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: 'Начать диагностику', callback_data: 'start_survey' }]
+          ]
+        }
+      }
     );
   }
 
@@ -332,8 +352,13 @@ class Handlers {
       console.log('Лид успешно передан');
 
       if (this.bot.adminIntegration) {
-        await this.bot.adminIntegration.notifySurveyResults(userData);
-      }
+  try {
+    await this.bot.adminIntegration.notifySurveyResults(userData);
+  } catch (err) {
+    console.warn('Админ-уведомление не отправлено (не критично):', err.message);
+    // Просто игнорируем — лид-то уже передан в CRM!
+  }
+}
     } catch (err) {
       console.error('Ошибка передачи лида:', err);
     }
