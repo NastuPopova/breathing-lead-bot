@@ -717,14 +717,17 @@ class ContentGenerator {
       console.log(`✅ ${isChildFlow ? 'Детский' : 'Взрослый'} HTML создан: ${filePath}`);
       return filePath;
     } catch (error) {
-      console.error('❌ Ошибка генерации HTML:', {
-        error: error.message,
-        stack: error.stack,
+      // УБИРАЕМ ВСЁ, ЧТО МОЖЕТ СОДЕРЖАТЬ ОГРОМНЫЙ HTML
+      console.error('❌ Ошибка генерации PDF:', {
+        message: error.message,
+        stack: error.stack ? error.stack.split('\n').slice(0, 10).join('\n') : 'no stack',
         userId,
-        analysisResult: analysisResult.analysisType,
-        primaryIssue: analysisResult.primaryIssue
+        analysisType: analysisResult?.analysisType || 'unknown',
+        primaryIssue: analysisResult?.primaryIssue || 'unknown',
+        techniqueName: technique?.name || 'undefined',
+        isChildFlow
       });
-      throw error;
+      throw error; // пробрасываем дальше — пусть fileHandler обработает fallback
     }
   }
 }
