@@ -147,18 +147,17 @@ class BreathingVERSEAnalysis {
       total: totalScore
     },
     segment,
-    primaryIssue,
-    recommendations,
-    profile: this.generateUserProfile(surveyData, segment, primaryIssue),
-    analysisType: 'adult',
-    // ← ВАЖНЫЕ ПОЛЯ ДЛЯ PDF И ТЕХНИКИ
-    profile_name: this.getTranslatedProfileName(surveyData), // если используешь
-    stress_level: surveyData.stress_level
-    profession: surveyData.profession || null, // ← желательно
-    stress_level: surveyData.stress_level, || null,     // если хочешь использовать в будущем
-    profile_name: this.getTranslatedProfileName(surveyData), // опционально
-    // можно добавить ещё: age_group, profession и т.д., если нужно в новом шаблоне
-  };
+  primaryIssue,
+  recommendations,
+  profile: this.generateUserProfile(surveyData, segment, primaryIssue),
+  analysisType: 'adult',
+
+  // ← ВСЁ, ЧТО НУЖНО ДЛЯ НОВОГО КРАСИВОГО СООБЩЕНИЯ:
+  age_group: surveyData.age_group,                    // обязательно
+  profession: surveyData.profession,                  // без || null — не нужно
+  stress_level: surveyData.stress_level,              // если хочешь — можно оставить
+  profile_name: this.getTranslatedProfileName(surveyData)  // опционально, но красиво
+};
 
   // ← САМАЯ ГЛАВНАЯ СТРОКА — ЗАПУСКАЕМ НАШ НОВЫЙ КРАСИВЫЙ ТЕКСТ
   analysisResult.personalMessage = this.generatePersonalMessage(surveyData, analysisResult);
