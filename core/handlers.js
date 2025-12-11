@@ -66,7 +66,7 @@ class Handlers {
       const data = ctx.callbackQuery.data;
       await ctx.answerCbQuery().catch(() => {});
 
-     / НАЧАЛО АНКЕТЫ — САМАЯ ВАЖНАЯ СТРОКА!
+     // НАЧАЛО АНКЕТЫ — САМАЯ ВАЖНАЯ СТРОКА!
       if (data === 'begin_survey') {
         console.log('Пользователь начал анкету');
         const firstQuestion = this.surveyQuestions.getFirstQuestion();
