@@ -141,20 +141,47 @@ class Handlers {
       // ═══ ПОЛУЧИТЬ ПЕРСОНАЛЬНУЮ ТЕХНИКУ ═══
       if (data === 'get_bonus') {
         await ctx.answerCbQuery('Готовлю ваш гид...');
-        const bonus = this.pdfManager.getBonusForUser(
-          ctx.session.analysisResult,
-          ctx.session.answers || {}
-        );
-        ctx.session.pendingBonus = bonus;
-        await this.sendIntriguingTeaser(ctx, bonus, ctx.session.analysisResult);
 
-        await ctx.reply('Нажмите, чтобы получить PDF:', {
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: '📥 Получить мой гид (PDF)', callback_data: 'download_bonus' }]
-            ]
+        // Защита №1: есть ли результаты анализа?
+        if (!ctx.session.analysisResult) {
+          await ctx.reply('😔 Результаты анализа не найдены. Пройдите диагностику заново: /start');
+          return;
+        }
+
+        // Защита №2: есть ли основная проблема (чтобы не падало в генераторе)
+        if (!ctx.session.analysisResult.primaryIssue) {
+          await ctx.reply('Не удалось определить вашу основную проблему. Напишите @NastuPopova — она поможет лично');
+          return;
+        }
+
+        try {
+          const bonus = this.pdfManager.getBonusForUser(
+            ctx.session.analysisResult,
+            ctx.session.answers || {}
+          );
+
+          // Защита №3: удалось ли подобрать технику?
+          if (!bonus || !bonus.technique || !bonus.technique.name) {
+            await ctx.reply('К сожалению, не удалось подобрать подходящую технику. Напишите @NastuPopova — она отправит материалы лично');
+            return;
           }
-        });
+
+          ctx.session.pendingBonus = bonus;
+          await this.sendIntriguingTeaser(ctx, bonus, ctx.session.analysisResult);
+
+          await ctx.reply('Нажмите кнопку ниже, чтобы получить ваш персональный гид в PDF:', {
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '📥 Получить мой гид (PDF)', callback_data: 'download_bonus' }]
+              ]
+            }
+          });
+
+        } catch (err) {
+          console.error('Ошибка при подготовке бонуса:', err.message);
+          await ctx.reply('Произошла ошибка при создании гида. Напишите @NastuPopova — она пришлёт материалы вручную');
+        }
+
         return;
       }
 
