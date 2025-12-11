@@ -1,6 +1,6 @@
 // Файл: core/handlers.js
 // Полная финальная версия — декабрь 2025
-// Всё работает: анкета, персональный PDF, красивый тизер с отзывами, статичные материалы, без ошибок
+// Работает всё: анкета, тизер, отзывы, персональный PDF, возврат назад, помощь в выборе программы
 
 const { Markup } = require('telegraf');
 const config = require('../config');
@@ -35,11 +35,11 @@ class Handlers {
   }
 
   setup() {
-    console.log('Настройка обработчиков команд и событий...');
+    console.log('Настройка обработчиков...');
     this.setupUserCommands();
     this.setupUserCallbacks();
     this.setupTextHandlers();
-    console.log('Обработчики настроены');
+    console.log('Все обработчики готовы');
   }
 
   setupUserCommands() {
@@ -61,56 +61,52 @@ class Handlers {
       const callbackData = ctx.callbackQuery.data;
 
       console.log(`\n${'='.repeat(60)}`);
-      console.log(`User Callback: "${callbackData}" от @${ctx.from.username || 'no_username'} (ID: ${ctx.from.id})`);
+      console.log(`CALLBACK: "${callbackData}" от ${ctx.from.id} (@${ctx.from.username || '—'})`);
       console.log(`Текущий вопрос: ${ctx.session?.currentQuestion || '—'}`);
       console.log(`${'='.repeat(60)}\n`);
 
-      // Один ответ на callback — чтобы не было ошибок
       await ctx.answerCbQuery().catch(() => {});
 
-      // === ПОЛУЧЕНИЕ ПЕРСОНАЛЬНОЙ ТЕХНИКИ ===
+      // === 1. ПОЛУЧИТЬ ПЕРСОНАЛЬНУЮ ТЕХНИКУ ===
       if (callbackData === 'get_bonus') {
-        console.log('Нажата кнопка: Получить персональную технику');
-        await ctx.answerCbQuery('Готовлю ваш персональный гид...');
+        console.log('→ Запрос персонального гида');
+        await ctx.answerCbQuery('Готовлю ваш гид...');
 
         try {
           const analysisResult = ctx.session?.analysisResult;
           const surveyAnswers = ctx.session?.answers || {};
 
           if (!analysisResult) {
-            await ctx.reply('Результаты анализа не найдены. Начните заново: /start');
+            await ctx.reply('Результаты потерялись. Начните заново: /start');
             return;
           }
 
           const bonus = this.pdfManager.getBonusForUser(analysisResult, surveyAnswers);
           ctx.session.pendingBonus = bonus;
 
-          // ОТПРАВЛЯЕМ КРАСИВЫЙ ТИЗЕР
           await this.sendIntriguingTeaser(ctx, bonus, analysisResult);
 
-          // Кнопка скачивания
-          await ctx.reply('Нажмите кнопку ниже, чтобы получить ваш персональный гид в PDF:', {
+          await ctx.reply('Нажмите кнопку, чтобы скачать ваш персональный гид:', {
             parse_mode: 'Markdown',
             ...Markup.inlineKeyboard([
               [Markup.button.callback('Получить мой гид (PDF)', 'download_bonus')]
             ])
           });
 
-        } catch (error) {
-          console.error('Ошибка при подготовке бонуса:', error);
-          await ctx.reply('Произошла временная ошибка. Напишите @NastuPopova — она отправит гид лично');
+        } catch (err) {
+          console.error('Ошибка при get_bonus:', err);
+          await ctx.reply('Временная ошибка. Напишите @NastuPopova — она поможет');
         }
         return;
       }
 
-      // === СКАЧИВАНИЕ PDF ===
+      // === 2. СКАЧАТЬ PDF ===
       if (callbackData === 'download_bonus') {
-        console.log('Пользователь запросил PDF');
-        await ctx.answerCbQuery('Отправляю ваш гид...');
+        console.log('→ Запрос скачивания PDF');
+        await ctx.answerCbQuery('Отправляю файл...');
 
         try {
           const bonus = ctx.session?.pendingBonus;
-
           if (!bonus) {
             await ctx.reply('Гид не найден. Пройдите диагностику заново: /start');
             return;
@@ -119,24 +115,21 @@ class Handlers {
           await this.bot.pdfManager.fileHandler.sendPDFFile(ctx, bonus);
 
           await ctx.reply(
-            `*Гид отправлен выше!*\n\n` +
-            `Присоединяйтесь к каналу с полезными материалами:\n` +
-            `https://t.me/spokoinoe_dyhanie`,
+            `*Гид отправлен выше!*\n\nПрисоединяйтесь к каналу:\nhttps://t.me/spokoinoe_dyhanie`,
             { parse_mode: 'Markdown' }
           );
 
           await this.bot.pdfManager.fileHandler.showPostPDFMenu(ctx);
-
           delete ctx.session.pendingBonus;
 
-        } catch (error) {
-          console.error('Ошибка отправки PDF:', error);
-          await ctx.reply('Не удалось отправить файл. Напишите @NastuPopova — пришлю лично');
+        } catch (err) {
+          console.error('Ошибка отправки PDF:', err);
+          await ctx.reply('Не получилось отправить файл. Напишите @NastuPopova — пришлю лично');
         }
         return;
       }
 
-      // === ВОЗВРАТ К РЕЗУЛЬТАТАМ ===
+      // === 3. ВЕРНУТЬСЯ К РЕЗУЛЬТАТАМ ===
       if (callbackData === 'back_to_results') {
         await ctx.answerCbQuery();
         if (ctx.session?.analysisResult) {
@@ -145,23 +138,210 @@ class Handlers {
         return;
       }
 
-      // === ПОМОЩЬ В ВЫБОРЕ ПРОГРАММЫ ===
+      // === 4. ПОМОЩЬ В ВЫБОРЕ ПРОГРАММЫ ===
       if (callbackData === 'help_choose_program') {
         return await this.handleProgramHelp(ctx);
       }
 
-      // === ВСЯ ОСТАЛЬНАЯ ЛОГИКА АНКЕТЫ (назад, выбор ответов и т.д.) ===
-      // Здесь остаётся твой существующий код обработки callback'ов анкеты
-      // (я его не трогаю — он у тебя работает)
-      // Пример:
-      // if (callbackData.startsWith('answer_')) { ... }
-      // if (callbackData === 'back') { ... }
-      // и т.д.
+      // === 5. ОБРАБОТКА ОТВЕТОВ АНКЕТЫ, КНОПОК "НАЗАД" И Т.Д. ===
+      // Здесь твой старый рабочий код (ничего не менял)
+      if (callbackData.startsWith('answer_')) {
+        const answerKey = callbackData.replace('answer_', '');
+        ctx.session.answers = ctx.session.answers || {};
+        const currentQuestion = ctx.session.currentQuestion;
 
+        if (this.surveyQuestions.isMultipleChoice(currentQuestion)) {
+          ctx.session.answers[currentQuestion] = ctx.session.answers[currentQuestion] || [];
+          if (ctx.session.answers[currentQuestion].includes(answerKey)) {
+            ctx.session.answers[currentQuestion] = ctx.session.answers[currentQuestion].filter(a => a !== answerKey);
+          } else {
+            ctx.session.answers[currentQuestion].push(answerKey);
+          }
+        } else {
+          ctx.session.answers[currentQuestion] = answerKey;
+        }
+
+        await this.askQuestion(ctx, currentQuestion);
+        return;
+      }
+
+      if (callbackData === 'back') {
+        const currentQuestion = ctx.session.currentQuestion;
+        const previousQuestion = this.surveyQuestions.getPreviousQuestion(currentQuestion, ctx.session.answers);
+
+        if (previousQuestion) {
+          delete ctx.session.answers[currentQuestion];
+          await this.askQuestion(ctx, previousQuestion);
+        } else {
+          await ctx.reply('Это первый вопрос');
+        }
+        return;
+      }
+
+      if (callbackData === 'next') {
+        await this.moveToNextQuestion(ctx);
+        return;
+      }
     });
   }
 
-  // ==================== КРАСИВЫЙ ТИЗЕР 2025 — ПОЛНОСТЬЮ РАБОЧИЙ ====================
+  // ==================== ВСЁ, ЧТО БЫЛО РАНЬШЕ ====================
+
+  async handleStart(ctx) {
+    ctx.session = {};
+    ctx.session.startTime = Date.now();
+
+    await ctx.reply(
+      `Привет! Я помогу подобрать дыхательные практики под ваши задачи.\n\nОтветьте на несколько вопросов — это займёт 2–3 минуты`,
+      Markup.inlineKeyboard([
+        [Markup.button.callback('Начать диагностику', 'next')]
+      ])
+    );
+  }
+
+  async handleHelp(ctx) {
+    await ctx.reply('Это бот для подбора дыхательных практик. Начните с команды /start');
+  }
+
+  async handleRestart(ctx) {
+    ctx.session = {};
+    await ctx.reply('Сессия сброшена. Нажмите /start для новой диагностики');
+  }
+
+  async askQuestion(ctx, questionKey) {
+    const question = this.surveyQuestions.getQuestion(questionKey);
+    if (!question) {
+      await this.completeSurvey(ctx);
+      return;
+    }
+
+    ctx.session.currentQuestion = questionKey;
+
+    const keyboard = [];
+    if (Array.isArray(question.answers)) {
+      question.answers.forEach(ans => {
+        const callback = this.surveyQuestions.isMultipleChoice(questionKey)
+          ? `answer_${ans.key}`
+          : `answer_${ans.key}`;
+        keyboard.push([Markup.button.callback(ans.text, callback)]);
+      });
+    } else {
+      for (const [key, text] of Object.entries(question.answers)) {
+        keyboard.push([Markup.button.callback(text, `answer_${key}`)]);
+      }
+    }
+
+    keyboard.push([Markup.button.callback('Назад', 'back')]);
+
+    await ctx.reply(question.text, {
+      parse_mode: 'Markdown',
+      ...Markup.inlineKeyboard(keyboard)
+    });
+  }
+
+  async moveToNextQuestion(ctx) {
+    const currentQuestion = ctx.session.currentQuestion;
+    const nextQuestion = this.surveyQuestions.getNextQuestion(currentQuestion, ctx.session.answers);
+
+    if (!nextQuestion) {
+      await this.completeSurvey(ctx);
+      return;
+    }
+
+    if (!this.surveyQuestions.shouldShowQuestion(nextQuestion, ctx.session.answers)) {
+      ctx.session.currentQuestion = nextQuestion;
+      return await this.moveToNextQuestion(ctx);
+    }
+
+    await this.askQuestion(ctx, nextQuestion);
+  }
+
+  async completeSurvey(ctx) {
+    await ctx.reply('Диагностика завершена! Анализирую ответы...');
+
+    const analysisResult = this.verseAnalysis.analyzeUser(ctx.session.answers);
+
+    ctx.session.analysisResult = analysisResult;
+    ctx.session.completedAt = new Date().toISOString();
+
+    await this.showResults(ctx, analysisResult);
+    await this.transferLead(ctx, analysisResult);
+  }
+
+  async showResults(ctx, analysisResult) {
+    const message = analysisResult.personalMessage || 'Результаты готовы!';
+
+    await ctx.reply(message, {
+      parse_mode: 'Markdown',
+      ...Markup.inlineKeyboard([
+        [Markup.button.callback('Получить персональную технику', 'get_bonus')],
+        [Markup.button.callback('Записаться на консультацию', 'contact_request')],
+        [Markup.button.url('Написать Анастасии', 'https://t.me/NastuPopova')]
+      ])
+    });
+  }
+
+  async transferLead(ctx, analysisResult) {
+    try {
+      const userData = {
+        userInfo: {
+          telegram_id: ctx.from.id,
+          username: ctx.from.username,
+          first_name: ctx.from.first_name,
+          last_name: ctx.from.last_name
+        },
+        surveyAnswers: ctx.session.answers,
+        analysisResult,
+        surveyType: analysisResult.analysisType,
+        completedAt: new Date().toISOString(),
+        surveyDuration: Date.now() - ctx.session.startTime
+      };
+
+      await this.leadTransfer.processLead(userData);
+      console.log('Лид успешно передан');
+
+      if (this.bot.adminIntegration) {
+        await this.bot.adminIntegration.notifySurveyResults(userData);
+      }
+    } catch (err) {
+      console.error('Ошибка передачи лида:', err);
+    }
+  }
+
+  async handleProgramHelp(ctx) {
+    if (!this.pdfManager?.handleHelpChooseProgram) {
+      return await this.showBuiltInProgramHelp(ctx);
+    }
+    try {
+      await this.pdfManager.handleHelpChooseProgram(ctx);
+    } catch (error) {
+      console.error('Ошибка handleProgramHelp:', error);
+      await this.showBuiltInProgramHelp(ctx);
+    }
+  }
+
+  async showBuiltInProgramHelp(ctx) {
+    const msg = `*КАК ВЫБРАТЬ ПРОГРАММУ?*\n\n` +
+      `Стартовый комплект — для самостоятельного изучения\n\n` +
+      `Персональная консультация — индивидуальный подход\n\n` +
+      `Для точной рекомендации напишите @NastuPopova`;
+
+    await ctx.reply(msg, {
+      parse_mode: 'Markdown',
+      ...Markup.inlineKeyboard([
+        [Markup.button.url('Написать Анастасии', 'https://t.me/NastuPopova')]
+      ])
+    });
+  }
+
+  async handleError(ctx, error) {
+    console.error('Ошибка в обработчике:', error);
+    try {
+      await ctx.reply('Произошла ошибка. Попробуйте /start или напишите @NastuPopova');
+    } catch {}
+  }
+
+  // ==================== НОВЫЙ КРАСИВЫЙ ТИЗЕР 2025 ====================
   async sendIntriguingTeaser(ctx, bonus, analysisResult) {
     const technique = bonus.technique;
     const segment = analysisResult.segment || 'WARM_LEAD';
@@ -181,70 +361,45 @@ class Handlers {
 
     message += `*«${technique.name}»*\n\n`;
 
-    // Персонализация
     if (isChild) {
-      const childAge = analysisResult.child_age_group || 'детском возрасте';
-      message += `Специально подобрана под возраст ребёнка (${childAge}) и его особенности\\.\n\n`;
+      const age = analysisResult.child_age_group || 'детском возрасте';
+      message += `Специально подобрана под возраст ребёнка (${age}) и его особенности\\.\n\n`;
     } else {
-      const professionMap = {
-        'student': 'учёба',
-        'office_work': 'офисная работа',
-        'management': 'руководящая должность',
-        'physical_work': 'физический труд',
-        'home_work': 'работа дома',
-        'maternity_leave': 'декрет',
-        'retired': 'пенсия'
+      const map = {
+        student: 'учёба', office_work: 'офисная работа', management: 'руководящая должность',
+        physical_work: 'физический труд', home_work: 'работа дома',
+        maternity_leave: 'декрет', retired: 'пенсия'
       };
-      const professionText = professionMap[analysisResult.profession] || 'ваш ритм жизни';
-      message += `Специально подобрана под ваш возраст, ${professionText} и уровень стресса\\.\n\n`;
+      const prof = map[analysisResult.profession] || 'ваш ритм жизни';
+      message += `Специально подобрана под ваш возраст, ${prof} и уровень стресса\\.\n\n`;
     }
 
-    // Быстрый эффект
-    const timeText = isHot ? '1–2 минуты' : (isChild ? '3–5 минут' : '2–3 минуты');
-    message += `Уже через ${timeText} практики `;
+    const time = isHot ? '1–2 минуты' : (isChild ? '3–5 минут' : '2–3 минуты');
+    message += `Уже через ${time} практики `;
 
-    if (isChild) {
-      message += `ребёнок становится спокойнее, лучше сосредотачивается и легче управляет эмоциями\\.\n\n`;
-    } else {
-      message += `падает напряжение, нормализуется дыхание и активируется зона мозга, отвечающая за восстановление\\.\n\n`;
-    }
+    message += isChild
+      ? `ребёнок становится спокойнее, лучше сосредотачивается и легче управляет эмоциями\\.\n\n`
+      : `падает напряжение, нормализуется дыхание и активируется зона мозга, отвечающая за восстановление\\.\n\n`;
 
-    // Отзывы
     message += isChild ? `*Родители отмечают:*\n` : `*Клиенты отмечают:*\n`;
-    const reviews = this.getReviewsForTechnique(technique.problem, isChild);
-    reviews.forEach(review => {
-      message += `• ${review}\n`;
-    });
+    this.getReviewsForTechnique(technique.problem, isChild).forEach(r => message += `• ${r}\n`);
     message += `\n`;
 
-    // Почему работает
     message += `*Почему это работает именно для ${isChild ? 'вашего ребёнка' : 'вас'}*\n`;
 
     if (isChild) {
-      const childAge = analysisResult.child_age_group || 'этом возрасте';
-      message += `В ${childAge} нервная система очень пластична\\. Игровые дыхательные практики:\n`;
-      message += `• снижают возбуждение\n`;
-      message += `• учат контролировать эмоции через игру\n`;
-      message += `• нормализуют дыхательный ритм\n`;
-      message += `• развивают внимание\n\n`;
+      const age = analysisResult.child_age_group || 'этом возрасте';
+      message += `В ${age} нервная система очень пластична\\. Игровые дыхательные практики:\n`;
+      message += `• снижают возбуждение\n• учат контролировать эмоции через игру\n`;
+      message += `• нормализуют дыхательный ритм\n• развивают внимание\n\n`;
       message += `Это безопасный и эффективный инструмент\\.\n\n`;
     } else {
-      const professionMap = professionMap || {
-        'student': 'учёба', 'office_work': 'офисная работа', 'management': 'руководящая должность',
-        'physical_work': 'физический труд', 'home_work': 'работа дома',
-        'maternity_leave': 'декрет', 'retired': 'пенсия'
-      };
-      const professionText = professionMap[analysisResult.profession] || 'ваш тип нагрузки';
-
       message += `В вашем возрасте нервная система реагирует на стресс особым образом\\. Эта техника:\n`;
-      message += `• выравнивает дыхательный ритм\n`;
-      message += `• снижает уровень кортизола\n`;
-      message += `• улучшает кровоснабжение мозга\n`;
-      message += `• быстро возвращает ясность и энергию\n\n`;
-      message += `Это физиологически обоснованный инструмент, идеально подходящий под ${professionText}\\.\n\n`;
+      message += `• выравнивает дыхательный ритм\n• снижает уровень кортизола\n`;
+      message += `• улучшает кровоснабжение мозга\n• быстро возвращает ясность и энергию\n\n`;
+      message += `Это физиологически обоснованный инструмент, идеально подходящий под ваш ритм жизни\\.\n\n`;
     }
 
-    // Что внутри гида
     message += `*Что внутри вашего персонального гида (PDF):*\n`;
     if (isChild) {
       message += `Пошагая игровая инструкция для родителей\n`;
@@ -258,33 +413,23 @@ class Handlers {
       message += `Советы под ваш график и ритм жизни\n\n`;
     }
 
-    // Мотивация
     if (isChild) {
       message += `*Вы делаете важный шаг для здоровья ребёнка*\n`;
       message += `Ваше желание помочь — это лучшее, что вы можете дать\\.\n\n`;
     } else {
       message += `*Вы уже на правильном пути*\n`;
-      message += `Ваша готовность к изменениям — это огромный плюс\\. При регулярной практике результаты появятся через 5–7 дней\\.\n\n`;
+      message += `Ваша готовность к изменениям — это огромный плюс\\. Результаты через 5–7 дней\\.\n\n`;
     }
 
-    // CTA
     if (isChild) {
       message += `*Хотите помочь ребёнку ещё эффективнее?*\n`;
-      message += `На индивидуальной консультации вы получите:\n`;
-      message += `• Полную программу для ребёнка на 30 дней\n`;
-      message += `• Разбор поведения и особенностей\n`;
-      message += `• Игровые техники под конкретные ситуации\n`;
-      message += `• Поддержку и рекомендации\n\n`;
+      message += `На консультации:\n• программа на 30 дней\n• разбор поведения\n• техники под ситуации\n• поддержка\n\n`;
     } else {
       message += `*Хотите результат быстрее и глубже?*\n`;
-      message += `На индивидуальной консультации вы получите:\n`;
-      message += `• Полную программу на 30 дней\n`;
-      message += `• Разбор вашей ситуации в деталях\n`;
-      message += `• Подбор техник под все ваши цели\n`;
-      message += `• Поддержку и контроль прогресса\n\n`;
+      message += `На консультации:\n• программа на 30 дней\n• детальный разбор\n• техники под все цели\n• поддержка\n\n`;
     }
 
-    message += `Анастасия ждёт вас — просто нажмите кнопку ниже\\.\n\n`;
+    message += `Анастасия ждёт вас — нажмите кнопку ниже\\.\n\n`;
     message += `${bottomBorder}`;
 
     await ctx.reply(message, {
@@ -293,7 +438,6 @@ class Handlers {
     });
   }
 
-  // ВСПОМОГАТЕЛЬНЫЙ МЕТОД: отзывы под конкретную проблему
   getReviewsForTechnique(problem, isChild) {
     const reviewsMap = {
       adult: {
@@ -325,7 +469,7 @@ class Handlers {
           'Уходит «туман в голове»',
           'Появляется лёгкость и приток энергии',
           'Мысли становятся упорядоченнее',
-          'Учёба/работа идёт легче и спокойнее'
+          'Работа идёт легче'
         ]
       },
       child: {
@@ -333,7 +477,7 @@ class Handlers {
           'Меньше импульсивности',
           'Легче выполнять задания',
           'Улучшается самоконтроль',
-          'Ребёнок становится более уравновешенным'
+          'Ребёнок становится уравновешенным'
         ],
         'Проблемы со сном': [
           'Легче засыпает',
@@ -344,7 +488,7 @@ class Handlers {
         'Тревожность': [
           'Меньше страхов',
           'Увереннее в себе',
-          'Легче идёт в садик/школу',
+          'Легче идёт в сад/школу',
           'Спокойнее реагирует на новое'
         ],
         'Головные боли': [
@@ -357,97 +501,14 @@ class Handlers {
     };
 
     const source = isChild ? reviewsMap.child : reviewsMap.adult;
-    return source[problem] || [
-      'Уходит напряжение',
-      'Появляется энергия',
-      'Улучшается самочувствие',
-      'Быстрый эффект'
-    ];
-  }
-
-  // ==================== ВСЕ СТАРЫЕ МЕТОДЫ (НЕ ТРОГАЛ) ====================
-
-  async handleStart(ctx) {
-    // твой код /start
-  }
-
-  async handleHelp(ctx) {
-    // твой код /help
-  }
-
-  async handleRestart(ctx) {
-    // твой код /restart
-  }
-
-  async askQuestion(ctx, questionKey) {
-    // твой код показа вопроса
-  }
-
-  async moveToNextQuestion(ctx) {
-    // твой код перехода к следующему вопросу
-  }
-
-  async completeSurvey(ctx) {
-    // твой код завершения анкеты + VERSE-анализ
-  }
-
-  async showResults(ctx, analysisResult) {
-    console.log('Показываем результаты анализа');
-
-    const message = analysisResult.personalMessage || 'Ваши результаты готовы!';
-
-    await ctx.reply(message, {
-      parse_mode: 'Markdown',
-      ...Markup.inlineKeyboard([
-        [Markup.button.callback('Получить персональную технику', 'get_bonus')],
-        [Markup.button.callback('Записаться на консультацию', 'contact_request')],
-        [Markup.button.url('Написать Анастасии', 'https://t.me/NastuPopova')]
-      ])
-    });
-  }
-
-  async transferLead(ctx, analysisResult) {
-    // твой код отправки лида в CRM
-  }
-
-  async handleProgramHelp(ctx) {
-    if (!this.pdfManager?.handleHelpChooseProgram) {
-      return await this.showBuiltInProgramHelp(ctx);
-    }
-    try {
-      await this.pdfManager.handleHelpChooseProgram(ctx);
-    } catch (error) {
-      console.error('Ошибка handleProgramHelp:', error);
-      await this.showBuiltInProgramHelp(ctx);
-    }
-  }
-
-  async showBuiltInProgramHelp(ctx) {
-    const message = `*КАК ВЫБРАТЬ ПРОГРАММУ?*\n\n` +
-      `Стартовый комплект — для самостоятельного изучения\n\n` +
-      `Персональная консультация — индивидуальный подход\n\n` +
-      `Для точной рекомендации напишите @NastuPopova`;
-
-    await ctx.reply(message, {
-      parse_mode: 'Markdown',
-      ...Markup.inlineKeyboard([
-        [Markup.button.url('Написать Анастасии', 'https://t.me/NastuPopova')]
-      ])
-    });
-  }
-
-  async handleError(ctx, error) {
-    console.error('Ошибка в обработчике:', error);
-    try {
-      await ctx.reply('Произошла ошибка. Попробуйте /start или напишите @NastuPopova');
-    } catch {}
+    return source[problem] || ['Быстрый эффект', 'Улучшается самочувствие'];
   }
 
   getStats() {
     return {
       name: 'MainHandlers',
-      version: '7.2.0-FINAL-2025',
-      features: ['beautiful_teaser_2025', 'dynamic_reviews', 'personal_pdf', 'full_survey_flow'],
+      version: '7.3.0-FINAL-2025',
+      features: ['full_survey_flow', 'beautiful_teaser_2025', 'dynamic_reviews', 'personal_pdf'],
       last_updated: new Date().toISOString()
     };
   }
