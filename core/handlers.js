@@ -106,7 +106,10 @@ class Handlers {
 if (callbackData === 'download_bonus') {
   console.log('📥 Нажата кнопка: Получить мой гид (PDF)');
   await ctx.answerCbQuery('📄 Отправляю ваш гид...');
-
+  
+// Сразу отвечаем, чтобы не было ошибки «Произошла ошибка»
+  await ctx.answerCbQuery('Готовлю ваш персональный гид...');
+  
   try {
     const bonus = ctx.session?.pendingBonus;
 
