@@ -716,18 +716,17 @@ class ContentGenerator {
       fs.writeFileSync(filePath, htmlContent, 'utf8');
       console.log(`✅ ${isChildFlow ? 'Детский' : 'Взрослый'} HTML создан: ${filePath}`);
       return filePath;
-    } catch (error) {
-      // УБИРАЕМ ВСЁ, ЧТО МОЖЕТ СОДЕРЖАТЬ ОГРОМНЫЙ HTML
+       } catch (error) {
+      // НИКОГДА НЕ ВЫВОДИМ ОГРОМНЫЙ HTML В ЛОГИ!
       console.error('❌ Ошибка генерации PDF:', {
         message: error.message,
-        stack: error.stack ? error.stack.split('\n').slice(0, 10).join('\n') : 'no stack',
         userId,
-        analysisType: analysisResult?.analysisType || 'unknown',
-        primaryIssue: analysisResult?.primaryIssue || 'unknown',
-        techniqueName: technique?.name || 'undefined',
-        isChildFlow
+        type: analysisResult?.analysisType || 'unknown',
+        issue: analysisResult?.primaryIssue || 'unknown',
+        technique: bonus?.technique?.name || 'undefined',
+        isChild: isChildFlow
       });
-      throw error; // пробрасываем дальше — пусть fileHandler обработает fallback
+      throw error; // fallback сработает в fileHandler
     }
   }
 }
