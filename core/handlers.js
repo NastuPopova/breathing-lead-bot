@@ -184,7 +184,24 @@ class Handlers {
       }
     });
   }
+  
+  setupTextHandlers() {
+    // Обработка обычных текстовых сообщений (если кто-то что-то напишет вручную)
+    this.telegramBot.on('text', async (ctx) => {
+      // Если пользователь просто написал текст — предлагаем начать заново
+      await ctx.reply(
+        'Я работаю только с кнопками. Чтобы пройти диагностику — нажмите /start',
+        Markup.inlineKeyboard([
+          [Markup.button.callback('Начать диагностику', 'next')]
+        ])
+      );
+    });
 
+    // Можно добавить обработку стикеров, фото и т.д. — по желанию
+    this.telegramBot.on('sticker', async (ctx) => {
+      await ctx.reply('Sticker');
+    });
+  }
   // ==================== ВСЁ, ЧТО БЫЛО РАНЬШЕ ====================
 
   async handleStart(ctx) {
