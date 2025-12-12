@@ -661,72 +661,78 @@ class FileHandler {
     }
   }
 
-  async sendPDFFile(ctx, bonus) {  // ← ДОБАВЬ ПАРАМЕТР bonus!
+ async sendPDFFile(ctx, bonus) {
+  let filePath = null;
+  let pdfSent = false;
+
   try {
     if (!bonus) {
       console.error('❌ Bonus не передан в sendPDFFile');
-      await ctx.reply('😔 Произошла ошибка. Попробуйте позже или напишите @NastuPopova');
+      await ctx.reply('Ошибка: бонус не найден. Напишите @NastuPopova');
       return;
     }
 
-    // Теперь можно безопасно проверять bonus.type
+    // Статичные PDF (fallback)
     if (bonus.type === 'static' && bonus.staticType) {
-      console.log(`📄 Отправляем статичный PDF fallback: ${bonus.staticType}`);
-      await ctx.answerCbQuery('📤 Отправляю базовый гид...');
+      console.log(`Отправляем статичный PDF: ${bonus.staticType}`);
+      await ctx.answerCbQuery('Отправляю базовый гид...');
       return await this.sendAdditionalPDF(ctx, bonus.staticType);
     }
 
-    // Если персональный — генерируем
-    console.log(`📝 Генерация персонального гида для пользователя ${ctx.from.id}`);
-    
+    console.log(`Генерация персонального гида для ${ctx.from.id}`);
+
     // Генерация HTML
-    const filePath = await this.contentGenerator.generatePersonalizedHTML(
+    filePath = await this.contentGenerator.generatePersonalizedHTML(
       ctx.from.id,
-      ctx.session.analysisResult || bonus.analysisResult || {},  // защита от undefined
-      ctx.session.answers || {}
+      ctx.session?.analysisResult || {},
+      ctx.session?.answers || {}
     );
 
-// Проверяем, что filePath вернулся (на случай ошибки в generatePersonalizedHTML)
     if (!filePath || !fs.existsSync(filePath)) {
-      console.error('❌ Не удалось сгенерировать HTML-файл');
-      await ctx.reply('😔 Временная проблема с созданием гида. Напишите @NastuPopova — она пришлёт лично');
-      return;
-    }
-    
-      const isChildFlow = bonus.isChildFlow || false;
-      const technique = bonus.technique;
-
-    if (!technique) {
-      console.error('❌ В бонусе нет техники');
-      await ctx.reply('😔 Ошибка в персонализации. Напишите @NastuPopova');
-      return;
+      throw new Error('HTML-файл не был создан');
     }
 
-      let caption = `🎁 *${bonus.title}*\n\n`;
-      caption += isChildFlow
-        ? `🧸 Персональная игровая техника для вашего ребенка!\n\n`
-        : `🌬️ Ваша персональная дыхательная техника!\n\n`;
-      caption += `✨ *В файле:*\n`;
-      caption += `• ${technique.name}\n`;
-      caption += `• Пошаговая инструкция\n`;
-      caption += `• Научное обоснование\n`;  // ← добавили, т.к. теперь есть science
-      caption += `• План освоения на 3 дня\n`;
-      caption += `• Ожидаемые результаты\n\n`;
-      caption += `📱 Откройте файл в браузере для лучшего отображения.\n\n`;
-      caption += `📞 *Больше техник у* [Анастасии Поповой](https://t.me/NastuPopova)`;
-// Отправка документа
-      await ctx.replyWithDocument(
-        { source: filePath },
-        { caption, parse_mode: 'Markdown' }
-      );
+    const isChildFlow = bonus.isChildFlow || false;
+    const technique = bonus.technique;
+    if (!technique) throw new Error('Техника не найдена в бонусе');
 
-      await this.showPostPDFMenu(ctx);
+    const caption = `Ваш ${isChildFlow ? 'детский' : 'персональный'} гид готов!\n\n` +
+      `*Техника:* ${technique.name}\n` +
+      `• Пошаговая инструкция\n` +
+      `• Научное обоснование\n` +
+      `• План на 3 дня\n` +
+      `• Ожидаемые результаты\n\n` +
+      `Откройте файл в браузере для лучшего отображения`;
+
+    // ОТПРАВКА PDF — если дошли сюда, значит всё ок
+    await ctx.replyWithDocument(
+      { source: filePath, filename: bonus.fileName || `Дыхательный_гид_${ctx.from.id}.html` },
+      { caption, parse_mode: 'Markdown' }
+    );
+
+    pdfSent = true; // ← ФЛАГ УСПЕХА
+
+    console.log('PDF успешно отправлен');
+    this.bonusStats.byDeliveryMethod.file++;
+
+    // Только после успешной отправки — показываем финальное меню
+    await this.showPostPDFMenu(ctx);
+
+    // Удаляем временный файл
+    this.cleanupTempFile(filePath);
+
+  } catch (error) {
+    console.error('Ошибка в sendPDFFile:', error);
+
+    // Удаляем файл, если он был создан
+    if (filePath && fs.existsSync(filePath)) {
       this.cleanupTempFile(filePath);
-      this.bonusStats.byDeliveryMethod.file++;
-      
-    } catch (error) {
-    console.error('❌ Ошибка в sendPDFFile:', error);
-    await ctx.reply('😔 Не удалось создать гид. Напишите @NastuPopova — она пришлёт материалы лично');
+    }
+
+    // Сообщение об ошибке ТОЛЬКО если PDF НЕ был отправлен
+    if (!pdfSent) {
+      await ctx.reply('Не удалось отправить гид. Напишите @NastuPopova — она пришлёт материалы лично');
+    }
   }
 }
 
