@@ -119,17 +119,6 @@ if (callbackData === 'get_bonus') {
           // ИСПРАВЛЕНО: используем существующий метод через bot.pdfManager
           await this.bot.pdfManager.fileHandler.sendPDFFile(ctx, bonus);
 
-          // Пост-меню (канал и т.д.)
-          await ctx.reply(
-            `📖 *Дополнительный бонус для вас*\n\n` +
-            `Присоединяйтесь к открытому каналу "Дыхание как путь к здоровью"\n` +
-            `https://t.me/spokoinoe_dyhanie\n\n` +
-            `Там полезные статьи о дыхании, научные факты, истории клиентов и вдохновение на изменения 🌿`,
-            { parse_mode: 'Markdown' }
-          );
-
-          await this.bot.pdfManager.fileHandler.showPostPDFMenu(ctx);
-
           delete ctx.session.pendingBonus;
 
         } catch (error) {
