@@ -108,7 +108,7 @@ getBonusForUser(analysisResult, surveyData) {
     message += `• План на 30 дней\n`;
     message += `• Контроль прогресса\n`;
     message += `• Ответы на все вопросы\n\n`;
-    message += `👩‍⚕️ *[Записаться к Анастасии](https://t.me/breathing_opros_bot)*`;
+    message += `👩‍⚕️ *[Записаться на консультацию к Анастасии](https://t.me/breathing_opros_bot)*`;
 
     return message;
   }
