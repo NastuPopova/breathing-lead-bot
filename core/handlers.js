@@ -725,7 +725,7 @@ if (callbackData === 'get_bonus') {
       parse_mode: 'Markdown',
       ...Markup.inlineKeyboard([
         [Markup.button.callback('🎁 Получить персональную технику', 'get_bonus')],
-        [Markup.button.callback('📞 Записаться на консультацию', 'contact_request')],
+        [Markup.button.url('Записаться на консультацию', 'https://t.me/breathing_opros_bot')],
         [Markup.button.url('💬 Написать Анастасии', 'https://t.me/NastuPopova')]
       ])
     }
