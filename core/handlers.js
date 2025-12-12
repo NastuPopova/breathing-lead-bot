@@ -232,8 +232,6 @@ class Handlers {
     });
   }
 
-  // Файл: core/handlers.js - ЧАСТЬ 2 (строки 401-конец)
-// ПРОДОЛЖЕНИЕ - Новые методы тизера + все остальные методы
 
   // === НОВЫЙ МЕТОД: ИНТРИГУЮЩИЙ ТИЗЕР (ИЗ ДОКУМЕНТА 2) ===
   async sendIntriguingTeaser(ctx, bonus, analysisResult) {
@@ -564,72 +562,7 @@ class Handlers {
       console.log(`✅ Вопрос ${questionKey} отправлен пользователю`);
 
     } catch (error) {
-      console.error('❌ Ошибка передачи лида:', error);
-    }
-  }
-
-  async handleProgramHelp(ctx) {
-    console.log('🤔 handleProgramHelp');
-    
-    if (!this.pdfManager?.handleHelpChooseProgram) {
-      return await this.showBuiltInProgramHelp(ctx);
-    }
-
-    try {
-      await this.pdfManager.handleHelpChooseProgram(ctx);
-    } catch (error) {
-      console.error('❌ Ошибка handleProgramHelp:', error);
-      await this.showBuiltInProgramHelp(ctx);
-    }
-  }
-
-  async showBuiltInProgramHelp(ctx) {
-    const message = `🤔 *КАК ВЫБРАТЬ ПРОГРАММУ?*\n\n` +
-      `🛒 **Стартовый комплект** — для самостоятельного изучения\n\n` +
-      `👨‍⚕️ **Персональная консультация** — индивидуальный подход\n\n` +
-      `💬 Для точной рекомендации напишите @NastuPopova`;
-
-    await ctx.reply(message, {
-      parse_mode: 'Markdown',
-      ...Markup.inlineKeyboard([
-        [Markup.button.url('💬 Написать Анастасии', 'https://t.me/NastuPopova')]
-      ])
-    });
-  }
-
-  async handleError(ctx, error) {
-    console.error('Обработка ошибки:', error);
-    try {
-      await ctx.reply('Произошла ошибка. Попробуйте /start или напишите @NastuPopova');
-    } catch {}
-  }
-
-  logCallbackDiagnostics(ctx, callbackData) {
-    console.log('=== ДИАГНОСТИКА CALLBACK ===');
-    console.log('Data:', callbackData);
-    console.log('User:', ctx.from?.id);
-    console.log('Session:', !!ctx.session);
-    console.log('=====================================');
-  }
-
-  getStats() {
-    return {
-      name: 'MainHandlers',
-      version: '7.1.0-FINAL-WITH-TEASER',
-      features: [
-        'two_step_bonus', 
-        'intriguing_teaser', 
-        'full_survey_flow', 
-        'multiple_choice_with_checks', 
-        'back_navigation',
-        'protected_admin_notifications'
-      ],
-      last_updated: new Date().toISOString()
-    };
-  }
-}
-
-module.exports = Handlers;(`❌ Ошибка при отправке вопроса ${questionKey}:`, error);
+      console.error(`❌ Ошибка при отправке вопроса ${questionKey}:`, error);
       await ctx.reply('Произошла ошибка. Попробуйте /restart');
     }
   }
@@ -954,7 +887,7 @@ module.exports = Handlers;(`❌ Ошибка при отправке вопро�
       await this.leadTransfer.processLead(userData);
       console.log('✅ Лид успешно передан');
 
-      // ИСПРАВЛЕНО: Защита от падения на админ-уведомлениях (ИЗ ДОКУМЕНТА 1)
+   	  // ИСПРАВЛЕНО: Защита от падения на админ-уведомлениях (ИЗ ДОКУМЕНТА 1)
       if (this.bot.adminIntegration) {
         try {
           await this.bot.adminIntegration.notifySurveyResults(userData);
