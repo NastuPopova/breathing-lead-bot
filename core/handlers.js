@@ -117,7 +117,7 @@ if (callbackData === 'get_bonus') {
           }
 
           // ИСПРАВЛЕНО: используем существующий метод через bot.pdfManager
-          await this.bot.pdfManager.fileHandler.sendPDFFile(ctx, bonus);
+         await this.pdfManager.fileHandler.sendPDFFile(ctx, bonus);
 
           delete ctx.session.pendingBonus;
 
