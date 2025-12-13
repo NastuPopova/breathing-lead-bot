@@ -1,5 +1,5 @@
 // Файл: modules/admin/handlers/main_handler.js
-// ИСПРАВЛЕННАЯ ВЕРСИЯ - убраны ошибки синтаксиса
+// ПРАВИЛЬНАЯ ВЕРСИЯ с экранированием пользовательских данных
 
 const config = require('../../../config');
 
@@ -19,6 +19,30 @@ class MainHandler {
       modeToggles: 0
     };
   }
+
+  // ===== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ЭКРАНИРОВАНИЯ =====
+
+  /**
+   * Безопасное экранирование Markdown
+   */
+  escapeMarkdown(text) {
+    if (!text || typeof text !== 'string') return text || '';
+    return text.replace(/[*_`\[\]()~>#+\-=|{}.!]/g, '\\$&');
+  }
+
+  /**
+   * Безопасное форматирование информации о пользователе
+   */
+  formatSafeUserInfo(user) {
+    return {
+      first_name: this.escapeMarkdown(user?.first_name || 'Неизвестно'),
+      last_name: this.escapeMarkdown(user?.last_name || ''),
+      username: user?.username, // Username безопасен как есть
+      id: user?.id // Числа всегда безопасны
+    };
+  }
+
+  // ===== ОСНОВНЫЕ МЕТОДЫ =====
 
   setupCommands() {
     if (!this.adminId) {
@@ -57,13 +81,16 @@ class MainHandler {
       const currentMode = this.adminNotifications?.getNotificationMode?.() || this.getDefaultMode();
       const uptime = Math.round(process.uptime() / 3600);
 
+      // ✅ ИСПРАВЛЕНО: Безопасное форматирование имени администратора
+      const safeAdmin = this.formatSafeUserInfo(ctx.from);
+
       let message = `🎛️ *АДМИНИСТРАТИВНАЯ ПАНЕЛЬ*\n\n`;
-      message += `👨‍💼 Админ: ${ctx.from.first_name}\n`;
+      message += `👨‍💼 Админ: ${safeAdmin.first_name}\n`;  // ✅ Экранировано
       message += `⏱️ Время работы: ${uptime}ч\n`;
       message += `📊 Лидов сегодня: ${stats.daily_stats?.totalLeads || 0}\n`;
       message += `🔥 Горячих: ${stats.daily_stats?.hotLeads || 0}\n\n`;
       
-      // Информация о режиме уведомлений
+      // Информация о режиме уведомлений (статичный текст - не экранируем)
       message += `🔔 *Режим уведомлений:*\n`;
       message += `${currentMode.emoji} ${currentMode.description}\n\n`;
       
@@ -112,7 +139,7 @@ class MainHandler {
       this.mainHandlerStats.errors = (this.mainHandlerStats.errors || 0) + 1;
       await ctx.reply('Произошла ошибка при загрузке админ-панели');
     }
-  } // ИСПРАВЛЕНО: Закрыли метод handleMainCommand
+  }
 
   /**
    * Обработка переключения режима уведомлений
@@ -130,13 +157,12 @@ class MainHandler {
       const oldMode = this.adminNotifications.getNotificationMode();
       const newMode = this.adminNotifications.toggleNotificationMode();
       
-      // ИСПРАВЛЕНО: Правильная Markdown разметка
+      // Статичный текст - не экранируем
       let message = `🔄 *РЕЖИМ УВЕДОМЛЕНИЙ ИЗМЕНЕН*\n\n`;
       message += `📤 Было: ${oldMode.emoji} ${oldMode.mode}\n`;
       message += `📥 Стало: ${newMode.emoji} ${newMode.mode}\n\n`;
       message += `📝 ${newMode.description}\n\n`;
       
-      // Добавляем подсказки по режимам - БЕЗ жирного выделения в середине строки
       message += `💡 Доступные режимы:\n`;
       message += `🔇 Тихий - никаких уведомлений\n`;
       message += `🔒 Фильтр - только от других пользователей\n`;
@@ -186,6 +212,7 @@ class MainHandler {
 
       await this.adminNotifications.sendTestNotification();
 
+      // Статичный текст - не экранируем
       const message = `🧪 *ТЕСТОВОЕ УВЕДОМЛЕНИЕ ОТПРАВЛЕНО*\n\n` +
         `✅ Проверьте чат - должно прийти тестовое сообщение\n` +
         `📊 Текущий режим: ${this.adminNotifications.getNotificationMode().emoji} ${this.adminNotifications.getNotificationMode().mode}\n\n` +
@@ -213,9 +240,12 @@ class MainHandler {
       console.error('❌ Ошибка handleTestNotification:', error);
       await ctx.answerCbQuery('Ошибка отправки тестового уведомления');
       
+      // ✅ ИСПРАВЛЕНО: Экранируем сообщение об ошибке (может содержать спецсимволы)
+      const safeErrorMessage = this.escapeMarkdown(error.message);
+      
       const errorMessage = `❌ *ОШИБКА ТЕСТОВОГО УВЕДОМЛЕНИЯ*\n\n` +
         `🚫 Не удалось отправить тестовое уведомление\n` +
-        `📝 Ошибка: ${error.message}\n\n` +
+        `📝 Ошибка: ${safeErrorMessage}\n\n` +  // ✅ Экранировано
         `🔧 Возможные причины:\n` +
         `• ADMIN_ID не настроен\n` +
         `• Проблемы с Telegram API\n` +
@@ -250,6 +280,7 @@ class MainHandler {
       const mode = this.adminNotifications.getNotificationMode();
       const stats = this.adminNotifications.getStats();
       
+      // Статичный текст и числа - не экранируем
       let message = `📊 *ДЕТАЛЬНЫЙ СТАТУС УВЕДОМЛЕНИЙ*\n\n`;
       
       message += `${mode.emoji} Текущий режим: ${mode.mode}\n`;
