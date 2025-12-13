@@ -264,8 +264,14 @@ class AdminNotificationSystem {
         message = `🔓 **УВЕДОМЛЕНИЕ ОТ АДМИНИСТРАТОРА** 🔓\n\n${message}`;
       }
 
+      // ИСПРАВЛЕНО: Правильный путь к Telegram API
+      const telegram = this.bot.bot?.telegram || this.bot.telegram;
+      if (!telegram) {
+        throw new Error('Telegram API недоступен');
+      }
+
       // Отправляем уведомление
-      await this.bot.bot.telegram.sendMessage(this.adminId, message, {
+      await telegram.sendMessage(this.adminId, message, {
         parse_mode: 'Markdown',
         ...keyboard
       });
@@ -298,7 +304,13 @@ class AdminNotificationSystem {
 
       console.log('📨 Отправляем срочное уведомление о горячем лиде...');
 
-      await this.bot.telegram.sendMessage(this.adminId, urgentMessage, {
+      // ИСПРАВЛЕНО: Правильный путь к Telegram API
+      const telegram = this.bot.bot?.telegram || this.bot.telegram;
+      if (!telegram) {
+        throw new Error('Telegram API недоступен');
+      }
+
+      await telegram.sendMessage(this.adminId, urgentMessage, {
         parse_mode: 'Markdown',
         ...urgentKeyboard
       });
@@ -331,7 +343,13 @@ class AdminNotificationSystem {
         message = `🧪 **ТЕСТОВЫЕ РЕЗУЛЬТАТЫ** 🧪\n\n${message}`;
       }
 
-      await this.bot.telegram.sendMessage(this.adminId, message, {
+       // ИСПРАВЛЕНО: Правильный путь к Telegram API
+      const telegram = this.bot.bot?.telegram || this.bot.telegram;
+      if (!telegram) {
+        throw new Error('Telegram API недоступен');
+      }
+
+      await telegram.sendMessage(this.adminId, message, {
         parse_mode: 'Markdown',
         ...keyboard
       });
@@ -355,7 +373,13 @@ class AdminNotificationSystem {
       const message = this.templates.generateDailySummary(this.dailyStats);
       const keyboard = this.templates.generateDailySummaryKeyboard();
 
-      await this.bot.telegram.sendMessage(this.adminId, message, {
+      // ИСПРАВЛЕНО: Правильный путь к Telegram API
+      const telegram = this.bot.bot?.telegram || this.bot.telegram;
+      if (!telegram) {
+        throw new Error('Telegram API недоступен');
+      }
+
+      await telegram.sendMessage(this.adminId, message, {
         parse_mode: 'Markdown',
         ...keyboard
       });
@@ -390,7 +414,13 @@ class AdminNotificationSystem {
 
       const keyboard = this.templates.generateAdminKeyboard(testData);
 
-      await this.bot.telegram.sendMessage(this.adminId, message, {
+      // ИСПРАВЛЕНО: Правильный путь к Telegram API
+      const telegram = this.bot.bot?.telegram || this.bot.telegram;
+      if (!telegram) {
+        throw new Error('Telegram API недоступен');
+      }
+
+      await telegram.sendMessage(this.adminId, message, {
         parse_mode: 'Markdown',
         ...keyboard
       });
