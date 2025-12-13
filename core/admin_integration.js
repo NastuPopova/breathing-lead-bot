@@ -134,42 +134,25 @@ class AdminIntegration {
   // ===== ОСНОВНОЙ ОБРАБОТЧИК АДМИН-CALLBACK'ОВ =====
 
   async handleAdminCallback(ctx, callbackData) {
-    if (!this.adminId) {
-      await ctx.answerCbQuery('Админ-панель не настроена');
+  try {
+    // answerCbQuery УЖЕ вызван в bot.action — не вызываем снова!
+
+    this.trackAdminAction(callbackData, ctx.from.id);
+    console.log(`🔍 Admin callback integration v5.0: ${callbackData}`);
+
+    if (!this.adminCallbacks) {
+      console.error('❌ AdminCallbacks не инициализирован');
       return;
     }
 
-    if (ctx.from.id.toString() !== this.adminId) {
-      await ctx.answerCbQuery('🚫 Доступ запрещен');
-      return;
-    }
+    await this.adminCallbacks.handleCallback(ctx, callbackData);
 
-    try {
-      this.trackAdminAction(callbackData, ctx.from.id);
-      
-      console.log(`🔍 Admin callback integration v5.0: ${callbackData}`);
-      
-      // Передаем обработку в модульный AdminCallbacks
-      if (this.adminCallbacks) {
-        await this.adminCallbacks.handleCallback(ctx, callbackData);
-      } else {
-        console.error('❌ Модульный AdminCallbacks не инициализирован');
-        await ctx.answerCbQuery('Админ-панель временно недоступна');
-      }
-      
-    } catch (error) {
-      console.error('❌ Ошибка handleAdminCallback в интеграции v5.0:', error);
-      this.integrationStats.errors++;
-      
-      await ctx.answerCbQuery('Произошла ошибка');
-      await this.sendEmergencyAlert('admin_error', `Ошибка admin callback v5.0: ${error.message}`, {
-        callback_data: callbackData,
-        user_id: ctx.from.id,
-        error_stack: error.stack,
-        architecture: 'modular_v3_with_notifications'
-      });
-    }
+  } catch (error) {
+    console.error('❌ Ошибка handleAdminCallback в интеграции v5.0:', error);
+    this.integrationStats.errors++;
+    // Уже ответили в bot.action — просто логируем
   }
+}
 
   // ===== ОБРАБОТКА АДМИН-КОМАНД =====
 
