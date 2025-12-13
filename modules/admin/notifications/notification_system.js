@@ -407,7 +407,7 @@ class AdminNotificationSystem {
     try {
       const currentMode = this.getNotificationMode();
       
-      const message = `🧪 **ТЕСТОВОЕ УВЕДОМЛЕНИЕ** 🧪\n\n` +
+   const message = `🧪 **ТЕСТОВОЕ УВЕДОМЛЕНИЕ** 🧪\n\n` +
         `📊 Текущий режим: ${currentMode.emoji} ${currentMode.mode}\n` +
         `📝 ${currentMode.description}\n\n` +
         this.templates.generateLeadNotification(testData, this.dailyStats);
@@ -420,7 +420,10 @@ class AdminNotificationSystem {
         throw new Error('Telegram API недоступен');
       }
 
-      await telegram.sendMessage(this.adminId, message, {
+      // ✅ ДОБАВЛЯЕМ ESCAPE: защищаем весь текст от Markdown-ошибок
+      const safeMessage = message.replace(/([_*[\]()~`>#+\-=|{}.!])/g, '\\$1');
+
+      await telegram.sendMessage(this.adminId, safeMessage, {
         parse_mode: 'Markdown',
         ...keyboard
       });
