@@ -66,54 +66,50 @@ class Handlers {
 
     // === РАЗДЕЛЯЕМ: admin vs опросник ===
     if (callbackData.startsWith('admin_')) {
-      // Пропускаем — пусть обрабатывает bot.action (зарегистрирован ниже)
       console.log('⏩ Admin-callback пропущен (обработает bot.action)');
       return;
     }
 
     // Остальные callback-и → опросник
     await ctx.answerCbQuery().catch(() => {});
-    // Здесь можешь добавить логику опросника, если нужно
-  });
-}
 
-      // === ПОЛУЧЕНИЕ ПЕРСОНАЛЬНОЙ ТЕХНИКИ - КРАСИВЫЙ СОВРЕМЕННЫЙ ТИЗЕР ===
-if (callbackData === 'get_bonus') {
-  console.log('🎁 Нажата кнопка: Получить персональную технику');
-  await ctx.answerCbQuery('🧠 Готовлю ваш персональный гид...');
+    // === ПОЛУЧЕНИЕ ПЕРСОНАЛЬНОЙ ТЕХНИКИ - КРАСИВЫЙ ТИЗЕР ===
+    if (callbackData === 'get_bonus') {
+      console.log('🎁 Нажата кнопка: Получить персональную технику');
+      await ctx.answerCbQuery('🧠 Готовлю ваш персональный гид...');
 
-  try {
-    const analysisResult = ctx.session?.analysisResult;
-    const surveyAnswers = ctx.session?.answers || {};
+      try {
+        const analysisResult = ctx.session?.analysisResult;
+        const surveyAnswers = ctx.session?.answers || {};
 
-    if (!analysisResult) {
-      await ctx.reply('😔 Результаты анализа не найдены. Начните заново: /start');
+        if (!analysisResult) {
+          await ctx.reply('😔 Результаты анализа не найдены. Начните заново: /start');
+          return;
+        }
+
+        // Генерируем бонус
+        const bonus = this.pdfManager.getBonusForUser(analysisResult, surveyAnswers);
+        ctx.session.pendingBonus = bonus;
+
+        // === ИСПОЛЬЗУЕМ НОВЫЙ КРАСИВЫЙ ТИЗЕР ИЗ PDFManager ===
+        const teaserMessage = this.pdfManager.generateBonusMessage(bonus, analysisResult);
+
+        await ctx.reply(teaserMessage, {
+          parse_mode: 'Markdown',
+          disable_web_page_preview: true,
+          ...Markup.inlineKeyboard([
+            [Markup.button.callback('📥 Получить мой гид (PDF)', 'download_bonus')]
+          ])
+        });
+
+      } catch (error) {
+        console.error('❌ Ошибка при подготовке гида:', error);
+        await ctx.reply('😔 Произошла временная ошибка. Напишите @NastuPopova — она отправит материалы лично');
+      }
       return;
     }
 
-    // Генерируем бонус
-    const bonus = this.pdfManager.getBonusForUser(analysisResult, surveyAnswers);
-    ctx.session.pendingBonus = bonus;
-
-    // === ИСПОЛЬЗУЕМ НОВЫЙ КРАСИВЫЙ ТИЗЕР ИЗ PDFManager ===
-    const teaserMessage = this.pdfManager.generateBonusMessage(bonus, analysisResult);
-
-    await ctx.reply(teaserMessage, {
-      parse_mode: 'Markdown',
-      disable_web_page_preview: true,
-      ...Markup.inlineKeyboard([
-        [Markup.button.callback('📥 Получить мой гид (PDF)', 'download_bonus')]
-      ])
-    });
-
-  } catch (error) {
-    console.error('❌ Ошибка при подготовке гида:', error);
-    await ctx.reply('😔 Произошла временная ошибка. Напишите @NastuPopova — она отправит материалы лично');
-  }
-  return;
-}
-
-      // === СКАЧИВАНИЕ PDF ПО КНОПКЕ (ИСПРАВЛЕННАЯ ВЕРСИЯ ИЗ ДОКУМЕНТА 1) ===
+        // === СКАЧИВАНИЕ PDF ПО КНОПКЕ (ИСПРАВЛЕННАЯ ВЕРСИЯ ИЗ ДОКУМЕНТА 1) ===
       if (callbackData === 'download_bonus') {
         console.log('📥 Нажата кнопка: Получить мой гид (PDF)');
         
