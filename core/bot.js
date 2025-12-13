@@ -128,30 +128,40 @@ class BreathingLeadBot {
   }
 
   // Настройка бота
-  setupBot() {
-    try {
-      console.log('⚙️ Настройка бота...');
-      
-      // Настраиваем middleware
-      this.middleware.setup();
-      
-      // Настраиваем обработчики
-      this.handlers.setup();
-      
-      // НОВОЕ: Запускаем планировщик админ-задач
-      if (this.adminIntegration) {
-        this.adminIntegration.startAdminScheduler();
-      }
-      
-      // Настраиваем обработку ошибок
-      this.setupErrorHandling();
-      
-      console.log('✅ Бот полностью настроен и готов к работе');
-    } catch (error) {
-      console.error('❌ Ошибка настройки бота:', error.message);
-      throw error;
+  // ✅ НОВЫЙ setupBot с явным catch callback-ов
+setupBot() {
+  try {
+    console.log('⚙️ Настройка бота...');
+
+    // Middleware
+    this.middleware.setup();
+
+    // Обработчики команд
+    this.handlers.setup();
+
+    // Админ-панель
+    if (this.adminIntegration) {
+      this.adminIntegration.startAdminScheduler();
     }
+
+    // === ЛОВИМ ВСЕ CALLBACK-И, если Telegraf не видит кнопки ===
+    this.telegramBot.on('callback_query', async (ctx) => {
+      console.log('📞 RAW callback_query:', ctx.callbackQuery.data);
+      const data = ctx.callbackQuery.data;
+      if (data.startsWith('admin_')) {
+        await this.adminIntegration.handleAdminCallback(ctx, data);
+      }
+    });
+
+    // Обработка ошибок
+    this.setupErrorHandling();
+
+    console.log('✅ Бот полностью настроен и готов к работе');
+  } catch (error) {
+    console.error('❌ Ошибка настройки бота:', error);
+    throw error;
   }
+}
 
   // Обработка ошибок бота
   setupErrorHandling() {
