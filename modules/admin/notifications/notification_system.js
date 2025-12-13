@@ -373,6 +373,7 @@ class AdminNotificationSystem {
    * Отправляет тестовое уведомление
    */
   async sendTestNotification() {
+     console.log('🧪 Тестовое уведомление запущено');
     if (!this.adminId) {
       throw new Error('ADMIN_ID не настроен');
     }
