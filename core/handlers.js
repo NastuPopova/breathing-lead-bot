@@ -56,14 +56,26 @@ class Handlers {
   }
 
   setupUserCallbacks() {
-    this.telegramBot.on('callback_query', async (ctx) => {
-      const callbackData = ctx.callbackQuery.data;
-      console.log(`\n${'='.repeat(50)}`);
-      console.log(`🔔 User Callback: "${callbackData}" от ${ctx.from.id}`);
-      console.log(`📋 Текущий вопрос в сессии: ${ctx.session?.currentQuestion}`);
-      console.log(`${'='.repeat(50)}\n`);
+  this.telegramBot.on('callback_query', async (ctx) => {
+    const callbackData = ctx.callbackQuery.data;
 
-      await ctx.answerCbQuery().catch(() => {});
+    console.log(`\n${'='.repeat(50)}`);
+    console.log(`🔔 User Callback: "${callbackData}" от ${ctx.from.id}`);
+    console.log(`📋 Текущий вопрос в сессии: ${ctx.session?.currentQuestion}`);
+    console.log(`${'='.repeat(50)}\n`);
+
+    // === РАЗДЕЛЯЕМ: admin vs опросник ===
+    if (callbackData.startsWith('admin_')) {
+      // Пропускаем — пусть обрабатывает bot.action (зарегистрирован ниже)
+      console.log('⏩ Admin-callback пропущен (обработает bot.action)');
+      return;
+    }
+
+    // Остальные callback-и → опросник
+    await ctx.answerCbQuery().catch(() => {});
+    // Здесь можешь добавить логику опросника, если нужно
+  });
+}
 
       // === ПОЛУЧЕНИЕ ПЕРСОНАЛЬНОЙ ТЕХНИКИ - КРАСИВЫЙ СОВРЕМЕННЫЙ ТИЗЕР ===
 if (callbackData === 'get_bonus') {
