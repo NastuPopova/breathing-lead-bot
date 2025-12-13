@@ -140,10 +140,13 @@ message += `🔇 Тихий \\- никаких уведомлений\\n`;
 message += `🔒 Фильтр \\- только от других пользователей\\n`;
 message += `🧪 Тест \\- все уведомления \\(включая свои\\)\\n\\n`;
 message += `🔄 Нажмите кнопку еще раз для следующего режима`;
+// ИСПРАВЛЕНО: Экранируем специальные символы Markdown
+const safeMessage = message.replace(/([_*[\]()~`>#+\-=|{}.!])/g, '\\$1');
 
-      await ctx.editMessageText(message, {
-        parse_mode: 'Markdown',
-        reply_markup: {
+await ctx.editMessageText(safeMessage, {
+  parse_mode: 'Markdown',
+  reply_markup: { ... }
+});
           inline_keyboard: [
             [
               { text: newMode.buttonText, callback_data: 'admin_toggle_notifications' },
