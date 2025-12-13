@@ -265,7 +265,7 @@ class AdminNotificationSystem {
       }
 
       // Отправляем уведомление
-      await this.bot.telegram.sendMessage(this.adminId, message, {
+      await this.bot.bot.telegram.sendMessage(this.adminId, message, {
         parse_mode: 'Markdown',
         ...keyboard
       });
