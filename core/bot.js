@@ -27,6 +27,7 @@ class BreathingLeadBot {
     
     // Создаем экземпляр Telegraf
     this.bot = new Telegraf(config.LEAD_BOT_TOKEN);
+    this.telegramBot = this.bot;
     
     // Инициализируем модули системы
     this.initializeModules();
