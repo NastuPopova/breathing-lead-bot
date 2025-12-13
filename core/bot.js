@@ -148,6 +148,16 @@ setupBot() {
     // === ЛОВИМ ВСЕ CALLBACK-И, если Telegraf не видит кнопки ===
     this.telegramBot.on('callback_query', async (ctx) => {
       console.log('📞 RAW callback_query:', ctx.callbackQuery.data);
+  // === ПЕРЕНАПРАВЛЯЕМ admin-callback-и ===
+  if (data && data.startsWith('admin_')) {
+    console.log('🔧 Перенаправляем в AdminIntegration');
+    if (this.adminIntegration) {
+      await this.adminIntegration.handleAdminCallback(ctx, data);
+      return; // важно: выходим, чтобы не обрабатывать дважды
+    }
+  }
+
+      
       const data = ctx.callbackQuery.data;
       if (data.startsWith('admin_')) {
         await this.adminIntegration.handleAdminCallback(ctx, data);
