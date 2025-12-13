@@ -1,5 +1,5 @@
 // Файл: modules/admin/handlers/main_handler.js
-// ИСПРАВЛЕННАЯ ВЕРСИЯ - убираны ошибки Markdown
+// ИСПРАВЛЕННАЯ ВЕРСИЯ - убраны ошибки синтаксиса
 
 const config = require('../../../config');
 
@@ -112,7 +112,7 @@ class MainHandler {
       this.mainHandlerStats.errors = (this.mainHandlerStats.errors || 0) + 1;
       await ctx.reply('Произошла ошибка при загрузке админ-панели');
     }
-  }
+  } // ИСПРАВЛЕНО: Закрыли метод handleMainCommand
 
   /**
    * Обработка переключения режима уведомлений
@@ -130,34 +130,45 @@ class MainHandler {
       const oldMode = this.adminNotifications.getNotificationMode();
       const newMode = this.adminNotifications.toggleNotificationMode();
       
-      // ✅ ИСПРАВЛЕНО: безопасное формирование текста
-let message = `🔄 *РЕЖИМ УВЕДОМЛЕНИЙ ИЗМЕНЕН*\\n\\n`;
-message += `📤 Было: ${oldMode.emoji} ${this.escapeMarkdown(oldMode.mode)}\\n`;
-message += `📥 Стало: ${newMode.emoji} ${this.escapeMarkdown(newMode.mode)}\\n\\n`;
-message += `📝 ${this.escapeMarkdown(newMode.description)}\\n\\n`;
-message += `💡 Доступные режимы:\\n`;
-message += `🔇 Тихий \\- никаких уведомлений\\n`;
-message += `🔒 Фильтр \\- только от других пользователей\\n`;
-message += `🧪 Тест \\- все уведомления \\(включая свои\\)\\n\\n`;
-message += `🔄 Нажмите кнопку еще раз для следующего режима`;
-// ИСПРАВЛЕНО: Экранируем Markdown и передаём реальный объект
-const safeMessage = message.replace(/([_*[\]()~`>#+\-=|{}.!])/g, '\\$1');
+      // ИСПРАВЛЕНО: Правильная Markdown разметка
+      let message = `🔄 *РЕЖИМ УВЕДОМЛЕНИЙ ИЗМЕНЕН*\n\n`;
+      message += `📤 Было: ${oldMode.emoji} ${oldMode.mode}\n`;
+      message += `📥 Стало: ${newMode.emoji} ${newMode.mode}\n\n`;
+      message += `📝 ${newMode.description}\n\n`;
+      
+      // Добавляем подсказки по режимам - БЕЗ жирного выделения в середине строки
+      message += `💡 Доступные режимы:\n`;
+      message += `🔇 Тихий - никаких уведомлений\n`;
+      message += `🔒 Фильтр - только от других пользователей\n`;
+      message += `🧪 Тест - все уведомления (включая свои)\n`;
+      message += `🔓 Все - без фильтров\n\n`;
+      
+      message += `🔄 Нажмите кнопку еще раз для следующего режима`;
 
-await ctx.editMessageText(safeMessage, {
-  parse_mode: 'Markdown',
-  reply_markup: {
-    inline_keyboard: [
-      [
-        { text: newMode.buttonText, callback_data: 'admin_toggle_notifications' },
-        { text: '🧪 Тест уведомления', callback_data: 'admin_test_notification' }
-      ],
-      [
-        { text: '📊 Статус уведомлений', callback_data: 'admin_notification_status' },
-        { text: '🎛️ Главная панель', callback_data: 'admin_main' }
-      ]
-    ]
+      await ctx.editMessageText(message, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: newMode.buttonText, callback_data: 'admin_toggle_notifications' },
+              { text: '🧪 Тест уведомления', callback_data: 'admin_test_notification' }
+            ],
+            [
+              { text: '📊 Статус уведомлений', callback_data: 'admin_notification_status' },
+              { text: '🎛️ Главная панель', callback_data: 'admin_main' }
+            ]
+          ]
+        }
+      });
+
+      await ctx.answerCbQuery(`${newMode.emoji} ${newMode.mode}`);
+
+    } catch (error) {
+      console.error('❌ Ошибка handleToggleNotifications:', error);
+      await ctx.answerCbQuery('Ошибка переключения режима');
+      await ctx.reply('Произошла ошибка при переключении режима уведомлений');
+    }
   }
-});
 
   /**
    * Отправка тестового уведомления
@@ -429,13 +440,5 @@ await ctx.editMessageText(safeMessage, {
     console.log('✅ MainHandler очищен');
   }
 }
-  /**
-   * Экранирует специальные символы для MarkdownV2
-   */
-  escapeMarkdown(text) {
-    return text.replace(/[_*[\]()~`>#+\-=|{}.!]/g, '\\$&');
-  }
-}
-
 
 module.exports = MainHandler;
