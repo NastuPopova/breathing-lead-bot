@@ -42,15 +42,18 @@ class AdminCallbacks {
   // ===== НАСТРОЙКА CALLBACK ОБРАБОТЧИКОВ =====
 
   setupCallbacks(bot) {
-    if (!this.adminId) {
-      console.log('⚠️ ADMIN_ID не настроен, админ-callbacks отключены');
-      return;
-    }
+  console.log('🔧 Регистрируем admin-callback обработчики');
 
-    console.log('🔧 Настройка модульных админ-callback обработчиков...');
-    this.bot = bot;
-    console.log('✅ Админ-callbacks настроены');
-  }
+  // Регистрируем регулярное выражение: всё, что начинается на admin_
+  bot.action(/^admin_/, async (ctx) => {
+    const fullData = ctx.callbackQuery.data;
+    console.log('🔍 Admin callback пойман:', fullData);
+    await ctx.answerCbQuery('⏳ Обрабатываем...'); // отвечаем СРАЗУ
+    await this.handleCallback(ctx, fullData);     // маршрутизируем
+  });
+
+  console.log('✅ Admin-callback обработчики зарегистрированы');
+}
 
   // ===== ОСНОВНОЙ ОБРАБОТЧИК CALLBACK'ОВ =====
 
