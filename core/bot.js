@@ -145,21 +145,18 @@ setupBot() {
       this.adminIntegration.startAdminScheduler();
     }
 
-    // === ЛОВИМ ВСЕ CALLBACK-И, если Telegraf не видит кнопки ===
+   // === ЛОВИМ ТОЛЬКО ОПРОСНИКОВЫЕ callback-и (не admin_) ===
 this.telegramBot.on('callback_query', async (ctx) => {
-  const data = ctx.callbackQuery.data;        // ← ВАЖНО: сразу объявляем
-  console.log('📞 RAW callback_query:', data);
+  const data = ctx.callbackQuery.data;
 
-  // === ПЕРЕНАПРАВЛЯЕМ admin-callback-и ===
-  if (data && data.startsWith('admin_')) {
-    console.log('🔧 Перенаправляем в AdminIntegration');
-    if (this.adminIntegration) {
-      await this.adminIntegration.handleAdminCallback(ctx, data);
-      return; // выходим, чтобы не обрабатывать дважды
-    }
+  // Пропускаем admin-callback-и — они обработаются ниже через bot.action
+  if (!data || data.startsWith('admin_')) {
+    return; // ничего не делаем, пусть обрабатывает bot.action
   }
 
-  console.log('⏩ ПРОПУСКАЕМ (не admin_)');
+  // Остальные callback-и (опросник) — обрабатываем как раньше
+  console.log('📋 Опросниковый callback:', data);
+  await ctx.answerCbQuery(); // отвечаем сразу
 });
 
     // Обработка ошибок
