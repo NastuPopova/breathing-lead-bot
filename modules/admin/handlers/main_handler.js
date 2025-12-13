@@ -130,20 +130,16 @@ class MainHandler {
       const oldMode = this.adminNotifications.getNotificationMode();
       const newMode = this.adminNotifications.toggleNotificationMode();
       
-      // ИСПРАВЛЕНО: Правильная Markdown разметка
-      let message = `🔄 *РЕЖИМ УВЕДОМЛЕНИЙ ИЗМЕНЕН*\n\n`;
-      message += `📤 Было: ${oldMode.emoji} ${oldMode.mode}\n`;
-      message += `📥 Стало: ${newMode.emoji} ${newMode.mode}\n\n`;
-      message += `📝 ${newMode.description}\n\n`;
-      
-      // Добавляем подсказки по режимам - БЕЗ жирного выделения в середине строки
-      message += `💡 Доступные режимы:\n`;
-      message += `🔇 Тихий - никаких уведомлений\n`;
-      message += `🔒 Фильтр - только от других пользователей\n`;
-      message += `🧪 Тест - все уведомления (включая свои)\n`;
-      message += `🔓 Все - без фильтров\n\n`;
-      
-      message += `🔄 Нажмите кнопку еще раз для следующего режима`;
+      // ✅ ИСПРАВЛЕНО: безопасное формирование текста
+let message = `🔄 *РЕЖИМ УВЕДОМЛЕНИЙ ИЗМЕНЕН*\\n\\n`;
+message += `📤 Было: ${oldMode.emoji} ${this.escapeMarkdown(oldMode.mode)}\\n`;
+message += `📥 Стало: ${newMode.emoji} ${this.escapeMarkdown(newMode.mode)}\\n\\n`;
+message += `📝 ${this.escapeMarkdown(newMode.description)}\\n\\n`;
+message += `💡 Доступные режимы:\\n`;
+message += `🔇 Тихий \\- никаких уведомлений\\n`;
+message += `🔒 Фильтр \\- только от других пользователей\\n`;
+message += `🧪 Тест \\- все уведомления \\(включая свои\\)\\n\\n`;
+message += `🔄 Нажмите кнопку еще раз для следующего режима`;
 
       await ctx.editMessageText(message, {
         parse_mode: 'Markdown',
@@ -440,5 +436,13 @@ class MainHandler {
     console.log('✅ MainHandler очищен');
   }
 }
+  /**
+   * Экранирует специальные символы для MarkdownV2
+   */
+  escapeMarkdown(text) {
+    return text.replace(/[_*[\]()~`>#+\-=|{}.!]/g, '\\$&');
+  }
+}
+
 
 module.exports = MainHandler;
