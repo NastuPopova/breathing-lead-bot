@@ -148,6 +148,7 @@ setupBot() {
     // === ЛОВИМ ВСЕ CALLBACK-И, если Telegraf не видит кнопки ===
     this.telegramBot.on('callback_query', async (ctx) => {
       console.log('📞 RAW callback_query:', ctx.callbackQuery.data);
+      const data = ctx.callbackQuery.data;
   // === ПЕРЕНАПРАВЛЯЕМ admin-callback-и ===
   if (data && data.startsWith('admin_')) {
     console.log('🔧 Перенаправляем в AdminIntegration');
