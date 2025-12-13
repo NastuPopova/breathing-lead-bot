@@ -140,34 +140,24 @@ message += `🔇 Тихий \\- никаких уведомлений\\n`;
 message += `🔒 Фильтр \\- только от других пользователей\\n`;
 message += `🧪 Тест \\- все уведомления \\(включая свои\\)\\n\\n`;
 message += `🔄 Нажмите кнопку еще раз для следующего режима`;
-// ИСПРАВЛЕНО: Экранируем специальные символы Markdown
+// ИСПРАВЛЕНО: Экранируем Markdown и передаём реальный объект
 const safeMessage = message.replace(/([_*[\]()~`>#+\-=|{}.!])/g, '\\$1');
 
 await ctx.editMessageText(safeMessage, {
   parse_mode: 'Markdown',
-  reply_markup: { ... }
-});
-          inline_keyboard: [
-            [
-              { text: newMode.buttonText, callback_data: 'admin_toggle_notifications' },
-              { text: '🧪 Тест уведомления', callback_data: 'admin_test_notification' }
-            ],
-            [
-              { text: '📊 Статус уведомлений', callback_data: 'admin_notification_status' },
-              { text: '🎛️ Главная панель', callback_data: 'admin_main' }
-            ]
-          ]
-        }
-      });
-
-      await ctx.answerCbQuery(`${newMode.emoji} ${newMode.mode}`);
-
-    } catch (error) {
-      console.error('❌ Ошибка handleToggleNotifications:', error);
-      await ctx.answerCbQuery('Ошибка переключения режима');
-      await ctx.reply('Произошла ошибка при переключении режима уведомлений');
-    }
+  reply_markup: {
+    inline_keyboard: [
+      [
+        { text: newMode.buttonText, callback_data: 'admin_toggle_notifications' },
+        { text: '🧪 Тест уведомления', callback_data: 'admin_test_notification' }
+      ],
+      [
+        { text: '📊 Статус уведомлений', callback_data: 'admin_notification_status' },
+        { text: '🎛️ Главная панель', callback_data: 'admin_main' }
+      ]
+    ]
   }
+});
 
   /**
    * Отправка тестового уведомления
