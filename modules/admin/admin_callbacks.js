@@ -54,51 +54,50 @@ class AdminCallbacks {
 
   // ===== ОСНОВНОЙ ОБРАБОТЧИК CALLBACK'ОВ =====
 
-  async handleCallback(ctx, callbackData) {
-    if (ctx.from.id.toString() !== this.adminId) {
-      await ctx.answerCbQuery('🚫 Доступ запрещен');
-      return;
-    }
+  // ✅ НОВЫЙ handleCallback с логом и защитой от падений
+async handleCallback(ctx, callbackData) {
+  console.log('🔍 CALLBACK ПОЙМАН:', callbackData, 'from', ctx.from.id);
 
-    await ctx.answerCbQuery().catch(() => {});
-    
-    try {
-      this.trackCallbackUsage(callbackData);
-      
-      console.log(`🔍 Обработка админ callback: ${callbackData}`);
-      
-      // Маршрутизация по модулям
-      const handled = await this.routeCallbackToModules(ctx, callbackData);
-      
-      if (!handled) {
-        // Обрабатываем параметризованные callback'ы
-        if (callbackData.includes('_') && callbackData.startsWith('admin_')) {
-          await this.handleParameterizedCallback(ctx, callbackData);
-        } else {
-          console.warn('⚠️ Неизвестный админ callback:', callbackData);
-          await ctx.reply('Неизвестная команда', {
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: '🎛️ Главная панель', callback_data: 'admin_main' }]
-              ]
-            }
-          });
-        }
-      }
-      
-    } catch (error) {
-      console.error('❌ Ошибка handleCallback:', error);
-      this.callbackStats.errors++;
-      
-      await ctx.reply('Произошла ошибка при выполнении действия', {
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '🎛️ Главная панель', callback_data: 'admin_main' }]
-          ]
-        }
-      });
-    }
+  if (ctx.from.id.toString() !== this.adminId) {
+    await ctx.answerCbQuery('🚫 Доступ запрещен');
+    return;
   }
+
+  await ctx.answerCbQuery().catch(() => {});
+
+  try {
+    this.trackCallbackUsage(callbackData);
+
+    // Маршрутизация по модулям
+    const handled = await this.routeCallbackToModules(ctx, callbackData);
+
+    if (!handled) {
+      // Параметризованные callback'ы
+      if (callbackData.includes('_') && callbackData.startsWith('admin_')) {
+        await this.handleParameterizedCallback(ctx, callbackData);
+      } else {
+        console.warn('⚠️ Неизвестный админ callback:', callbackData);
+        await ctx.reply('Неизвестная команда', {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🎛️ Главная панель', callback_data: 'admin_main' }]
+            ]
+          }
+        });
+      }
+    }
+  } catch (error) {
+    console.error('❌ Ошибка handleCallback:', error);
+    this.callbackStats.errors++;
+    await ctx.reply('Произошла ошибка при выполнении действия', {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🎛️ Главная панель', callback_data: 'admin_main' }]
+        ]
+      }
+    });
+  }
+}
 
   // ===== МАРШРУТИЗАЦИЯ ПО МОДУЛЯМ =====
 
